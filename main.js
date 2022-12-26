@@ -21,7 +21,7 @@ class Kinematics extends BozoECS.Component {
   }
   acceleration = {
     x: 0,
-    y: -1
+    y: 0
   }
 }
 
@@ -35,8 +35,8 @@ class MoveSystem extends BozoECS.System {
     for (let i = 0; i < this.queries.Transform.length; i++) {
       let p = this.queries.Transform[i].position;
       let K = this.queries.Kinematics[i];
-      p.x = 0;
-      p.y = 0;
+      p.x = (Math.random() - 0.5) * canvas.width;
+      p.y = (Math.random() - 0.5) * canvas.height;
       K.velocity.x = Math.random() * 100 - 50;
       K.velocity.y = Math.random() * 100 - 50;
     }
