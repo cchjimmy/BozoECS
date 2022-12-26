@@ -3,4 +3,4 @@
 
 In this implementation, each archetype is a JavaScript object, which acts as a table storing entity IDs and their associated components. Each column in the table is a separate array, and they are stored as keys within the archetype object. Archetypes can be created or destroyed automatically by adding or removing components or entities.
 
-Go to https://cchjimmy.github.io/BozoECS/ to see this ECS in action.
+Go to https://cchjimmy.github.io/BozoECS/ to see this ECS in action. See main.js as to how it is used in code.
