@@ -1,6 +1,6 @@
-import ECS from "./ECS.js";
+import BozoECS from "./BozoECS.js";
 
-class Transform extends ECS.Component {
+class Transform extends BozoECS.Component {
   position = {
     x: 0,
     y: 0
@@ -14,7 +14,7 @@ class Transform extends ECS.Component {
   }
 }
 
-class Kinematics extends ECS.Component {
+class Kinematics extends BozoECS.Component {
   velocity = {
     x: 0,
     y: 0
@@ -25,11 +25,11 @@ class Kinematics extends ECS.Component {
   }
 }
 
-class Appearance extends ECS.Component {
+class Appearance extends BozoECS.Component {
   color = 'black';
 }
 
-class MoveSystem extends ECS.System {
+class MoveSystem extends BozoECS.System {
   init() {
     this.queryAny([Transform, Kinematics]);
     for (let i = 0; i < this.queries.Transform.length; i++) {
@@ -52,7 +52,7 @@ class MoveSystem extends ECS.System {
   }
 }
 
-class RenderSystem extends ECS.System {
+class RenderSystem extends BozoECS.System {
   init() {
     this.queryAny([Transform, Appearance]);
     for (let i = 0; i < this.queries.Transform.length; i++) {
@@ -61,7 +61,7 @@ class RenderSystem extends ECS.System {
       s.x = Math.random() * 10;
       s.y = Math.random() * 10;
       let A = this.queries.Appearance[i];
-      A.color = `rgb(${Math.random()*255}, ${Math.random()*255}, ${Math.random()*255})`;
+      A.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
     }
   }
   run() {
@@ -79,7 +79,7 @@ class RenderSystem extends ECS.System {
   }
 }
 
-const w = new ECS.World;
+const w = new BozoECS.World;
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
 

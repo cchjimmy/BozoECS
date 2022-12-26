@@ -1,9 +1,9 @@
-const ECS = {
+const BozoECS = {
   World: class World {
     constructor() {
-      this.EntityManager = new ECS.EntityManager(this);
-      this.ComponentManager = new ECS.ComponentManager;
-      this.SystemManager = new ECS.SystemManager(this);
+      this.EntityManager = new BozoECS.EntityManager(this);
+      this.ComponentManager = new BozoECS.ComponentManager;
+      this.SystemManager = new BozoECS.SystemManager(this);
     }
     createEntity() {
       return this.EntityManager.createEntity();
@@ -265,4 +265,4 @@ const ECS = {
   }
 }
 
-export default ECS;
+export default BozoECS;
