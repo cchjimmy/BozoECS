@@ -29,9 +29,9 @@ class Appearance extends BozoECS.Component {
   color = 'black';
 }
 
-class MoveSystem extends BozoECS.System {
+class MovementSystem extends BozoECS.System {
   init() {
-    this.queryAny([Transform, Kinematics]);
+    this.queryAll([Transform, Kinematics]);
     for (let i = 0; i < this.queries.Transform.length; i++) {
       let p = this.queries.Transform[i].position;
       let K = this.queries.Kinematics[i];
@@ -42,6 +42,7 @@ class MoveSystem extends BozoECS.System {
     }
   }
   run(args) {
+    this.queryAll([Transform, Kinematics]);
     let dt = args[0];
     for (let i = 0; i < this.queries.Transform.length; i++) {
       let p = this.queries.Transform[i].position;
@@ -54,17 +55,17 @@ class MoveSystem extends BozoECS.System {
 
 class RenderSystem extends BozoECS.System {
   init() {
-    this.queryAny([Transform, Appearance]);
+    this.queryAll([Transform, Appearance]);
     for (let i = 0; i < this.queries.Transform.length; i++) {
       let T = this.queries.Transform[i];
-      let s = T.scale;
-      s.x = Math.random() * 10;
-      s.y = Math.random() * 10;
-      let A = this.queries.Appearance[i];
-      A.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+      T.scale.x = Math.random() * 10;
+      T.scale.y = Math.random() * 10;
     }
+    // due to instantiation of entity, only need to change the color of the first appearance component to change all other clone's colors
+    this.queries.Appearance[0].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
   }
   run() {
+    this.queryAll([Transform, Appearance]);
     ctx.fillStyle = 'black';
     ctx.fillRect(-canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
     for (let i = 0; i < this.queries.Transform.length; i++) {
@@ -85,15 +86,26 @@ const ctx = canvas.getContext('2d');
 
 function init() {
   document.body.appendChild(canvas);
+
   canvas.width = innerWidth;
   canvas.height = innerHeight;
   ctx.translate(canvas.width / 2, canvas.height / 2);
-  w.registerComponent(Transform).registerComponent(Appearance).registerComponent(Kinematics).registerSystem(MoveSystem).registerSystem(RenderSystem);
+
+  w
+  .registerComponent(Transform)
+  .registerComponent(Appearance)
+  .registerComponent(Kinematics)
+  .registerSystem(MovementSystem)
+  .registerSystem(RenderSystem);
+
   let e = w.createEntity();
-  w.EntityManager.addComponents(e, [Transform, Kinematics, Appearance]);
+  w.EntityManager.addComponents(e, [Appearance]);
 
   for (let i = 0; i < 10000; i++) {
-    w.EntityManager.instantiate(e);
+    // instantiate 10000 entities with the same components as the first entity, meaning any changes to the appearance will apply to all of these entities
+    let e1 = w.EntityManager.instantiate(e);
+    // adding Transform and Kinematics components individually to each of the other entity so they can move freely
+    w.EntityManager.addComponents(e1, [Transform, Kinematics]);
   }
 
   w.init();
