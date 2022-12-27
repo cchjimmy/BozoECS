@@ -192,7 +192,7 @@ function init() {
   function handleMouseMove(e) {
     let clientX = e.clientX || e.touches[0].clientX;
     let clientY = e.clientY || e.touches[0].clientY;
-    mousePos.x = clientX - canvas.width / 2;
+    mousePos.x = -(clientX - canvas.width / 2);
     mousePos.y = clientY - canvas.height / 2;
   }
 }
