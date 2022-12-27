@@ -85,7 +85,7 @@ class RenderSystem extends BozoECS.System {
   }
   randomizeColors() {
     this.queryOnly([Appearance]);
-    // due to instantiation of entity, only need to change the color of the one appearance component to change all other clones' colors
+    // due to instantiation of entity, only need to change the color of one appearance component to change all other clones' colors
     this.queries.Appearance[0].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
     this.queries.Appearance[1].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
   }
