@@ -69,8 +69,8 @@ class RenderSystem extends BozoECS.System {
     this.queryAll([Transform, Appearance]);
     for (let i = 0; i < this.queries.Transform.length; i++) {
       let T = this.queries.Transform[i];
-      T.scale.x = Math.random() * 5;
-      T.scale.y = Math.random() * 5;
+      T.scale.x = Math.random() * 10;
+      T.scale.y = Math.random() * 10;
     }
 
     setInterval(() => {
@@ -142,17 +142,15 @@ function init() {
   let e1 = w.createEntity();
   w.EntityManager.addComponents(e1, [Appearance]);
 
-  for (let i = 0; i < 5000; i++) {
-    // instantiate 5000 entities with the same components as the first entity, meaning any changes to the appearance will apply to all of these entities
+  for (let i = 0; i < 2500; i++) {
+    // instantiate entities with the same components as the first entity, meaning any changes to the appearance will apply to all of these entities
     let entity = w.EntityManager.instantiate(e);
     // adding Transform and Kinematics components individually to each of the other entity so they can move freely
     w.EntityManager.addComponents(entity, [Transform, Kinematics]);
   }
 
-  for (let i = 0; i < 5000; i++) {
-    // instantiate 5000 entities with the same components as the first entity, meaning any changes to the appearance will apply to all of these entities
+  for (let i = 0; i < 2500; i++) {
     let entity = w.EntityManager.instantiate(e1);
-    // adding Transform and Kinematics components individually to each of the other entity so they can move freely
     w.EntityManager.addComponents(entity, [Transform, Kinematics, Other]);
   }
 
