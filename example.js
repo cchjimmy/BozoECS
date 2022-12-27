@@ -55,8 +55,14 @@ class MovementSystem extends BozoECS.System {
       p.y += (K.velocity.y += K.acceleration.y) * dt;
 
       if (p.x > canvas.width / 2 || p.x < -canvas.width / 2 || p.y > canvas.height / 2 || p.y < -canvas.height / 2) {
+        
         p.x = (Math.random() - 0.5) * canvas.width;
         p.y = (Math.random() - 0.5) * canvas.height;
+        
+        if (mouseDown) {
+          p.x = mousePos.x;
+          p.y = mousePos.y;
+        }
       };
 
       T.rotation += K.angularSpeed;
@@ -120,6 +126,11 @@ class RenderSystem extends BozoECS.System {
 const w = new BozoECS.World;
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
+var mousePos = {
+  x: 0,
+  y: 0
+}
+var mouseDown = false;
 
 function init() {
   document.body.appendChild(canvas);
@@ -156,10 +167,25 @@ function init() {
 
   w.init();
 
-  window.onresize = () => {
+  document.onresize = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     ctx.translate(canvas.width / 2, canvas.height / 2);
+  }
+
+  document.addEventListener('mousemove', handleMouseMove);
+  
+  document.addEventListener('mousedown', handleMousePress);
+  
+  document.addEventListener('mouseup', handleMousePress);
+  
+  function handleMousePress() {
+    mouseDown = !mouseDown;
+  }
+  
+  function handleMouseMove(e) {
+    mousePos.x = e.clientX;
+    mousePos.y = e.clientY;
   }
 }
 
