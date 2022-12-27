@@ -55,13 +55,13 @@ class MovementSystem extends BozoECS.System {
       p.y += (K.velocity.y += K.acceleration.y) * dt;
 
       if (p.x > canvas.width / 2 || p.x < -canvas.width / 2 || p.y > canvas.height / 2 || p.y < -canvas.height / 2) {
-        
+
         p.x = (Math.random() - 0.5) * canvas.width;
         p.y = (Math.random() - 0.5) * canvas.height;
-        
+
         if (mouseDown) {
           p.x = mousePos.x;
-          p.y = mousePos.y;
+          p.y = -mousePos.y;
         }
       };
 
@@ -174,18 +174,18 @@ function init() {
   }
 
   document.addEventListener('mousemove', handleMouseMove);
-  
+
   document.addEventListener('mousedown', handleMousePress);
-  
+
   document.addEventListener('mouseup', handleMousePress);
-  
+
   function handleMousePress() {
     mouseDown = !mouseDown;
   }
-  
+
   function handleMouseMove(e) {
-    mousePos.x = e.clientX;
-    mousePos.y = e.clientY;
+    mousePos.x = e.clientX - canvas.width / 2;
+    mousePos.y = e.clientY - canvas.height / 2;
   }
 }
 
