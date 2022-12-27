@@ -237,7 +237,7 @@ const BozoECS = {
 
     }
     /**
-     * find archetypes with all the components listed, and move results to this.queries
+     * returns components of entities with all the components listed attached, and moves results to this.queries
      * @param {*} components 
      */
     queryAll(components = []) {
@@ -263,7 +263,7 @@ const BozoECS = {
       }
     }
     /**
-     * find archetypes with any of the component listed, and move results to this.queries
+     * returns components of entities with any of the components listed attached, and moves results to this.queries
      * @param {*} components 
      */
     queryAny(components = []) {
@@ -286,6 +286,19 @@ const BozoECS = {
           if (!this.queries[name]) this.queries[name] = [];
           this.queries[name].push(...archetypes[i][type]);
         }
+      }
+    }
+    /**
+     * return components of entities with the exact list of components attached, and moves results to this.queries
+     * @param {*} components 
+     */
+    queryOnly(components = []) {
+      this.queries = {};
+      let a = this.world.EntityManager.createArchetype(components);
+      for (let type in a) {
+        if (type == 'ids') continue;
+        let name = this.world.ComponentManager.componentTypes[type].name;
+        this.queries[name] = a[type];
       }
     }
   }
