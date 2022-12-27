@@ -19,7 +19,7 @@ class Kinematics extends BozoECS.Component {
   }
   acceleration = {
     x: 0,
-    y: 0
+    y: -9.81
   }
   angularSpeed = 0;
 }
@@ -38,10 +38,13 @@ class MovementSystem extends BozoECS.System {
       let K = this.queries.Kinematics[i];
       p.x = (Math.random() - 0.5) * canvas.width;
       p.y = (Math.random() - 0.5) * canvas.height;
-      K.velocity.x = Math.random() * 100 - 50;
-      K.velocity.y = Math.random() * 100 - 50;
+      this.randomizeVelocity(K.velocity);
       K.angularSpeed = Math.random();
     }
+  }
+  randomizeVelocity(v) {
+    v.x = Math.random() * 100 - 50;
+    v.y = Math.random() * 100 - 50;
   }
   run(args) {
     this.queryAll([Transform, Kinematics]);
@@ -63,6 +66,8 @@ class MovementSystem extends BozoECS.System {
           p.x = mousePos.x;
           p.y = mousePos.y;
         }
+        
+        this.randomizeVelocity(K.velocity);
       };
 
       T.rotation += K.angularSpeed;
@@ -149,7 +154,7 @@ function init() {
     .registerSystem(MovementSystem)
     .registerSystem(RenderSystem);
     
-  const numOfEntities = 4000;
+  const numOfEntities = 1000;
 
   let e = w.createEntity();
   w.EntityManager.addComponents(e, [Appearance]);
@@ -196,8 +201,8 @@ function init() {
   function handleMouseMove(e) {
     let clientX = e.clientX || e.touches[0].clientX;
     let clientY = e.clientY || e.touches[0].clientY;
-    mousePos.x = -(clientX - canvas.width / 2);
-    mousePos.y = clientY - canvas.height / 2;
+    mousePos.x = clientX - canvas.width / 2;
+    mousePos.y = -(clientY - canvas.height / 2);
   }
 }
 
