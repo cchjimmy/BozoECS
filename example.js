@@ -61,7 +61,7 @@ class MovementSystem extends BozoECS.System {
 
         if (mouseDown) {
           p.x = mousePos.x;
-          p.y = -mousePos.y;
+          p.y = mousePos.y;
         }
       };
 
@@ -167,25 +167,33 @@ function init() {
 
   w.init();
 
-  document.onresize = () => {
+  window.onresize = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     ctx.translate(canvas.width / 2, canvas.height / 2);
   }
 
-  document.addEventListener('mousemove', handleMouseMove);
+  canvas.addEventListener('mousemove', handleMouseMove);
 
-  document.addEventListener('mousedown', handleMousePress);
+  canvas.addEventListener('mousedown', handleMousePress);
 
-  document.addEventListener('mouseup', handleMousePress);
+  canvas.addEventListener('mouseup', handleMousePress);
+
+  canvas.addEventListener('touchmove', handleMouseMove);
+
+  canvas.addEventListener('touchstart', handleMousePress);
+
+  canvas.addEventListener('touchend', handleMousePress);
 
   function handleMousePress() {
     mouseDown = !mouseDown;
   }
 
   function handleMouseMove(e) {
-    mousePos.x = e.clientX - canvas.width / 2;
-    mousePos.y = e.clientY - canvas.height / 2;
+    let clientX = e.clientX || e.touches[0].clientX;
+    let clientY = e.clientY || e.touches[0].clientY;
+    mousePos.x = clientX - canvas.width / 2;
+    mousePos.y = clientY - canvas.height / 2;
   }
 }
 
