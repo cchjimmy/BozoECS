@@ -146,6 +146,8 @@ function init() {
     .registerComponent(Other)
     .registerSystem(MovementSystem)
     .registerSystem(RenderSystem);
+    
+  const numOfEntities = 4000;
 
   let e = w.createEntity();
   w.EntityManager.addComponents(e, [Appearance]);
@@ -153,14 +155,14 @@ function init() {
   let e1 = w.createEntity();
   w.EntityManager.addComponents(e1, [Appearance]);
 
-  for (let i = 0; i < 2500; i++) {
+  for (let i = 0; i < numOfEntities / 2; i++) {
     // instantiate entities with the same components as the first entity, meaning any changes to the appearance will apply to all of these entities
     let entity = w.EntityManager.instantiate(e);
     // adding Transform and Kinematics components individually to each of the other entity so they can move freely
     w.EntityManager.addComponents(entity, [Transform, Kinematics]);
   }
 
-  for (let i = 0; i < 2500; i++) {
+  for (let i = 0; i < numOfEntities / 2; i++) {
     let entity = w.EntityManager.instantiate(e1);
     w.EntityManager.addComponents(entity, [Transform, Kinematics, Other]);
   }
