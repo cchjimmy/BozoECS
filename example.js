@@ -66,7 +66,7 @@ class MovementSystem extends BozoECS.System {
           p.x = mousePos.x;
           p.y = mousePos.y;
         }
-        
+
         this.randomizeVelocity(K.velocity);
       };
 
@@ -77,20 +77,19 @@ class MovementSystem extends BozoECS.System {
 
 class RenderSystem extends BozoECS.System {
   init() {
-    this.queryAll([Transform, Appearance]);
+    this.queryAny([Transform]);
     for (let i = 0; i < this.queries.Transform.length; i++) {
       let T = this.queries.Transform[i];
       T.scale.x = Math.random() * 10;
       T.scale.y = Math.random() * 10;
     }
-    
+
     this.randomizeColors();
 
-    setInterval(()=>this.randomizeColors(), 5000)
+    setInterval(() => this.randomizeColors(), 5000)
   }
   randomizeColors() {
     this.queryOnly([Appearance]);
-    // due to instantiation of entity, only need to change the color of one appearance component to change all other clones' colors
     this.queries.Appearance[0].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
     this.queries.Appearance[1].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
   }
@@ -98,33 +97,37 @@ class RenderSystem extends BozoECS.System {
     ctx.fillStyle = 'black';
     ctx.fillRect(-canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
 
-    this.queryOnly([Kinematics, Transform, Appearance]);
-    let A = this.queries.Appearance[0];
-    ctx.fillStyle = A.color;
-    for (let i = 0; i < this.queries.Transform.length; i++) {
-      let T = this.queries.Transform[i];
-      let p = T.position;
-      let s = T.scale;
-
-      ctx.save();
-      ctx.translate(Math.floor(p.x), Math.floor(-p.y));
-      ctx.rotate(T.rotation);
-      ctx.fillRect(- s.x / 2, - s.y / 2, s.x, s.y);
-      ctx.restore();
+    this.queryOnly([Appearance]);
+    let colors = [];
+    for (let i = 0; i < this.queries.Appearance.length; i++) {
+      colors.push(this.queries.Appearance[i].color);
     }
 
-    this.queryOnly([Kinematics, Transform, Appearance, Other]);
-    A = this.queries.Appearance[0];
-    ctx.fillStyle = A.color;
+    this.queryOnly([Kinematics, Transform]);
+    ctx.fillStyle = colors[0];
     for (let i = 0; i < this.queries.Transform.length; i++) {
       let T = this.queries.Transform[i];
       let p = T.position;
       let s = T.scale;
 
+      drawRect(-p.x, -p.y, s.x, s.y, T.rotation);
+    }
+
+    this.queryAny([Other]);
+    ctx.fillStyle = colors[1];
+    for (let i = 0; i < this.queries.Transform.length; i++) {
+      let T = this.queries.Transform[i];
+      let p = T.position;
+      let s = T.scale;
+
+      drawRect(p.x, p.y, s.x, s.y, T.rotation);
+    }
+
+    function drawRect(x, y, w, h, r) {
       ctx.save();
-      ctx.translate(Math.floor(p.x), Math.floor(-p.y));
-      ctx.rotate(T.rotation);
-      ctx.fillRect(- s.x / 2, - s.y / 2, s.x, s.y);
+      ctx.translate(Math.floor(x), Math.floor(-y));
+      ctx.rotate(r);
+      ctx.fillRect(-w / 2, -h / 2, w, h);
       ctx.restore();
     }
   }
@@ -147,31 +150,22 @@ function init() {
   ctx.translate(canvas.width / 2, canvas.height / 2);
 
   w
-    .registerComponent(Transform)
-    .registerComponent(Appearance)
-    .registerComponent(Kinematics)
-    .registerComponent(Other)
-    .registerSystem(MovementSystem)
-    .registerSystem(RenderSystem);
-    
+    .registerComponents([Transform, Kinematics, Other, Appearance])
+    .registerSystems([MovementSystem, RenderSystem]);
+
   const numOfEntities = 1000;
 
-  let e = w.createEntity();
-  w.EntityManager.addComponents(e, [Appearance]);
-
-  let e1 = w.createEntity();
-  w.EntityManager.addComponents(e1, [Appearance]);
+  w.EntityManager.addComponents(w.createEntity(), [Appearance]);
+  w.EntityManager.addComponents(w.createEntity(), [Appearance]);
 
   for (let i = 0; i < numOfEntities / 2; i++) {
-    // instantiate entities with the same components as the first entity, meaning any changes to the appearance will apply to all of these entities
-    let entity = w.EntityManager.instantiate(e);
     // adding Transform and Kinematics components individually to each of the other entity so they can move freely
-    w.EntityManager.addComponents(entity, [Transform, Kinematics]);
+    w.EntityManager.addComponents(w.createEntity(), [Transform, Kinematics]);
   }
 
   for (let i = 0; i < numOfEntities / 2; i++) {
-    let entity = w.EntityManager.instantiate(e1);
-    w.EntityManager.addComponents(entity, [Transform, Kinematics, Other]);
+    // added Other component to distinguish between the other half of the entities
+    w.EntityManager.addComponents(w.createEntity(), [Transform, Kinematics, Other]);
   }
 
   w.init();
@@ -182,16 +176,14 @@ function init() {
     ctx.translate(canvas.width / 2, canvas.height / 2);
   }
 
+  // mouse support
   canvas.addEventListener('mousemove', handleMouseMove);
-
   canvas.addEventListener('mousedown', handleMousePress);
-
   canvas.addEventListener('mouseup', handleMousePress);
 
+  // touch support
   canvas.addEventListener('touchmove', handleMouseMove);
-
   canvas.addEventListener('touchstart', handleMousePress);
-
   canvas.addEventListener('touchend', handleMousePress);
 
   function handleMousePress() {

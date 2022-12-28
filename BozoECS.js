@@ -8,12 +8,16 @@ const BozoECS = {
     createEntity() {
       return this.EntityManager.createEntity();
     }
-    registerComponent(component) {
-      this.ComponentManager.registerComponent(component);
+    registerComponents(components = []) {
+      for (let i =0; i < components.length; i++) {
+        this.ComponentManager.registerComponent(components[i]);
+      }
       return this;
     }
-    registerSystem(system) {
-      this.SystemManager.registerSystem(system);
+    registerSystems(systems = []) {
+      for (let i = 0; i < systems.length; i++) {
+        this.SystemManager.registerSystem(systems[i]);
+      }
       return this;
     }
     init(...args) {
@@ -228,7 +232,6 @@ const BozoECS = {
   System: class System {
     constructor(world) {
       this.world = world;
-      this.queries = {};
     }
     init(args) {
 
