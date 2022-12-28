@@ -36,15 +36,19 @@ class MovementSystem extends BozoECS.System {
     for (let i = 0; i < this.queries.Transform.length; i++) {
       let p = this.queries.Transform[i].position;
       let K = this.queries.Kinematics[i];
-      p.x = (Math.random() - 0.5) * canvas.width;
-      p.y = (Math.random() - 0.5) * canvas.height;
-      this.randomizeVelocity(K.velocity);
+      this.randomizeVelocityAndPosition(K.velocity, p);
       K.angularSpeed = Math.random();
     }
   }
-  randomizeVelocity(v) {
+  randomizeVelocityAndPosition(v, p) {
     v.x = Math.random() * 100 - 50;
     v.y = Math.random() * 100 - 50;
+    p.x = (Math.random() - 0.5) * canvas.width;
+    p.y = (Math.random() - 0.5) * canvas.height;
+    if (mouseDown) {
+      p.x = mousePos.x;
+      p.y = mousePos.y;
+    }
   }
   run(args) {
     this.queryAll([Transform, Kinematics]);
@@ -58,16 +62,7 @@ class MovementSystem extends BozoECS.System {
       p.y += (K.velocity.y += K.acceleration.y) * dt;
 
       if (p.x > canvas.width / 2 || p.x < -canvas.width / 2 || p.y > canvas.height / 2 || p.y < -canvas.height / 2) {
-
-        p.x = (Math.random() - 0.5) * canvas.width;
-        p.y = (Math.random() - 0.5) * canvas.height;
-
-        if (mouseDown) {
-          p.x = mousePos.x;
-          p.y = mousePos.y;
-        }
-
-        this.randomizeVelocity(K.velocity);
+        this.randomizeVelocityAndPosition(K.velocity, p);
       };
 
       T.rotation += K.angularSpeed;
