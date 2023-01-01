@@ -85,8 +85,9 @@ class RenderSystem extends BozoECS.System {
   }
   randomizeColors() {
     this.queryOnly([Appearance]);
-    this.queries.Appearance[0].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-    this.queries.Appearance[1].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+    for (let i = 0; i < this.queries.Appearance.length; i++) {
+      this.queries.Appearance[i].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+    }
   }
   run() {
     ctx.fillStyle = 'black';
@@ -140,9 +141,7 @@ var mouseDown = false;
 function init() {
   document.body.appendChild(canvas);
 
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-  ctx.translate(canvas.width / 2, canvas.height / 2);
+  resizeCanvas();
 
   w
     .registerComponents([Transform, Kinematics, Other, Appearance])
@@ -150,11 +149,12 @@ function init() {
 
   const numOfEntities = 1000;
 
-  w.EntityManager.addComponents(w.createEntity(), [Appearance]);
-  w.EntityManager.addComponents(w.createEntity(), [Appearance]);
+  for (let i = 0; i < 2; i++) {
+    w.EntityManager.addComponents(w.createEntity(), [Appearance]);
+  }
 
   for (let i = 0; i < numOfEntities / 2; i++) {
-    // adding Transform and Kinematics components individually to each of the other entity so they can move freely
+    // adding Transform and Kinematics components individually to each entity so they can move freely
     w.EntityManager.addComponents(w.createEntity(), [Transform, Kinematics]);
   }
 
@@ -165,7 +165,9 @@ function init() {
 
   w.init();
 
-  window.onresize = () => {
+  window.onresize = resizeCanvas;
+  
+  function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     ctx.translate(canvas.width / 2, canvas.height / 2);
@@ -181,13 +183,14 @@ function init() {
   canvas.addEventListener('touchstart', handleMousePress);
   canvas.addEventListener('touchend', handleMousePress);
 
-  function handleMousePress() {
+  function handleMousePress(e) {
     mouseDown = !mouseDown;
+    handleMouseMove(e);
   }
 
   function handleMouseMove(e) {
-    let clientX = e.clientX || e.touches[0].clientX;
-    let clientY = e.clientY || e.touches[0].clientY;
+    let clientX = e?.clientX || e?.touches[0]?.clientX;
+    let clientY = e?.clientY || e?.touches[0]?.clientY;
     mousePos.x = clientX - canvas.width / 2;
     mousePos.y = -(clientY - canvas.height / 2);
   }
