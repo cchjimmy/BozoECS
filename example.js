@@ -33,10 +33,11 @@ class Other extends BozoECS.Component { }
 class MovementSystem extends BozoECS.System {
   init() {
     this.queryAll([Transform, Kinematics]);
-    for (let i = 0; i < this.queries.Transform.length; i++) {
-      let p = this.queries.Transform[i].position;
-      let K = this.queries.Kinematics[i];
-      this.randomizeVelocityAndPosition(K.velocity, p);
+    for (let i = 0; i < this.queries.length; i++) {
+      let entity = this.queries[i];
+      let T = this.world.EntityManager.getComponents(entity, [Transform])[0];
+      let K = this.world.EntityManager.getComponents(entity, [Kinematics])[0];
+      this.randomizeVelocityAndPosition(K.velocity, T.position);
       K.angularSpeed = Math.random();
     }
   }
@@ -53,16 +54,16 @@ class MovementSystem extends BozoECS.System {
   run(args) {
     this.queryAll([Transform, Kinematics]);
     let dt = args[0];
-    for (let i = 0; i < this.queries.Transform.length; i++) {
-      let T = this.queries.Transform[i];
-      let p = T.position;
-      let K = this.queries.Kinematics[i];
+    for (let i = 0; i < this.queries.length; i++) {
+      let entity = this.queries[i];
+      let T = this.world.EntityManager.getComponents(entity, [Transform])[0];
+      let K = this.world.EntityManager.getComponents(entity, [Kinematics])[0];
 
-      p.x += (K.velocity.x += K.acceleration.x) * dt;
-      p.y += (K.velocity.y += K.acceleration.y) * dt;
+      T.position.x += (K.velocity.x += K.acceleration.x) * dt;
+      T.position.y += (K.velocity.y += K.acceleration.y) * dt;
 
-      if (p.x > canvas.width / 2 || p.x < -canvas.width / 2 || p.y > canvas.height / 2 || p.y < -canvas.height / 2) {
-        this.randomizeVelocityAndPosition(K.velocity, p);
+      if (T.position.x > canvas.width / 2 || T.position.x < -canvas.width / 2 || T.position.y > canvas.height / 2 || T.position.y < -canvas.height / 2) {
+        this.randomizeVelocityAndPosition(K.velocity, T.position);
       };
 
       T.rotation += K.angularSpeed;
@@ -73,8 +74,9 @@ class MovementSystem extends BozoECS.System {
 class RenderSystem extends BozoECS.System {
   init() {
     this.queryAny([Transform]);
-    for (let i = 0; i < this.queries.Transform.length; i++) {
-      let T = this.queries.Transform[i];
+    for (let i = 0; i < this.queries.length; i++) {
+      let entity = this.queries[i]
+      let T = this.world.EntityManager.getComponents(entity, [Transform])[0];
       T.scale.x = Math.random() * 10;
       T.scale.y = Math.random() * 10;
     }
@@ -85,8 +87,8 @@ class RenderSystem extends BozoECS.System {
   }
   randomizeColors() {
     this.queryOnly([Appearance]);
-    for (let i = 0; i < this.queries.Appearance.length; i++) {
-      this.queries.Appearance[i].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+    for (let i = 0; i < this.queries.length; i++) {
+      this.world.EntityManager.getComponents(this.queries[i], [Appearance])[0].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
     }
   }
   run() {
@@ -95,14 +97,14 @@ class RenderSystem extends BozoECS.System {
 
     this.queryOnly([Appearance]);
     let colors = [];
-    for (let i = 0; i < this.queries.Appearance.length; i++) {
-      colors.push(this.queries.Appearance[i].color);
+    for (let i = 0; i < this.queries.length; i++) {
+      colors.push(this.world.EntityManager.getComponents(this.queries[i], [Appearance])[0].color);
     }
 
     this.queryOnly([Kinematics, Transform]);
     ctx.fillStyle = colors[0];
-    for (let i = 0; i < this.queries.Transform.length; i++) {
-      let T = this.queries.Transform[i];
+    for (let i = 0; i < this.queries.length; i++) {
+      let T = this.world.EntityManager.getComponents(this.queries[i], [Transform])[0];
       let p = T.position;
       let s = T.scale;
 
@@ -111,8 +113,8 @@ class RenderSystem extends BozoECS.System {
 
     this.queryAny([Other]);
     ctx.fillStyle = colors[1];
-    for (let i = 0; i < this.queries.Transform.length; i++) {
-      let T = this.queries.Transform[i];
+    for (let i = 0; i < this.queries.length; i++) {
+      let T = this.world.EntityManager.getComponents(this.queries[i], [Transform])[0];
       let p = T.position;
       let s = T.scale;
 
@@ -132,6 +134,7 @@ class RenderSystem extends BozoECS.System {
 const w = new BozoECS.World;
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
+const fps = document.querySelector('span');
 var mousePos = {
   x: 0,
   y: 0
@@ -189,8 +192,8 @@ function init() {
   }
 
   function handleMouseMove(e) {
-    let clientX = e?.clientX || e?.touches[0]?.clientX;
-    let clientY = e?.clientY || e?.touches[0]?.clientY;
+    let clientX = e.clientX || e.touches[0].clientX;
+    let clientY = e.clientY || e.touches[0].clientY;
     mousePos.x = clientX - canvas.width / 2;
     mousePos.y = -(clientY - canvas.height / 2);
   }
@@ -202,6 +205,7 @@ function run() {
   let dt = (now - past) / 1000;
   w.run(dt);
   past = now;
+  fps.innerText = (1/dt).toFixed(0);
   requestAnimationFrame(run);
 }
 
