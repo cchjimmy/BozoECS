@@ -310,7 +310,7 @@ const BozoECS = {
       }
     }
     forEach(components = [], func = () => {}) {
-      let table = {};
+      let table = { ids: [] };
       let types = [];
       for (let i = 0; i < components.length; i++) {
         types.push(this.world.ComponentManager.getComponentType(components[i]));
@@ -324,16 +324,16 @@ const BozoECS = {
           break;
         }
         if (!hasAllComponents) continue;
-        for (let type in a[i]) {
-          if (!table[type]) table[type] = [];
-          table[type].push(...a[i][type]);
+        table.ids.push(a[i].ids);
+        for (let k = 0; k < types.length; k++) {
+          if (!table[types[k]]) table[types[k]] = [];
+          table[types[k]].push(...a[i][types[k]]);
         }
       }
       for (let i = 0; i < table.ids.length; i++) {
         let comps = [];
-        for (let type in table) {
-          if (type == 'ids') continue;
-          comps.push(table[type][i]);
+        for (let j = 0; j < types.length; j++) {
+          comps.push(table[types[j]][i]);
         }
         func(...comps);
       }
