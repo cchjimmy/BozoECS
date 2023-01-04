@@ -285,6 +285,10 @@ const BozoECS = {
       if (!a) return;
       this.queries.push(...a.ids);
     }
+    /**
+     * get entities ids without all the component listed attached, and moves results to this.queries
+     * @param {*} components 
+     */
     queryNot(components = []) {
       this.queries = [];
       let types = [];
