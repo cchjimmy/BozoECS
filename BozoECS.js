@@ -324,7 +324,7 @@ const BozoECS = {
           break;
         }
         if (!hasAllComponents) continue;
-        table.ids.push(a[i].ids);
+        table.ids.push(...a[i].ids);
         for (let k = 0; k < types.length; k++) {
           if (!table[types[k]]) table[types[k]] = [];
           table[types[k]].push(...a[i][types[k]]);
