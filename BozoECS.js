@@ -75,10 +75,11 @@ const BozoECS = {
     }
     removeComponents(id, components = []) {
       let oldComponents = this.removeEntity(id);
-      for (let i = 0; i < components.length; i++) {
-        for (let j = 0; j < oldComponents.length; j++) {
+      for (let j = 0; j < oldComponents.length; j++) {
+        for (let i = 0; i < components.length; i++) {
           if (this.world.ComponentManager.getComponentType(oldComponents[j]) !== this.world.ComponentManager.getComponentType(components[i])) continue;
           oldComponents.splice(j, 1);
+          break;
         }
       }
       this.addComponents(id, oldComponents);
@@ -103,7 +104,7 @@ const BozoECS = {
       return removedComponents;
     }
     /**
-     * clone an entity and its components, changes to original applies to all clones
+     * copy an entity and its components
      * @param {*} id 
      * @returns id of newly instantiated entity
      */
@@ -162,13 +163,6 @@ const BozoECS = {
         result.push(a[type][indices[1]]);
       }
       return result;
-    }
-    hasComponent(id, component) {
-      let indices = this.findEntity(id);
-      if (!indices) return false;
-      let a = this.archetypes[indices[0]];
-      let type = this.world.ComponentManager.getComponentType(component);
-      return a.hasOwnProperty(type);
     }
   },
   ComponentManager: class ComponentManager {
@@ -236,7 +230,7 @@ const BozoECS = {
 
     }
     /**
-     * returns components of entities with all the components listed attached, and moves results to this.queries
+     * get entities ids with all the components listed attached, and moves results to this.queries
      * @param {*} components 
      */
     queryAll(components = []) {
@@ -253,13 +247,14 @@ const BozoECS = {
         for (let j = 0; j < types.length; j++) {
           if (a[i][types[j]]) continue;
           hasAllComponents = false;
+          break;
         }
         if (!hasAllComponents) continue;
         this.queries.push(...a[i].ids);
       }
     }
     /**
-     * returns components of entities with any of the components listed attached, and moves results to this.queries
+     * get entities ids with any of the components listed attached, and moves results to this.queries
      * @param {*} components 
      */
     queryAny(components = []) {
@@ -272,17 +267,15 @@ const BozoECS = {
       }
       let a = this.world.EntityManager.archetypes;
       for (let i = 0; i < a.length; i++) {
-        let hasAnyType = false;
         for (let j = 0; j < types.length; j++) {
           if (!a[i][types[j]]) continue;
-          hasAnyType = true;
+          this.queries.push(...a[i].ids);
+          break;
         }
-        if (!hasAnyType) continue;
-        this.queries.push(...a[i].ids);
       }
     }
     /**
-     * return components of entities with the exact list of components attached, and moves results to this.queries
+     * get entities ids with the exact list of components attached, and moves results to this.queries
      * @param {*} components 
      */
     queryOnly(components = []) {
@@ -291,6 +284,26 @@ const BozoECS = {
       a = this.world.EntityManager.findArchetype(a);
       if (!a) return;
       this.queries.push(...a.ids);
+    }
+    queryNot(components = []) {
+      this.queries = [];
+      let types = [];
+      for (let i = 0; i < components.length; i++) {
+        let type = this.world.ComponentManager.getComponentType(components[i]);
+        if (type < 0) continue;
+        types.push(type);
+      }
+      let a = this.world.EntityManager.archetypes;
+      for (let i = 0; i < a.length; i++) {
+        let hasAnyComponent = false;
+        for (let j = 0; j < types.length; j++) {
+          if (!a[i][types[j]]) continue;
+          hasAnyComponent = true;
+          break;
+        }
+        if (hasAnyComponent) continue;
+        this.queries.push(...a[i].ids);
+      }
     }
   }
 }

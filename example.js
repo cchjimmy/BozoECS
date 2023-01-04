@@ -35,15 +35,17 @@ class MovementSystem extends BozoECS.System {
     this.queryAll([Transform, Kinematics]);
     for (let i = 0; i < this.queries.length; i++) {
       let entity = this.queries[i];
-      let T = this.world.EntityManager.getComponents(entity, [Transform])[0];
-      let K = this.world.EntityManager.getComponents(entity, [Kinematics])[0];
+      let comps = this.world.EntityManager.getComponents(entity, [Transform, Kinematics]);
+      let T = comps[0];
+      let K = comps[1];
       this.randomizeVelocityAndPosition(K.velocity, T.position);
       K.angularSpeed = Math.random();
     }
   }
   randomizeVelocityAndPosition(v, p) {
-    v.x = Math.random() * 100 - 50;
-    v.y = Math.random() * 100 - 50;
+    let maxSpeed = 100;
+    v.x = (Math.random() - 0.5) * maxSpeed;
+    v.y = (Math.random() - 0.5) * maxSpeed;
     p.x = (Math.random() - 0.5) * canvas.width;
     p.y = (Math.random() - 0.5) * canvas.height;
     if (mouseDown) {
@@ -56,8 +58,9 @@ class MovementSystem extends BozoECS.System {
     let dt = args[0];
     for (let i = 0; i < this.queries.length; i++) {
       let entity = this.queries[i];
-      let T = this.world.EntityManager.getComponents(entity, [Transform])[0];
-      let K = this.world.EntityManager.getComponents(entity, [Kinematics])[0];
+      let comps = this.world.EntityManager.getComponents(entity, [Transform, Kinematics]);
+      let T = comps[0];
+      let K = comps[1];
 
       T.position.x += (K.velocity.x += K.acceleration.x) * dt;
       T.position.y += (K.velocity.y += K.acceleration.y) * dt;
@@ -101,7 +104,7 @@ class RenderSystem extends BozoECS.System {
       colors.push(this.world.EntityManager.getComponents(this.queries[i], [Appearance])[0].color);
     }
 
-    this.queryOnly([Kinematics, Transform]);
+    this.queryNot([Other, Appearance]);
     ctx.fillStyle = colors[0];
     for (let i = 0; i < this.queries.length; i++) {
       let T = this.world.EntityManager.getComponents(this.queries[i], [Transform])[0];
@@ -169,7 +172,7 @@ function init() {
   w.init();
 
   window.onresize = resizeCanvas;
-  
+
   function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -205,7 +208,7 @@ function run() {
   let dt = (now - past) / 1000;
   w.run(dt);
   past = now;
-  fps.innerText = (1/dt).toFixed(0);
+  fps.innerText = (1 / dt).toFixed(0);
   requestAnimationFrame(run);
 }
 
