@@ -309,6 +309,35 @@ const BozoECS = {
         this.queries.push(...a[i].ids);
       }
     }
+    forEach(components = [], func = () => {}) {
+      let table = {};
+      let types = [];
+      for (let i = 0; i < components.length; i++) {
+        types.push(this.world.ComponentManager.getComponentType(components[i]));
+      }
+      let a = this.world.EntityManager.archetypes;
+      for (let i = 0; i < a.length; i++) {
+        let hasAllComponents = true;
+        for (let j = 0; j < types.length; j++) {
+          if (a[i][types[j]]) continue;
+          hasAllComponents = false;
+          break;
+        }
+        if (!hasAllComponents) continue;
+        for (let type in a[i]) {
+          if (!table[type]) table[type] = [];
+          table[type].push(...a[i][type]);
+        }
+      }
+      for (let i = 0; i < table.ids.length; i++) {
+        let comps = [];
+        for (let type in table) {
+          if (type == 'ids') continue;
+          comps.push(table[type][i]);
+        }
+        func(...comps);
+      }
+    }
   }
 }
 

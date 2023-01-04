@@ -32,15 +32,10 @@ class Other extends BozoECS.Component { }
 
 class MovementSystem extends BozoECS.System {
   init() {
-    this.queryAll([Transform, Kinematics]);
-    for (let i = 0; i < this.queries.length; i++) {
-      let entity = this.queries[i];
-      let comps = this.world.EntityManager.getComponents(entity, [Transform, Kinematics]);
-      let T = comps[0];
-      let K = comps[1];
+    this.forEach([Transform, Kinematics], (T, K) => {
       this.randomizeVelocityAndPosition(K.velocity, T.position);
       K.angularSpeed = Math.random();
-    }
+    })
   }
   randomizeVelocityAndPosition(v, p) {
     let maxSpeed = 100;
@@ -54,55 +49,44 @@ class MovementSystem extends BozoECS.System {
     }
   }
   run(args) {
-    this.queryAll([Transform, Kinematics]);
     let dt = args[0];
-    for (let i = 0; i < this.queries.length; i++) {
-      let entity = this.queries[i];
-      let comps = this.world.EntityManager.getComponents(entity, [Transform, Kinematics]);
-      let T = comps[0];
-      let K = comps[1];
-
+    this.forEach([Transform, Kinematics], (T, K) => {
       T.position.x += (K.velocity.x += K.acceleration.x) * dt;
       T.position.y += (K.velocity.y += K.acceleration.y) * dt;
-
+      
       if (T.position.x > canvas.width / 2 || T.position.x < -canvas.width / 2 || T.position.y > canvas.height / 2 || T.position.y < -canvas.height / 2) {
         this.randomizeVelocityAndPosition(K.velocity, T.position);
       };
-
+      
       T.rotation += K.angularSpeed;
-    }
+    });
   }
 }
 
 class RenderSystem extends BozoECS.System {
   init() {
-    this.queryAny([Transform]);
-    for (let i = 0; i < this.queries.length; i++) {
-      let entity = this.queries[i]
-      let T = this.world.EntityManager.getComponents(entity, [Transform])[0];
+    this.forEach([Transform], (T) => {
       T.scale.x = Math.random() * 10;
       T.scale.y = Math.random() * 10;
-    }
+    })
 
     this.randomizeColors();
 
     setInterval(() => this.randomizeColors(), 5000)
   }
   randomizeColors() {
-    this.queryOnly([Appearance]);
-    for (let i = 0; i < this.queries.length; i++) {
-      this.world.EntityManager.getComponents(this.queries[i], [Appearance])[0].color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-    }
+    this.forEach([Appearance], (A) => {
+      A.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+    });
   }
   run() {
     ctx.fillStyle = 'black';
     ctx.fillRect(-canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
-
-    this.queryOnly([Appearance]);
+    
     let colors = [];
-    for (let i = 0; i < this.queries.length; i++) {
-      colors.push(this.world.EntityManager.getComponents(this.queries[i], [Appearance])[0].color);
-    }
+    this.forEach([Appearance], (A) => {
+      colors.push(A.color);
+    });
 
     this.queryNot([Other, Appearance]);
     ctx.fillStyle = colors[0];
@@ -195,8 +179,8 @@ function init() {
   }
 
   function handleMouseMove(e) {
-    let clientX = e.clientX || e.touches[0].clientX;
-    let clientY = e.clientY || e.touches[0].clientY;
+    let clientX = e.clientX || e.touches[0]?.clientX;
+    let clientY = e.clientY || e.touches[0]?.clientY;
     mousePos.x = clientX - canvas.width / 2;
     mousePos.y = -(clientY - canvas.height / 2);
   }
