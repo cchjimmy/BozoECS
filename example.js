@@ -72,7 +72,7 @@ class RenderSystem extends BozoECS.System {
 
     this.randomizeColors();
 
-    setInterval(() => this.randomizeColors(), 5000)
+    setInterval(() => this.randomizeColors(), 5000);
   }
   randomizeColors() {
     this.forEach([Appearance], (A) => {
@@ -92,20 +92,14 @@ class RenderSystem extends BozoECS.System {
     ctx.fillStyle = colors[0];
     for (let i = 0; i < this.queries.length; i++) {
       let T = this.world.EntityManager.getComponents(this.queries[i], [Transform])[0];
-      let p = T.position;
-      let s = T.scale;
-
-      drawRect(-p.x, -p.y, s.x, s.y, T.rotation);
+      drawRect(-T.position.x, -T.position.y, T.scale.x, T.scale.y, T.rotation);
     }
 
     this.queryAny([Other]);
     ctx.fillStyle = colors[1];
     for (let i = 0; i < this.queries.length; i++) {
       let T = this.world.EntityManager.getComponents(this.queries[i], [Transform])[0];
-      let p = T.position;
-      let s = T.scale;
-
-      drawRect(p.x, p.y, s.x, s.y, T.rotation);
+      drawRect(T.position.x, T.position.y, T.scale.x, T.scale.y, T.rotation);
     }
 
     function drawRect(x, y, w, h, r) {
