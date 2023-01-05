@@ -21,6 +21,7 @@ class Kinematics extends BozoECS.Component {
     x: 0,
     y: -9.81
   }
+
   angularSpeed = 0;
 }
 
@@ -28,13 +29,11 @@ class Appearance extends BozoECS.Component {
   color = 'white';
 }
 
-class Other extends BozoECS.Component { }
-
 class MovementSystem extends BozoECS.System {
   init() {
     this.forEach([Transform, Kinematics], (T, K) => {
       this.randomizeVelocityAndPosition(K.velocity, T.position);
-      K.angularSpeed = Math.random();
+      K.angularSpeed = randomMinMax(-0.1, 0.1);
     })
   }
   randomizeVelocityAndPosition(v, p) {
@@ -53,11 +52,11 @@ class MovementSystem extends BozoECS.System {
     this.forEach([Transform, Kinematics], (T, K) => {
       T.position.x += (K.velocity.x += K.acceleration.x) * dt;
       T.position.y += (K.velocity.y += K.acceleration.y) * dt;
-      
+
       if (T.position.x > canvas.width / 2 || T.position.x < -canvas.width / 2 || T.position.y > canvas.height / 2 || T.position.y < -canvas.height / 2) {
         this.randomizeVelocityAndPosition(K.velocity, T.position);
       };
-      
+
       T.rotation += K.angularSpeed;
     });
   }
@@ -65,57 +64,41 @@ class MovementSystem extends BozoECS.System {
 
 class RenderSystem extends BozoECS.System {
   init() {
-    this.forEach([Transform], (T) => {
-      T.scale.x = Math.random() * 10;
-      T.scale.y = Math.random() * 10;
+    this.forEach([Transform, Appearance], (T, A) => {
+      T.scale.x = randomMinMax(20, 50);
+      T.scale.y = randomMinMax(20, 50);
+      A.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`
     })
-
-    this.randomizeColors();
-
-    setInterval(() => this.randomizeColors(), 5000);
-  }
-  randomizeColors() {
-    this.forEach([Appearance], (A) => {
-      A.color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
-    });
   }
   run() {
-    ctx.fillStyle = 'black';
+    ctx.fillStyle = '#133337';
     ctx.fillRect(-canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
-    
-    let colors = [];
-    this.forEach([Appearance], (A) => {
-      colors.push(A.color);
-    });
 
-    this.queryNot([Other, Appearance]);
-    ctx.fillStyle = colors[0];
-    for (let i = 0; i < this.queries.length; i++) {
-      let T = this.world.EntityManager.getComponents(this.queries[i], [Transform])[0];
-      drawRect(-T.position.x, -T.position.y, T.scale.x, T.scale.y, T.rotation);
-    }
+    this.forEach([Transform, Appearance], (T, A) => {
+      drawRect(T.position.x, T.position.y, T.scale.x, T.scale.y, T.rotation, A.color);
+    })
 
-    this.queryAny([Other]);
-    ctx.fillStyle = colors[1];
-    for (let i = 0; i < this.queries.length; i++) {
-      let T = this.world.EntityManager.getComponents(this.queries[i], [Transform])[0];
-      drawRect(T.position.x, T.position.y, T.scale.x, T.scale.y, T.rotation);
-    }
-
-    function drawRect(x, y, w, h, r) {
+    function drawRect(x, y, w, h, r, color) {
       ctx.save();
+      ctx.fillStyle = color;
       ctx.translate(Math.floor(x), Math.floor(-y));
       ctx.rotate(r);
-      ctx.fillRect(-w / 2, -h / 2, w, h);
+      ctx.scale(w, h);
+      ctx.fillRect(-0.5, -0.5, 1, 1);
       ctx.restore();
     }
   }
+}
+
+function randomMinMax(min, max) {
+  return Math.random() * (max - min) + min;
 }
 
 const w = new BozoECS.World;
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
 const fps = document.querySelector('span');
+const numOfEntities = 600;
 var mousePos = {
   x: 0,
   y: 0
@@ -128,25 +111,14 @@ function init() {
   resizeCanvas();
 
   w
-    .registerComponents([Transform, Kinematics, Other, Appearance])
+    .registerComponents([Transform, Kinematics, Appearance])
     .registerSystems([MovementSystem, RenderSystem]);
 
-  const numOfEntities = 1000;
-
-  for (let i = 0; i < 2; i++) {
-    w.EntityManager.addComponents(w.createEntity(), [Appearance]);
+  for (let i = 0; i < numOfEntities; i++) {
+    w.EntityManager.addComponents(w.createEntity(), [Transform, Kinematics, Appearance]);
   }
 
-  for (let i = 0; i < numOfEntities / 2; i++) {
-    // adding Transform and Kinematics components individually to each entity so they can move freely
-    w.EntityManager.addComponents(w.createEntity(), [Transform, Kinematics]);
-  }
-
-  for (let i = 0; i < numOfEntities / 2; i++) {
-    // added Other component to distinguish between the other half of the entities
-    w.EntityManager.addComponents(w.createEntity(), [Transform, Kinematics, Other]);
-  }
-
+  console.log(w);
   w.init();
 
   window.onresize = resizeCanvas;

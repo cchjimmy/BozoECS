@@ -48,8 +48,7 @@ const BozoECS = {
     createArchetype(componentTypes = []) {
       let archetype = { ids: [] };
       for (let i = 0; i < componentTypes.length; i++) {
-        if (componentTypes[i] < 0) continue;
-        archetype[componentTypes[i]] = [];
+        if (componentTypes[i] >= 0) archetype[componentTypes[i]] = [];
       }
       return archetype;
     }
@@ -65,16 +64,15 @@ const BozoECS = {
       a = this.insertArchetype(a);
       let index = a.ids.push(id) - 1;
       for (let i = 0; i < types.length; i++) {
-        if (types[i] >= 0) a[types[i]][index] = new oldComponents[i];
+        let component = oldComponents[i].constructor.name == 'Function' ? new oldComponents[i] : oldComponents[i];
+        if (a[types[i]]) a[types[i]][index] = component;
       }
     }
     removeComponents(id, components = []) {
       let oldComponents = this.removeEntity(id);
-      let oldTypes = this.world.ComponentManager.getComponentTypes(oldComponents);
-      let removeTypes = this.world.ComponentManager.getComponentTypes(components);
-      for (let j = 0; j < oldTypes.length; j++) {
-        for (let i = 0; i < removeTypes.length; i++) {
-          if (oldTypes[j] != removeTypes[i]) continue;
+      for (let j = 0; j < oldComponents.length; j++) {
+        for (let i = 0; i < components.length; i++) {
+          if (oldComponents[j].constructor.name != components[i].name) continue;
           oldComponents.splice(j, 1);
           break;
         }
@@ -87,13 +85,13 @@ const BozoECS = {
      * @returns components of the removed entity
      */
     removeEntity(id) {
-      let indices = this.findEntity(id);
       let removedComponents = [];
+      let indices = this.findEntity(id);
       if (!indices) return removedComponents;
       let a = this.archetypes[indices[0]];
-      for (let type in a) {
-        let removed = a[type].splice(indices[1], 1);
-        if (type != 'ids') removedComponents.push(...removed);
+      let compTypes = this.getArchetypeTypes(a);
+      for (let i = 0; i < compTypes.length; i++) {
+        removedComponents.push(...a[compTypes[i]].splice(indices[1], 1));
       }
       // removes archetype with no entity
       if (!a.ids.length) this.archetypes.splice(indices[0], 1);
@@ -110,18 +108,19 @@ const BozoECS = {
       let a = this.archetypes[indices[0]];
       let newId = this.createEntity();
       let comps = [];
-      for (let type in a) {
-        if (type != 'ids') comps.push(a[type][indices[1]].copy());
+      let comptypes = this.getArchetypeTypes(a);
+      for (let i = 0; i < comptypes.length; i++) {
+        comps.push(a[comptypes[i]][indices[1]].copy());
       }
       let index = a.ids.push(newId) - 1;
       for (let i = 0; i < comps.length; i++) {
-        let type = this.world.ComponentManager.getComponentType(comps[i].constructor);
+        let type = this.world.ComponentManager.getComponentTypes([comps[i]])[0];
         a[type][index] = comps[i];
       }
       return newId;
     }
     /**
-     * returns the index of the archetype housing the entity the index of entity in the archetype if entity exists
+     * returns the archetype index housing the entity, and the entity index in the archetype if entity exists
      * @param {*} id 
      * @returns [index of archetype, index of entity]
      */
@@ -146,13 +145,13 @@ const BozoECS = {
       }
     }
     getComponents(id, components = []) {
-      let indices = this.findEntity(id);
-      if (!indices) return;
       let result = [];
+      let indices = this.findEntity(id);
+      if (!indices) return result;
       let a = this.archetypes[indices[0]];
       let types = this.world.ComponentManager.getComponentTypes(components);
       for (let i = 0; i < types.length; i++) {
-        if (types[i] >= 0) result.push(a[types[i]][indices[1]]);
+        if (a[types[i]]) result.push(a[types[i]][indices[1]]);
       }
       return result;
     }
@@ -199,8 +198,12 @@ const BozoECS = {
       return result
     }
     getArchetypeTypes(archetype) {
-      let types = Object.keys(archetype).sort();
-      types.splice('ids', 1);
+      let types = [];
+      for (let key in archetype) {
+        types.push(key);
+      }
+      // 'ids' in an archetype is always added last, so this should remove the 'ids' key in an archetype
+      types.splice(-1, 1);
       return types;
     }
   },
@@ -223,14 +226,15 @@ const BozoECS = {
     getComponentTypes(components = []) {
       // index = type of component in this particular world
       let types = [];
-      for (let i = 0; i < this.componentTypes.length; i++) {
-        for (let j = 0; j < components.length; j++) {
-          if (this.componentTypes[i] != components[j]) continue
+      for (let j = 0; j < components.length; j++) {
+        let component = components[j].constructor.name == 'Function' ? components[j] : components[j].constructor;
+        for (let i = 0; i < this.componentTypes.length; i++) {
+          if (this.componentTypes[i] != component) continue;
           types.push(i);
           break;
         }
       }
-      return types
+      return types;
     }
   },
   SystemManager: class SystemManager {
@@ -260,7 +264,7 @@ const BozoECS = {
   Component: class Component {
     // needs to register this component to have a defined type, i.e. 0, 1, 2, 3...
     copy() {
-      let copy = new this.constructor();
+      let copy = new this.constructor;
       for (let type in this) {
         if (typeof this[type] == 'object') {
           Object.assign(copy[type], this[type]);
@@ -285,60 +289,70 @@ const BozoECS = {
 
     }
     /**
-     * get entities ids with all the components listed attached, and moves results to this.queries
+     * get entities ids with all the components listed attached
      * @param {*} components 
+     * @returns an array of entity ids
      */
     queryAll(components = []) {
-      this.queries = [];
+      let ids = [];
       let a = this.world.EntityManager.archetypesWith(components);
       for (let i = 0; i < a.length; i++) {
-        this.queries.push(...a[i].ids);
+        ids.push(...a[i].ids);
       }
+      return ids;
     }
     /**
-     * get entity ids with any of the components listed attached, and moves results to this.queries
+     * get entity ids with any of the components listed attached
      * @param {*} components 
+     * @returns an array of entity ids
      */
     queryAny(components = []) {
-      this.queries = [];
+      let ids = [];
       let types = this.world.ComponentManager.getComponentTypes(components);
       let a = this.world.EntityManager.archetypesWithAny(types);
       for (let i = 0; i < a.length; i++) {
-        this.queries.push(...a[i].ids);
+        ids.push(...a[i].ids);
       }
+      return ids;
     }
     /**
-     * get entity ids with the exact list of components attached, and moves results to this.queries
+     * get entity ids with the exact list of components attached
      * @param {*} components 
+     * @returns an array of entity ids
      */
     queryOnly(components = []) {
-      this.queries = [];
+      let ids = [];
       let types = this.world.ComponentManager.getComponentTypes(components);
       let a = this.world.EntityManager.createArchetype(types);
       a = this.world.EntityManager.findArchetype(a);
-      if (!a) return;
-      this.queries.push(...a.ids);
+      if (!a) return ids;
+      ids.push(...a.ids);
+      return ids;
     }
     /**
-     * get entity ids without any of the component listed attached, and moves results to this.queries
+     * get entity ids without any of the component listed attached
      * @param {*} components 
+     * @returns an array of entity ids
      */
     queryNot(components = []) {
-      this.queries = [];
+      let ids = [];
       let types = this.world.ComponentManager.getComponentTypes(components);
       let a = this.world.EntityManager.archetypesWithout(types);
       for (let i = 0; i < a.length; i++) {
-        this.queries.push(...a[i].ids);
+        ids.push(...a[i].ids);
       }
+      return ids;
     }
     forEach(components = [], func = () => { }) {
-      let table = { ids: [] };
       let types = this.world.ComponentManager.getComponentTypes(components);
+      let table = { ids: [] };
+      for (let k = 0; k < types.length; k++) {
+        table[types[k]] = [];
+      }
       let a = this.world.EntityManager.archetypesWith(types);
       for (let i = 0; i < a.length; i++) {
         table.ids.push(...a[i].ids);
         for (let k = 0; k < types.length; k++) {
-          if (!table[types[k]]) table[types[k]] = [];
           table[types[k]].push(...a[i][types[k]]);
         }
       }
