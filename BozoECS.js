@@ -66,6 +66,7 @@ const BozoECS = {
       for (let i = 0; i < oldComponents.length; i++) {
         if (a[types[i]]) a[types[i]][index] = oldComponents[i].constructor.name == 'Function' ? new oldComponents[i] : oldComponents[i];;
       }
+      return id;
     }
     removeComponents(id, components = []) {
       let oldComponents = this.removeEntity(id);
