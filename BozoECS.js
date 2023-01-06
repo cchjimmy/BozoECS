@@ -88,6 +88,7 @@ const BozoECS = {
       let indices = this.findEntity(id);
       if (!indices) return removedComponents;
       let a = this.archetypes[indices[0]];
+      a.ids.splice(indices[1], 1);
       let compTypes = this.getArchetypeTypes(a);
       for (let i = 0; i < compTypes.length; i++) {
         removedComponents.push(...a[compTypes[i]].splice(indices[1], 1));
