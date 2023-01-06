@@ -53,8 +53,7 @@ const BozoECS = {
       return archetype;
     }
     insertArchetype(archetype) {
-      let a = this.findArchetype(archetype);
-      return a ? a : this.archetypes[this.archetypes.push(archetype) - 1];
+      return this.findArchetype(archetype) ?? this.archetypes[this.archetypes.push(archetype) - 1];
     }
     addComponents(id, components = []) {
       let oldComponents = this.removeEntity(id);
@@ -319,13 +318,10 @@ const BozoECS = {
      * @returns an array of entity ids
      */
     queryOnly(components = []) {
-      let ids = [];
       let types = this.world.ComponentManager.getComponentTypes(components);
       let a = this.world.EntityManager.createArchetype(types);
       a = this.world.EntityManager.findArchetype(a);
-      if (!a) return ids;
-      ids.push(...a.ids);
-      return ids;
+      return a ? [].push(...a.ids) : [];
     }
     /**
      * get entity ids without any of the component listed attached
