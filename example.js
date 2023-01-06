@@ -118,7 +118,6 @@ function init() {
     w.EntityManager.addComponents(w.createEntity(), [Transform, Kinematics, Appearance]);
   }
 
-  console.log(w);
   w.init();
 
   window.onresize = resizeCanvas;
