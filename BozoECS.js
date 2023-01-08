@@ -322,7 +322,7 @@ const BozoECS = {
       let types = this.world.ComponentManager.getComponentTypes(components);
       let a = this.world.EntityManager.createArchetype(types);
       a = this.world.EntityManager.findArchetype(a);
-      return a ? [].push(...a.ids) : [];
+      return a ? [...a.ids] : [];
     }
     /**
      * get entity ids without any of the component listed attached
