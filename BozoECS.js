@@ -18,14 +18,14 @@ const BozoECS = {
       }
       return this;
     }
-    init(...args) {
+    init() {
       for (let i = 0; i < this.SystemManager.enabledSystems.length; i++) {
-        this.SystemManager.enabledSystems[i].init(args);
+        this.SystemManager.enabledSystems[i].init(...arguments);
       }
     }
-    run(...args) {
+    run() {
       for (let i = 0; i < this.SystemManager.enabledSystems.length; i++) {
-        this.SystemManager.enabledSystems[i].run(args);
+        this.SystemManager.enabledSystems[i].run(...arguments);
       }
     }
   },

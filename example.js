@@ -47,8 +47,7 @@ class MovementSystem extends BozoECS.System {
       p.y = mousePos.y;
     }
   }
-  run(args) {
-    let dt = args[0];
+  run(dt) {
     this.forEach([Transform, Kinematics], (T, K) => {
       T.position.x += (K.velocity.x += K.acceleration.x) * dt;
       T.position.y += (K.velocity.y += K.acceleration.y) * dt;
