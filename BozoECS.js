@@ -144,7 +144,7 @@ const BozoECS = {
       let indices = this.findEntity(id);
       if (!indices) return result;
       let a = this.archetypes[indices[0]];
-      let types = this.world.ComponentManager.getComponentTypes(components);
+      let types = components.length ? this.world.ComponentManager.getComponentTypes(components) : this.world.EntityManager.getArchetypeTypes(a);
       for (let i = 0; i < types.length; i++) {
         if (a[types[i]]) result.push(a[types[i]][indices[1]]);
       }
