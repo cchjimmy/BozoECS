@@ -63,7 +63,7 @@ const BozoECS = {
       a = this.insertArchetype(a);
       let index = a.ids.push(id) - 1;
       for (let i = 0; i < oldComponents.length; i++) {
-        if (a[types[i]]) a[types[i]][index] = oldComponents[i].constructor.name == 'Function' ? new oldComponents[i] : oldComponents[i];;
+        if (a[types[i]]) a[types[i]][index] = oldComponents[i].constructor.name == 'Function' ? new oldComponents[i] : oldComponents[i];
       }
       return id;
     }
@@ -193,10 +193,7 @@ const BozoECS = {
       return result
     }
     getArchetypeTypes(archetype) {
-      let types = [];
-      for (let key in archetype) {
-        types.push(key);
-      }
+      let types = Object.keys(archetype);
       // 'ids' in an archetype is always added last, so this should remove the 'ids' key in an archetype
       types.splice(-1, 1);
       return types;
