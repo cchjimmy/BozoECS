@@ -80,9 +80,7 @@ class RenderSystem extends BozoECS.System {
     function drawRect(x, y, w, h, r, color) {
       ctx.save();
       ctx.fillStyle = color;
-      ctx.translate(Math.floor(x), Math.floor(-y));
-      ctx.rotate(r);
-      ctx.scale(w, h);
+      ctx.transform(Math.cos(r) * w, Math.sin(r) * w, -Math.sin(r) * h, Math.cos(r) * h, Math.floor(x), -Math.floor(y));
       ctx.fillRect(-0.5, -0.5, 1, 1);
       ctx.restore();
     }
@@ -124,7 +122,7 @@ function init() {
   function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.setTransform(1, 0, 0, 1, canvas.width / 2, canvas.height / 2);
   }
 
   // mouse support
@@ -143,8 +141,8 @@ function init() {
   }
 
   function handleMouseMove(e) {
-    let clientX = e.clientX || e.touches[0]?.clientX;
-    let clientY = e.clientY || e.touches[0]?.clientY;
+    let clientX = e.clientX ?? e.touches[0].clientX;
+    let clientY = e.clientY ?? e.touches[0].clientY;
     mousePos.x = clientX - canvas.width / 2;
     mousePos.y = -(clientY - canvas.height / 2);
   }
