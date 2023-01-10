@@ -80,7 +80,9 @@ class RenderSystem extends BozoECS.System {
     function drawRect(x, y, w, h, r, color) {
       ctx.save();
       ctx.fillStyle = color;
-      ctx.transform(Math.cos(r) * w, Math.sin(r) * w, -Math.sin(r) * h, Math.cos(r) * h, Math.floor(x), -Math.floor(y));
+      let sin = Math.sin(r);
+      let cos = Math.cos(r);
+      ctx.transform(cos * w, sin * w, -sin * h, cos * h, Math.floor(x), -Math.floor(y));
       ctx.fillRect(-0.5, -0.5, 1, 1);
       ctx.restore();
     }
