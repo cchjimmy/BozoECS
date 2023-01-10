@@ -63,7 +63,7 @@ const BozoECS = {
       a = this.insertArchetype(a);
       let index = a.ids.push(id) - 1;
       for (let i = 0; i < oldComponents.length; i++) {
-        if (a[types[i]]) a[types[i]][index] = oldComponents[i].constructor.name == 'Function' ? new oldComponents[i] : oldComponents[i];
+        a[types[i]][index] = oldComponents[i].constructor.name == 'Function' ? new oldComponents[i] : oldComponents[i];
       }
       return id;
     }
@@ -108,9 +108,9 @@ const BozoECS = {
       let a = this.archetypes[indices[0]];
       let newId = this.createEntity();
       let index = a.ids.push(newId) - 1;
-      let comptypes = this.getArchetypeTypes(a);
+      let compTypes = this.getArchetypeTypes(a);
       for (let i = 0; i < comptypes.length; i++) {
-        a[comptypes[i]][index] = a[comptypes[i]][indices[1]].copy();
+        a[compTypes[i]][index] = a[compTypes[i]][indices[1]].copy();
       }
       return newId;
     }
@@ -290,7 +290,8 @@ const BozoECS = {
      */
     queryAll(components = []) {
       let ids = [];
-      let a = this.world.EntityManager.archetypesWith(components);
+      let types = this.world.ComponentManager.getComponentTypes(components);
+      let a = this.world.EntityManager.archetypesWith(types);
       for (let i = 0; i < a.length; i++) {
         ids.push(...a[i].ids);
       }
