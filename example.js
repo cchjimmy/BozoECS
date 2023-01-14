@@ -37,7 +37,7 @@ class MovementSystem extends BozoECS.System {
     })
   }
   randomizeVelocityAndPosition(v, p) {
-    let maxSpeed = 100;
+    let maxSpeed = 3;
     v.x = (Math.random() - 0.5) * maxSpeed;
     v.y = (Math.random() - 0.5) * maxSpeed;
     p.x = (Math.random() - 0.5) * canvas.width;
@@ -49,8 +49,8 @@ class MovementSystem extends BozoECS.System {
   }
   run(dt) {
     this.forEach([Transform, Kinematics], (T, K) => {
-      T.position.x += (K.velocity.x += K.acceleration.x) * dt;
-      T.position.y += (K.velocity.y += K.acceleration.y) * dt;
+      T.position.x += K.velocity.x += K.acceleration.x * dt;
+      T.position.y += K.velocity.y += K.acceleration.y * dt;
 
       if (T.position.x > canvas.width / 2 || T.position.x < -canvas.width / 2 || T.position.y > canvas.height / 2 || T.position.y < -canvas.height / 2) {
         this.randomizeVelocityAndPosition(K.velocity, T.position);
