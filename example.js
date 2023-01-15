@@ -21,8 +21,8 @@ class Kinematics extends BozoECS.Component {
     x: 0,
     y: -9.81
   }
-
   angularSpeed = 0;
+  time = 0;
 }
 
 class Appearance extends BozoECS.Component {
@@ -32,28 +32,31 @@ class Appearance extends BozoECS.Component {
 class MovementSystem extends BozoECS.System {
   init() {
     this.forEach([Transform, Kinematics], (T, K) => {
-      this.randomizeVelocityAndPosition(K.velocity, T.position);
+      this.randomizeVelocityAndPosition(K, T);
       K.angularSpeed = randomMinMax(-0.1, 0.1);
     })
   }
-  randomizeVelocityAndPosition(v, p) {
+  randomizeVelocityAndPosition(k, t) {
     let maxSpeed = 3;
-    v.x = (Math.random() - 0.5) * maxSpeed;
-    v.y = (Math.random() - 0.5) * maxSpeed;
-    p.x = (Math.random() - 0.5) * canvas.width;
-    p.y = (Math.random() - 0.5) * canvas.height;
+    k.velocity.x = (Math.random() - 0.5) * maxSpeed;
+    k.velocity.y = (Math.random() - 0.5) * maxSpeed;
+    k.time = 0;
+    t.position.x = (Math.random() - 0.5) * canvas.width;
+    t.position.y = (Math.random() - 0.5) * canvas.height;
     if (mouseDown) {
-      p.x = mousePos.x;
-      p.y = mousePos.y;
+      t.position.x = mousePos.x;
+      t.position.y = mousePos.y;
     }
   }
   run(dt) {
     this.forEach([Transform, Kinematics], (T, K) => {
-      T.position.x += K.velocity.x += K.acceleration.x * dt;
-      T.position.y += K.velocity.y += K.acceleration.y * dt;
+      T.position.x += K.velocity.x*K.time+0.5*K.acceleration.x*K.time**2;
+      T.position.y += K.velocity.y*K.time+0.5*K.acceleration.y*K.time**2;
+      
+      K.time += dt;
 
       if (T.position.x > canvas.width / 2 || T.position.x < -canvas.width / 2 || T.position.y > canvas.height / 2 || T.position.y < -canvas.height / 2) {
-        this.randomizeVelocityAndPosition(K.velocity, T.position);
+        this.randomizeVelocityAndPosition(K, T);
       };
 
       T.rotation += K.angularSpeed;
