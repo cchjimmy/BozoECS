@@ -5,6 +5,10 @@ class Transform extends BozoECS.Component {
     x: 0,
     y: 0
   }
+  spawn = {
+    x: 0,
+    y: 0
+  }
   rotation = 0
   scale = {
     x: 1,
@@ -19,7 +23,7 @@ class Kinematics extends BozoECS.Component {
   }
   acceleration = {
     x: 0,
-    y: -9.81
+    y: -980.7
   }
   angularSpeed = 0;
   time = 0;
@@ -37,21 +41,21 @@ class MovementSystem extends BozoECS.System {
     })
   }
   resetEntity(k, t) {
-    let maxSpeed = 3;
+    let maxSpeed = 300;
     k.velocity.x = (Math.random() - 0.5) * maxSpeed;
     k.velocity.y = (Math.random() - 0.5) * maxSpeed;
     k.time = 0;
-    t.position.x = (Math.random() - 0.5) * canvas.width;
-    t.position.y = (Math.random() - 0.5) * canvas.height;
+    t.spawn.x = (Math.random() - 0.5) * canvas.width;
+    t.spawn.y = (Math.random() - 0.5) * canvas.height;
     if (mouseDown) {
-      t.position.x = mousePos.x;
-      t.position.y = mousePos.y;
+      t.spawn.x = mousePos.x;
+      t.spawn.y = mousePos.y;
     }
   }
   run(dt) {
     this.forEach([Transform, Kinematics], (T, K) => {
-      T.position.x += K.velocity.x*K.time+0.5*K.acceleration.x*K.time**2;
-      T.position.y += K.velocity.y*K.time+0.5*K.acceleration.y*K.time**2;
+      T.position.x = K.velocity.x*K.time+0.5*K.acceleration.x*K.time**2+T.spawn.x;
+      T.position.y = K.velocity.y*K.time+0.5*K.acceleration.y*K.time**2+T.spawn.y;
       
       K.time += dt * parseFloat(speed.value);
 
