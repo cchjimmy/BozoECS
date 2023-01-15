@@ -32,11 +32,11 @@ class Appearance extends BozoECS.Component {
 class MovementSystem extends BozoECS.System {
   init() {
     this.forEach([Transform, Kinematics], (T, K) => {
-      this.randomizeVelocityAndPosition(K, T);
+      this.resetEntity(K, T);
       K.angularSpeed = randomMinMax(-0.1, 0.1);
     })
   }
-  randomizeVelocityAndPosition(k, t) {
+  resetEntity(k, t) {
     let maxSpeed = 3;
     k.velocity.x = (Math.random() - 0.5) * maxSpeed;
     k.velocity.y = (Math.random() - 0.5) * maxSpeed;
@@ -53,13 +53,13 @@ class MovementSystem extends BozoECS.System {
       T.position.x += K.velocity.x*K.time+0.5*K.acceleration.x*K.time**2;
       T.position.y += K.velocity.y*K.time+0.5*K.acceleration.y*K.time**2;
       
-      K.time += dt;
+      K.time += dt * parseFloat(speed.value);
 
       if (T.position.x > canvas.width / 2 || T.position.x < -canvas.width / 2 || T.position.y > canvas.height / 2 || T.position.y < -canvas.height / 2) {
-        this.randomizeVelocityAndPosition(K, T);
+        this.resetEntity(K, T);
       };
 
-      T.rotation += K.angularSpeed;
+      T.rotation += K.angularSpeed * parseFloat(speed.value);
     });
   }
 }
@@ -106,6 +106,8 @@ var mousePos = {
   y: 0
 }
 var mouseDown = false;
+const speed = document.getElementById('speed');
+const speedIndicator = document.querySelectorAll('span')[1];
 
 function init() {
   document.body.appendChild(canvas);
@@ -150,6 +152,10 @@ function init() {
     let clientY = e.clientY ?? e.touches[0].clientY;
     mousePos.x = clientX - canvas.width / 2;
     mousePos.y = -(clientY - canvas.height / 2);
+  }
+  
+  speed.oninput = () => {
+    speedIndicator.innerText = parseFloat(speed.value).toFixed(0);
   }
 }
 

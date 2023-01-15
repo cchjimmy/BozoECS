@@ -10,11 +10,15 @@
       margin: 0px;
       padding: 0px;
       overflow: hidden;
+      user-select: none;
     }
   </style>
 </head>
 <body>
   <div style="color: white; position: absolute;">FPS: <span></span></div>
+  <div style="color: white; position: absolute; top: 20px;">
+    Simulation speed: <input type="range" name="" id="speed" value="1" min='0.000' max="10" step="0.001"/> x<span>1</span>
+  </div>
   <script src="example.js" type="module"></script>
 </body>
 </html>
