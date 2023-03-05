@@ -33,12 +33,11 @@ const BozoECS = {
     constructor(world) {
       this.world = world;
       this.archetypes = [];
-      this.nextId = 0;
+      this.nextId = -1;
     }
     createEntity() {
-      let id = this.nextId;
       this.nextId++;
-      return id;
+      return this.nextId;
     }
     /**
      * creates a new archetype if not already exists and insert it into archetypes table and returns a reference of it. Returns a reference archetype object if already exists
@@ -151,43 +150,32 @@ const BozoECS = {
     }
     archetypesWith(componentTypes = []) {
       let result = [];
-      let a = this.archetypes;
-      for (let i = 0; i < a.length; i++) {
-        let hasAllComponents = true;
+      for (let i = 0; i < this.archetypes.length; i++) {
         for (let j = 0; j < componentTypes.length; j++) {
-          if (a[i][componentTypes[j]]) continue;
-          hasAllComponents = false;
-          break;
+          if (!this.archetypes[i][componentTypes[j]]) break;
+          if (j == componentTypes.length - 1) result.push(this.archetypes[i]);
         }
-        if (hasAllComponents) result.push(a[i]);
       }
       return result;
     }
     archetypesWithAny(componentTypes = []) {
       let result = [];
-      let a = this.archetypes;
-      for (let i = 0; i < a.length; i++) {
-        let hasAnyComponent = false;
+      for (let i = 0; i < this.archetypes.length; i++) {
         for (let j = 0; j < componentTypes.length; j++) {
-          if (!a[i][componentTypes[j]]) continue;
-          hasAnyComponent = true;
+          if (!this.archetypes[i][componentTypes[j]]) continue;
+          result.push(this.archetypes[i])
           break;
         }
-        if (hasAnyComponent) result.push(a[i]);
       }
       return result;
     }
     archetypesWithout(componentTypes = []) {
       let result = [];
-      let a = this.archetypes;
-      for (let i = 0; i < a.length; i++) {
-        let hasAnyComponent = false;
+      for (let i = 0; i < this.archetypes.length; i++) {
         for (let j = 0; j < componentTypes.length; j++) {
-          if (!a[i][componentTypes[j]]) continue;
-          hasAnyComponent = true;
-          break;
+          if (this.archetypes[i][componentTypes[j]]) break;
+          if (j == componentTypes.length - 1) result.push(this.archetypes[i]);
         }
-        if (!hasAnyComponent) result.push(a[i]);
       }
       return result
     }
@@ -216,17 +204,15 @@ const BozoECS = {
      */
     getComponentTypes(components = []) {
       // index = type of component in this particular world
-      let types = [];
+      let types = new Array(components.length);
       for (let j = 0; j < components.length; j++) {
         let comp = components[j].constructor.name == 'Function' ? components[j] : components[j].constructor;
-        let found = false;
         for (let i = 0; i < this.componentTypes.length; i++) {
           if (this.componentTypes[i] != comp) continue;
-          types.push(i);
-          found = true;
+          types[j] = i;
           break;
         }
-        if (!found) types.push(-1);
+        (types[j] >= 0) || (types[j] = -1);
       }
       return types;
     }
