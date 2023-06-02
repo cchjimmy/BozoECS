@@ -1,17 +1,19 @@
 const BozoECS = {};
 
-BozoECS.createWorld = (systems, init = () => {}) => {
-  return {
+BozoECS.createWorld = (init = () => { }) => {
+  let world = {
     init,
-    systems,
-    animationRequest: null
-  };
+  }
+
+  world.init(world);
+
+  return world;
 };
 
-BozoECS.createSystem = (update = () => {}) => {
+BozoECS.createSystem = (update = () => { }) => {
   return {
     update
-  };
+  }
 }
 
 BozoECS.createComponent = (name, properties) => {
@@ -21,71 +23,44 @@ BozoECS.createComponent = (name, properties) => {
   }
 }
 
-BozoECS.nextId = -1;
+BozoECS.nextId = 0;
 
-BozoECS.createEntities = (amount = 1) => {
-  let entities = new Array(amount);
-  for (let i = 0; i < amount; i++) {
-    BozoECS.nextId++;
-    entities[i] = {
-      id: BozoECS.nextId,
-      components: new Map
-    };
+BozoECS.createEntity = () => {
+  return {
+    id: BozoECS.nextId++,
+    components: {}
+  };
+}
+
+BozoECS.update = (world) => {
+  for (let i = 0; i < world.systems.length; i++) {
+    world.systems[i].update(world);
   }
-  return entities;
 }
 
-BozoECS.simulate = (world, initialize = true) => {
-  if (initialize) {
-    world.archetypes = {};
-    let entities = world.init();
-    
-    world.entities = structuredClone(entities);
+BozoECS.addComponents = (entity, components) => {
+  for (let i = 0; i < components.length; i++) {
+    entity.components[components[i].name] = structuredClone(components[i].properties);
   }
-  
-  let last = performance.now();
-  world.deltaTime = 0;
-  
-  let update = () => {
-    for (let i = 0; i < world.systems.length; i++) {
-      world.systems[i].update(world);
-    }
-    
-    world.deltaTime = performance.now() - last;
-    last += world.deltaTime;
-    
-    world.animationRequest = requestAnimationFrame(update);
+}
+
+BozoECS.removeComponents = (entity, components) => {
+  for (let i = 0; i < components.length; i++) {
+    delete entity.components[components[i].name];
   }
-  
-  update();
 }
 
-BozoECS.pause = (world) => {
-  cancelAnimationFrame(world.animationRequest);
-}
-
-BozoECS.addComponent = (entity, component) => {
-  entity.components.set(component.name, structuredClone(component.properties));
-}
-
-BozoECS.removeComponent = (entity, component) => {
-  entity.components.delete(component.name);
-}
-
-BozoECS.getComponent = (entity, component) => {
-  return entity.components.get(component.name);
-}
-
-BozoECS.forEach = (components, world, callback) => {
+BozoECS.getComponents = (entity, components) => {
   let result = new Array(components.length);
   for (let i = 0; i < components.length; i++) {
-    result[i] = world.components[components[i].name];
+    result[i] = entity.components[components[i].name];
   }
   return result;
 }
 
-BozoECS.sortIntoArchetype = (entity, world) => {
-  
+BozoECS.attach = (entities, systems, world) => {
+  world.entities = entities;
+  world.systems = systems;
 }
 
 export default BozoECS;
