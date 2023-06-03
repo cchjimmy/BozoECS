@@ -1,13 +1,7 @@
 const BozoECS = {};
 
-BozoECS.createWorld = (init = () => { }) => {
-  let world = {
-    init,
-  }
-
-  world.init(world);
-
-  return world;
+BozoECS.createWorld = () => {
+  return {};
 };
 
 BozoECS.createSystem = (update = () => { }) => {
@@ -19,7 +13,7 @@ BozoECS.createSystem = (update = () => { }) => {
 BozoECS.createComponent = (name, properties) => {
   return {
     name,
-    properties
+    properties,
   }
 }
 
@@ -29,7 +23,7 @@ BozoECS.createEntity = () => {
   return {
     id: BozoECS.nextId++,
     components: {}
-  };
+  }
 }
 
 BozoECS.update = (world) => {
@@ -59,8 +53,12 @@ BozoECS.getComponents = (entity, components) => {
 }
 
 BozoECS.attach = (entities, systems, world) => {
-  world.entities = entities;
-  world.systems = systems;
+  world.entities = [...entities];
+  world.systems = [...systems];
+}
+
+BozoECS.hasComponent = (entity, component) => {
+  return entity.components.hasOwnProperty(component.name);
 }
 
 export default BozoECS;

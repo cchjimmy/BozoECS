@@ -49,29 +49,29 @@ let render = BozoECS.createSystem((world) => {
   })
 })
 
-let w = BozoECS.createWorld((w) => {
-  let entities = new Array(1000);
-  for (let i = 0; i < entities.length; i++) {
-    let entity = BozoECS.createEntity();
+let entities = new Array(600);
+for (let i = 0; i < entities.length; i++) {
+  let entity = BozoECS.createEntity();
 
-    BozoECS.addComponents(entity, [position, velocity, appearance]);
+  BozoECS.addComponents(entity, [position, velocity, appearance]);
 
-    let [p, v, a] = BozoECS.getComponents(entity, [position, velocity, appearance]);
+  let [p, v, a] = BozoECS.getComponents(entity, [position, velocity, appearance]);
 
-    p.x = random(0, canvas.width);
-    p.y = random(0, canvas.height);
+  p.x = random(0, canvas.width);
+  p.y = random(0, canvas.height);
 
-    v.x = random(-100, 100);
-    v.y = random(-100, 100);
+  v.x = random(-100, 100);
+  v.y = random(-100, 100);
 
-    a.color = `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`;
-    a.radius = random(10, 80);
+  a.color = `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`;
+  a.radius = random(10, 80);
 
-    entities[i] = entity;
-  }
+  entities[i] = entity;
+}
   
-  BozoECS.attach(entities, [render, movement], w);
-});
+let w = BozoECS.createWorld();
+
+BozoECS.attach(entities, [render, movement], w);
 
 update();
 
@@ -82,7 +82,7 @@ function update() {
   past += dt;
 
   fps.innerText = (1 / (dt / 1000)).toFixed(0);
-
+  
   requestAnimationFrame(update);
 }
 
