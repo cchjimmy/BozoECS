@@ -38,18 +38,17 @@ let movement = BozoECS.createSystem((world) => {
 });
 
 let render = BozoECS.createSystem((world) => {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   world.entities.forEach(entity => {
-    let [p, a] = BozoECS.getComponents(entity, [position, appearance])
-    ctx.fillStyle = a.color;
+    let [p, v, a] = BozoECS.getComponents(entity, [position, velocity, appearance])
+    ctx.strokeStyle = a.color;
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
     ctx.arc(p.x, p.y, a.radius, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.stroke();
   })
 })
 
-let entities = new Array(600);
+let entities = new Array(1000);
 for (let i = 0; i < entities.length; i++) {
   let entity = BozoECS.createEntity();
 
@@ -64,14 +63,12 @@ for (let i = 0; i < entities.length; i++) {
   v.y = random(-100, 100);
 
   a.color = `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`;
-  a.radius = random(10, 80);
+  a.radius = random(10, 50);
 
   entities[i] = entity;
 }
   
-let w = BozoECS.createWorld();
-
-BozoECS.attach(entities, [render, movement], w);
+let w = BozoECS.createWorld(entities, [render, movement]);
 
 update();
 

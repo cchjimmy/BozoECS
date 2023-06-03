@@ -1,7 +1,10 @@
 const BozoECS = {};
 
-BozoECS.createWorld = () => {
-  return {};
+BozoECS.createWorld = (entities, systems) => {
+  return {
+    entities: [...entities],
+    systems: [...systems]
+  };
 };
 
 BozoECS.createSystem = (update = () => { }) => {
@@ -50,11 +53,6 @@ BozoECS.getComponents = (entity, components) => {
     result[i] = entity.components[components[i].name];
   }
   return result;
-}
-
-BozoECS.attach = (entities, systems, world) => {
-  world.entities = [...entities];
-  world.systems = [...systems];
 }
 
 BozoECS.hasComponent = (entity, component) => {
