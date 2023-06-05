@@ -4,9 +4,6 @@ const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d");
 const fps = document.querySelector("span");
 
-let past = performance.now();
-let dt = 0;
-
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
@@ -27,7 +24,7 @@ let appearance = BozoECS.createComponent("appearance", {
   radius: 10
 })
 
-let movement = BozoECS.createSystem((world) => {
+let movement = BozoECS.createSystem(world => {
   world.entities.forEach(entity => {
     let [p, v] = BozoECS.getComponents(entity, [position, velocity]);
     p.x += v.x * dt / 1000;
@@ -37,7 +34,7 @@ let movement = BozoECS.createSystem((world) => {
   })
 });
 
-let render = BozoECS.createSystem((world) => {
+let render = BozoECS.createSystem(world => {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   world.entities.forEach(entity => {
     let [p, v, a] = BozoECS.getComponents(entity, [position, velocity, appearance])
@@ -48,7 +45,7 @@ let render = BozoECS.createSystem((world) => {
   })
 })
 
-let entities = new Array(1000);
+let entities = new Array(600);
 for (let i = 0; i < entities.length; i++) {
   let entity = BozoECS.createEntity();
 
@@ -68,18 +65,18 @@ for (let i = 0; i < entities.length; i++) {
   entities[i] = entity;
 }
   
-let w = BozoECS.createWorld(entities, [render, movement]);
+let world = BozoECS.createWorld(entities, [render, movement]);
 
-update();
+let past = performance.now();
+let dt = 0;
+
+requestAnimationFrame(update);
 
 function update() {
-  BozoECS.update(w);
-
+  fps.innerText = (1 / (dt / 1000)).toFixed(0);
+  BozoECS.update(world);
   dt = performance.now() - past;
   past += dt;
-
-  fps.innerText = (1 / (dt / 1000)).toFixed(0);
-  
   requestAnimationFrame(update);
 }
 
