@@ -25,8 +25,7 @@ let appearance = BozoECS.createComponent("appearance", {
 })
 
 let movement = BozoECS.createSystem(world => {
-  world.entities.forEach(entity => {
-    let [p, v] = BozoECS.getComponents(entity, [position, velocity]);
+  BozoECS.forEach(world, [position, velocity], (p, v) => {
     p.x += v.x * dt / 1000;
     p.y += v.y * dt / 1000;
     if (p.x > canvas.width || p.x < 0) p.x = random(0, canvas.width);
@@ -36,8 +35,7 @@ let movement = BozoECS.createSystem(world => {
 
 let render = BozoECS.createSystem(world => {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  world.entities.forEach(entity => {
-    let [p, v, a] = BozoECS.getComponents(entity, [position, velocity, appearance])
+  BozoECS.forEach(world, [position, appearance], (p, a) => {
     ctx.strokeStyle = a.color;
     ctx.beginPath();
     ctx.arc(p.x, p.y, a.radius, 0, Math.PI * 2);
