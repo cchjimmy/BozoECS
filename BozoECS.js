@@ -3,7 +3,7 @@ const BozoECS = {};
 BozoECS.createWorld = (entities, systems) => {
   let world = {};
   BozoECS.defineSystems(world, systems);
-  BozoECS.defineEntities(world, entities);
+  BozoECS.addEntities(world, entities);
   return world;
 };
 
@@ -66,7 +66,7 @@ BozoECS.defineSystems = (world, systems) => {
   world.systems = systems;
 }
 
-BozoECS.defineEntities = (world, entities) => {
+BozoECS.addEntities = (world, entities) => {
   world.compEnum ??= {}; // for bitmasking
   world.archetypes ??= {}; // entity components storage
   world.archetypeMap ??= new Map;
@@ -98,13 +98,13 @@ BozoECS.defineEntities = (world, entities) => {
     }
     
     // if current archetype does not exist, create a new one
-    world.archetypes[archetype] ??= { ids: new Set };
-    
-    // store entity id
-    world.archetypes[archetype].ids.add(entities[i].id);
-    
+    world.archetypes[archetype] ??= { ids: [] };
+
     // find index of entity
     let index = findIndex(world.archetypes[archetype], entities[i].id);
+    
+    // store entity id
+    index = index == -1 ? world.archetypes[archetype].ids.push(entities[i].id) - 1 : index;
     
     // store components in archetype;
     for (let comp in entities[i].components) {
@@ -117,9 +117,8 @@ BozoECS.defineEntities = (world, entities) => {
   
   function findIndex(archetype, entityId) {
     let index = -1;
-    let ids = [...archetype.ids];
-    for (let i = 0; i < ids.length; i++) {
-      if (ids[i] !== entityId) continue;
+    for (let i = 0; i < archetype.ids.length; i++) {
+      if (archetype.ids[i] !== entityId) continue;
       index = i;
       break;
     }
@@ -156,9 +155,14 @@ BozoECS.forEach = (world, components, callback) => {
     for (let j = 0; j < components.length; j++) {
       args[j] = comps[components[j].name][i];
     }
-    
     callback(...args);
   }
+}
+
+BozoECS.instantiate = (entity) => {
+  let e = BozoECS.createEntity();
+  e.components = structuredClone(entity.components);
+  return e;
 }
 
 export default BozoECS;
