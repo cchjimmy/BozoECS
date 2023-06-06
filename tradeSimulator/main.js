@@ -1,52 +1,48 @@
 import BozoECS from "../BozoECS.js";
+import { random } from "../helper.js";
 
-const inventory = BozoECS.createComponent("inventory", {
+const portfolio = BozoECS.createComponent("inventory", {
   items: [],
-  wallet: 1000
+  credits: 1000
 })
 
 const item = BozoECS.createComponent("item", {
   price: 0,
   name: "n/a",
   type: "n/a",
-  owner: -1
+  owner: -1,
+  amount: 1
 })
 
-let baseEntity = BozoECS.createEntity();
+const storage = BozoECS.createComponent("storage", {
+  items: []
+})
 
-BozoECS.addComponents(baseEntity, [inventory]);
+let market = BozoECS.createEntity();
 
-let [invent] = BozoECS.getComponents(baseEntity, [inventory]);
+BozoECS.addComponents(market, [storage]);
+
+let [marketStore] = BozoECS.getComponents(market, [storage]);
+
+let trader = BozoECS.createEntity();
+
+BozoECS.addComponents(trader, [portfolio]);
+
+let traders = new Array(4);
+
+for (let i = 0; i < traders.length; i++) {
+  traders[i] = BozoECS.instantiate(trader);
+}
+
+let player = traders[parseInt(random(0, traders.length - 1))];
+let [playerAssets] = BozoECS.getComponents(player, [portfolio]);
 
 let controls = document.createElement("div");
 
-let name = document.createElement("input");
-name.placeholder = "name";
-name.type = 'text';
-
-let price = document.createElement("input");
-price.placeholder = "price";
-price.type = "number";
-
-let make = document.createElement("button");
-make.innerText = "make product";
-make.onclick = () => {
-  console.log(`creating: ${name.value}`);
-  let product = createItem(name.value, parseFloat(price.value), baseEntity);
-  invent.items.push(product);
-  invent.wallet -= product.properties.price;
-  displayInventory(invent);
-};
-
-let market = [];
-
 let updateMarketView = document.createElement("button");
-updateMarketView.onclick = () => displayMarket(market);
+updateMarketView.onclick = () => displayMarket(marketStore);
 updateMarketView.innerText = "update market view";
 
-controls.appendChild(name);
-controls.appendChild(price);
-controls.appendChild(make);
 controls.appendChild(updateMarketView);
 
 document.body.appendChild(controls);
@@ -56,91 +52,150 @@ let wallet = document.createElement("div");
 wallet.innerText = "balance ($): ";
 let balance = document.createElement("span");
 let userId = document.createElement("div");
-userId.innerHTML = `user ID: ${baseEntity.id}`;
+userId.innerHTML = `user ID: ${player.id}`;
 wallet.appendChild(balance);
 info.appendChild(wallet);
 info.appendChild(userId);
-document.body.appendChild(info);
 
 let displayContainer = document.createElement("div");
 displayContainer.style.height = "600px";
 displayContainer.style.width = "100%";
 displayContainer.style.border = "1px solid black";
+displayContainer.style.display = "flex";
+
+let portfolioViewCell = document.createElement("div");
+portfolioViewCell.style.border = "1px solid green";
+portfolioViewCell.style.overflow = "scroll";
+portfolioViewCell.style.flex = 1 
+
 let marketViewCell = document.createElement("div");
-marketViewCell.style.height = "50%";
 marketViewCell.style.border = "1px solid red";
 marketViewCell.style.overflow = "scroll";
-let inventoryViewCell = document.createElement("div");
-inventoryViewCell.style.height = "50%";
-inventoryViewCell.style.border = "1px solid green";
-inventoryViewCell.style.overflow = "scroll";
-displayContainer.appendChild(inventoryViewCell);
+marketViewCell.style.flex = 1;
+
+displayContainer.appendChild(portfolioViewCell);
 displayContainer.appendChild(marketViewCell);
 
 document.body.appendChild(displayContainer);
 
-let inventoryView = document.createElement("table");
-inventoryView.style.width = "100%";
-inventoryViewCell.appendChild(inventoryView);
+let portfolioView = document.createElement("table");
+portfolioView.style.width = "100%";
+portfolioViewCell.appendChild(info);
+portfolioViewCell.appendChild(portfolioView);
 
 let marketView = document.createElement("table");
 marketView.style.width = "100%";
 marketViewCell.appendChild(marketView);
 
-displayInventory(invent);
-displayMarket(market);
+setInterval(()=>displayMarket(marketStore), 10000);
+displayPortfolio(playerAssets);
 
-function createItem(name, price, owner) {
-  let i = BozoECS.copyComponent(item);
-  i.properties.name = name;
-  i.properties.price = price;
-  i.properties.ownerId = owner.id;
-  return i;
+const itemTypes = [
+  "food",
+  "grocery",
+  "furniture",
+  "entertainment",
+  "electronics",
+  "art",
+  ]
+  
+setInterval(() => {
+  marketStore.items.push(createItem("generic", random(10, 50).toFixed(2), parseInt(random(10, 100)), itemTypes[parseInt(random(0, itemTypes.length - 1))], parseInt(random(traders.length, 10000))))
+}, 1000)
+
+function createItem(name, price, amount, type, ownerId) {
+  let product = BozoECS.copyComponent(item);
+  product.properties.name = name;
+  product.properties.price = price;
+  product.properties.ownerId = ownerId;
+  product.properties.amount = amount
+  product.properties.type = type;
+  return product;
 }
 
-function itemDetails(item) {
-  return `itemName: ${item.properties.name}\nitemPrice ($): ${item.properties.price}\nitemType: ${item.properties.type}`;
+function buyItems(item, amount, buyer) {
+  if (item.properties.amount < amount) return console.log("not enough stock");
+  let [buyerAssets] = BozoECS.getComponents(buyer, [portfolio]);
+  if (item.properties.price * amount > buyerAssets.credits) return console.log("not enough money");
+  item.properties.amount -= amount;
+  if (item.properties.ownerId != buyer.id) buyerAssets.credits -= item.properties.price * amount;
+  let product = createItem(item.properties.name, item.properties.price, amount, item.properties.type, buyer.id);
+  console.log(`buying ${amount} units of ${item.properties.name} for $${item.properties.price} each`);
+  buyerAssets.items.push(product);
 }
 
-function displayMarket(market) {
+function sellItems(item, amount, marketStore) {
+  if (item.properties.amount < amount) return console.log("not enough stock");
+  console.log(`selling ${amount} units of ${item.properties.name} to market`);
+  item.properties.amount -= amount;
+  let product = createItem(item.properties.name, item.properties.price, amount, item.properties.type, item.properties.ownerId);
+  marketStore.items.push(product);
+}
+
+function makeRow() {
+  return [document.createElement("tr"), document.createElement("td")];
+}
+
+function makeButton() {
+  return document.createElement("button");
+}
+
+function makeInput(name, type) {
+  let input = document.createElement("input");
+  input.type = type;
+  input.placeholder = name;
+  return input;
+}
+
+function getDetails(item) {
+  return `item name: ${item.properties.name}\nprice per unit ($): ${item.properties.price}\nitem type: ${item.properties.type}\nitem stock: ${item.properties.amount}\nowner ID: ${item.properties.ownerId}`;
+}
+
+function displayMarket(marketStore) {
   marketView.innerHTML = "";
-  for (let i = 0; i < market.length; i++) {
-    let item = document.createElement("tr");
-    let data = document.createElement("td");
-    let buy = document.createElement("button");
+  for (let i = 0; i < marketStore.items.length; i++) {
+    let [row, data] = makeRow();
+    let amount = makeInput("amount", "number");
+    let buy = makeButton();
     buy.innerText = "buy product";
     buy.onclick = () => {
-      console.log(`buying ${market[i].properties.name} for $${market[i].properties.price}`);
-      let sign = market[i].properties.ownerId != baseEntity.id ? -1 : 0;
-      invent.wallet += sign * market[i].properties.price;
-      buy.disabled = true;
-      buy.innerText = "sold";
-      invent.items.push(market.splice(i, 1)[0]);
-      displayInventory(invent);
+      buyItems(marketStore.items[i], parseInt(amount.value), player);
+      if (marketStore.items[i].properties.amount <= 0) {
+        buy.disabled = true;
+        buy.innerText = "sold out";
+        marketStore.items.splice(i, 1);
+      }
+      displayPortfolio(playerAssets);
     }
-    data.innerText = itemDetails(market[i]);
+    data.innerText = getDetails(marketStore.items[i]);
+    data.appendChild(amount);
     data.appendChild(buy);
-    item.appendChild(data);
-    marketView.appendChild(item);
+    row.appendChild(data);
+    row.style.background = "lightgrey";
+    marketView.appendChild(row);
   }
 }
 
-function displayInventory(inventory) {
-  balance.innerText = inventory.wallet;
-  inventoryView.innerHTML = "";
-  for (let i = 0; i < inventory.items.length; i++) {
-    let item = document.createElement("tr");
-    let data = document.createElement("td");
-    let sell = document.createElement("button");
+function displayPortfolio(portfolio) {
+  balance.innerText = portfolio.credits;
+  portfolioView.innerHTML = "";
+  for (let i = 0; i < portfolio.items.length; i++) {
+    let [row, data] = makeRow();
+    let amount = makeInput("amount", "number");
+    let sell = makeButton();
     sell.innerText = "sell product";
     sell.onclick = () => {
-      console.log(`selling: ${inventory.items[i].properties.name}`);
-      market.push(invent.items.splice(i, 1)[0]);
-      displayInventory(inventory);
+      sellItems(portfolio.items[i], parseInt(amount.value), marketStore);
+      if (portfolio.items[i].properties.amount <= 0) {
+        portfolio.items.splice(i, 1);
+      }
+      displayPortfolio(portfolio);
     }
-    data.innerText = itemDetails(invent.items[i]);
+    data.innerText = getDetails(portfolio.items[i]);
+    data.appendChild(amount);
     data.appendChild(sell);
-    item.appendChild(data);
-    inventoryView.appendChild(item);
+    row.appendChild(data);
+    row.style.background = "lightgrey";
+    portfolioView.appendChild(row);
   }
 }
