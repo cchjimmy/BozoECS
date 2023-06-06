@@ -8,7 +8,8 @@ const inventory = BozoECS.createComponent("inventory", {
 const item = BozoECS.createComponent("item", {
   price: 0,
   name: "n/a",
-  type: "n/a"
+  type: "n/a",
+  owner: -1
 })
 
 let baseEntity = BozoECS.createEntity();
@@ -31,7 +32,7 @@ let make = document.createElement("button");
 make.innerText = "make product";
 make.onclick = () => {
   console.log(`creating: ${name.value}`);
-  let product = createItem(name.value, parseFloat(price.value));
+  let product = createItem(name.value, parseFloat(price.value), baseEntity);
   invent.items.push(product);
   invent.wallet -= product.properties.price;
   displayInventory(invent);
@@ -89,11 +90,16 @@ marketViewCell.appendChild(marketView);
 displayInventory(invent);
 displayMarket(market);
 
-function createItem(name, price) {
+function createItem(name, price, owner) {
   let i = BozoECS.copyComponent(item);
-  i.properties.name = name ?? i.properties.name;
-  i.properties.price = price ?? i.properties.price;
+  i.properties.name = name;
+  i.properties.price = price;
+  i.properties.ownerId = owner.id;
   return i;
+}
+
+function itemDetails(item) {
+  return `itemName: ${item.properties.name}\nitemPrice ($): ${item.properties.price}\nitemType: ${item.properties.type}`;
 }
 
 function displayMarket(market) {
@@ -104,11 +110,15 @@ function displayMarket(market) {
     let buy = document.createElement("button");
     buy.innerText = "buy product";
     buy.onclick = () => {
-      console.log(`buying: ${market[i].properties.name}`);
-      market.splice(i, 1);
-      displayMarket(market);
+      console.log(`buying ${market[i].properties.name} for $${market[i].properties.price}`);
+      let sign = market[i].properties.ownerId != baseEntity.id ? -1 : 0;
+      invent.wallet += sign * market[i].properties.price;
+      buy.disabled = true;
+      buy.innerText = "sold";
+      invent.items.push(market.splice(i, 1)[0]);
+      displayInventory(invent);
     }
-    data.innerText = `itemName: ${market[i].properties.name}\nitemPrice ($): ${market[i].properties.price}`;
+    data.innerText = itemDetails(market[i]);
     data.appendChild(buy);
     item.appendChild(data);
     marketView.appendChild(item);
@@ -125,10 +135,10 @@ function displayInventory(inventory) {
     sell.innerText = "sell product";
     sell.onclick = () => {
       console.log(`selling: ${inventory.items[i].properties.name}`);
-      market.push(inventory.items.splice(i, 1)[0]);
+      market.push(invent.items.splice(i, 1)[0]);
       displayInventory(inventory);
     }
-    data.innerText = `itemName: ${inventory.items[i].properties.name}\nitemPrice ($): ${invent.items[i].properties.price}`;
+    data.innerText = itemDetails(invent.items[i]);
     data.appendChild(sell);
     item.appendChild(data);
     inventoryView.appendChild(item);
