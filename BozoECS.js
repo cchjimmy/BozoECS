@@ -16,7 +16,7 @@ BozoECS.createSystem = (update = () => { }) => {
 BozoECS.createComponent = (name, properties) => {
   return {
     name,
-    properties,
+    properties: structuredClone(properties)
   }
 }
 
@@ -29,9 +29,9 @@ BozoECS.createEntity = () => {
   }
 }
 
-BozoECS.update = (world) => {
+BozoECS.update = (world, ...args) => {
   for (let i = 0; i < world.systems.length; i++) {
-    world.systems[i].update(world);
+    world.systems[i].update(world, ...args);
   }
 }
 
@@ -163,6 +163,10 @@ BozoECS.instantiate = (entity) => {
   let e = BozoECS.createEntity();
   e.components = structuredClone(entity.components);
   return e;
+}
+
+BozoECS.copyComponent = (component) => {
+  return BozoECS.createComponent(component.name, component.properties);
 }
 
 export default BozoECS;

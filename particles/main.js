@@ -1,46 +1,53 @@
-import BozoECS from "./BozoECS.js";
+import BozoECS from "../BozoECS.js";
+import { random } from "../helper.js";
+
+const container = document.createElement("div");
+
+container.innerText = "FPS: ";
+
+const fps = document.createElement("span");
+container.appendChild(fps);
+document.body.appendChild(container);
 
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d");
-const fps = document.querySelector("span");
 
 canvas.width = innerWidth;
 canvas.height = innerHeight;
-
 document.body.appendChild(canvas);
 
-let position = BozoECS.createComponent("position", {
+const position = BozoECS.createComponent("position", {
   x: 0,
   y: 0
 });
 
-let velocity = BozoECS.createComponent("velocity", {
+const velocity = BozoECS.createComponent("velocity", {
   x: 0,
   y: 0
 });
 
-let acceleration = BozoECS.createComponent("acceleration", {
+const acceleration = BozoECS.createComponent("acceleration", {
   x: 0,
   y: -981
 })
 
-let appearance = BozoECS.createComponent("appearance", {
+const appearance = BozoECS.createComponent("appearance", {
   color: "black",
   radius: 10
 })
 
-let time = BozoECS.createComponent("time", {
+const time = BozoECS.createComponent("time", {
   value: 0
 })
 
-let spawn = BozoECS.createComponent("spawn", {
+const spawn = BozoECS.createComponent("spawn", {
   x: 0,
   y: 0
 })
 
-let movement = BozoECS.createSystem(world => {
+const movement = BozoECS.createSystem(world => {
   BozoECS.forEach(world, [spawn, position, velocity, acceleration, time], (s, p, v, a, t) => {
-    t.value += 0.001;
+    t.value += dt;
     p.x = s.x + v.x * t.value + 0.5 * a.x * t.value ** 2;
     p.y = s.y + v.y * t.value + 0.5 * a.y * t.value ** 2;
     if (p.x > canvas.width || p.x < 0) {
@@ -54,7 +61,7 @@ let movement = BozoECS.createSystem(world => {
   })
 });
 
-let render = BozoECS.createSystem(world => {
+const render = BozoECS.createSystem(world => {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   BozoECS.forEach(world, [position, appearance], (p, a) => {
     ctx.strokeStyle = a.color;
@@ -102,8 +109,4 @@ function update() {
   past += dt;
   dt /= 1000;
   requestAnimationFrame(update);
-}
-
-function random(min, max) {
-  return Math.random() * (max - min) + min;
 }
