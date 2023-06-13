@@ -16,31 +16,31 @@ canvas.width = innerWidth;
 canvas.height = innerHeight;
 document.body.appendChild(canvas);
 
-const position = BozoECS.createComponent("position", {
+const position = BozoECS.createComponent({
   x: 0,
   y: 0
 });
 
-const velocity = BozoECS.createComponent("velocity", {
+const velocity = BozoECS.createComponent({
   x: 0,
   y: 0
 });
 
-const acceleration = BozoECS.createComponent("acceleration", {
+const acceleration = BozoECS.createComponent({
   x: 0,
   y: -981
 })
 
-const appearance = BozoECS.createComponent("appearance", {
+const appearance = BozoECS.createComponent({
   color: "black",
   radius: 10
 })
 
-const time = BozoECS.createComponent("time", {
+const time = BozoECS.createComponent({
   value: 0
 })
 
-const spawn = BozoECS.createComponent("spawn", {
+const spawn = BozoECS.createComponent({
   x: 0,
   y: 0
 })
@@ -94,8 +94,10 @@ for (let i = 0; i < entities.length; i++) {
 
   entities[i] = instance;
 }
+
+let systems = [render, movement];
   
-let world = BozoECS.createWorld(entities, [render, movement]);
+let world = BozoECS.createWorld(entities, systems);
 
 let past = performance.now();
 let dt = 0;

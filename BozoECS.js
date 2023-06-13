@@ -17,18 +17,20 @@ BozoECS.createSystem = (update = () => { }) => {
   }
 }
 
-BozoECS.createComponent = (name, properties) => {
+BozoECS.createComponent = (properties) => {
   return {
-    name,
-    properties: structuredClone(properties)
+    id: BozoECS.getId(),
+    properties
   }
 }
 
-BozoECS.nextId = 0;
+BozoECS.getId = () => {
+  return crypto.randomUUID();
+}
 
 BozoECS.createEntity = () => {
   return {
-    id: BozoECS.nextId++,
+    id: BozoECS.getId(),
     components: {}
   }
 }
@@ -41,27 +43,27 @@ BozoECS.update = (world, ...args) => {
 
 BozoECS.addComponents = (entity, components) => {
   for (let i = 0; i < components.length; i++) {
-    entity.components[components[i].name] = structuredClone(components[i].properties);
+    entity.components[components[i].id] = structuredClone(components[i].properties);
   }
 }
 
 BozoECS.removeComponents = (entity, components) => {
   for (let i = 0; i < components.length; i++) {
-    delete entity.components[components[i].name];
+    delete entity.components[components[i].id];
   }
 }
 
 BozoECS.getComponents = (entity, components) => {
   let result = new Array(components.length);
   for (let i = 0; i < components.length; i++) {
-    result[i] = entity.components[components[i].name];
+    result[i] = entity.components[components[i].id];
   }
   return result;
 }
 
 BozoECS.hasComponents = (entity, components) => {
   for (let i = 0; i < components.length; i++) {
-    if (!entity.components.hasOwnProperty(components[i].name)) return false;
+    if (!entity.components.hasOwnProperty(components[i].id)) return false;
   }
   return true;
 }
@@ -124,7 +126,7 @@ BozoECS.forEach = (world, components, callback) => {
   // figure out archetype
   let archetype = 0;
   for (let i = 0; i < components.length; i++) {
-    archetype += world.compEnum[components[i].name];
+    archetype += world.compEnum[components[i].id];
   }
   
   // return if archetype does not exist due to components not existing in world.compEnum
@@ -138,16 +140,16 @@ BozoECS.forEach = (world, components, callback) => {
     
     // otherwise append components to "comps"
     for (let i = 0; i < components.length; i++) {
-      comps[components[i].name] ??= [];
-      comps[components[i].name].push(...world.archetypes[a][components[i].name]);
+      comps[components[i].id] ??= [];
+      comps[components[i].id].push(...world.archetypes[a][components[i].id]);
     }
   }
   
   // call the callback function
-  for (let i = 0; i < comps[components[0].name].length; i++) {
+  for (let i = 0; i < comps[components[0].id].length; i++) {
     let args = new Array(components.length);
     for (let j = 0; j < components.length; j++) {
-      args[j] = comps[components[j].name][i];
+      args[j] = comps[components[j].id][i];
     }
     callback(...args);
   }
