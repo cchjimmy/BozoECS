@@ -19,18 +19,14 @@ BozoECS.createSystem = (update = () => { }) => {
 
 BozoECS.createComponent = (properties) => {
   return {
-    id: BozoECS.getId(),
+    id: crypto.randomUUID(),
     properties
   }
 }
 
-BozoECS.getId = () => {
-  return crypto.randomUUID();
-}
-
 BozoECS.createEntity = () => {
   return {
-    id: BozoECS.getId(),
+    id: crypto.randomUUID(),
     components: {}
   }
 }
@@ -122,34 +118,39 @@ BozoECS.addEntities = (world, entities) => {
   }
 }
 
-BozoECS.forEach = (world, components, callback) => {
+BozoECS.getComponentLists = (world, components) => {
   // figure out archetype
   let archetype = 0;
   for (let i = 0; i < components.length; i++) {
     archetype += world.compEnum[components[i].id];
   }
   
-  // return if archetype does not exist due to components not existing in world.compEnum
+  // return if archetype does not exist due to components not existing in world.compEnum or it is an archetype with no components
   if (!archetype) return;
   
   // search for archetypes with those components
-  let comps = {};
+  let comps = new Array(components.length);
   for (let a in world.archetypes) {
     // if archetype does not have all required components then skip
     if ((archetype & a) !== archetype) continue;
-    
     // otherwise append components to "comps"
     for (let i = 0; i < components.length; i++) {
-      comps[components[i].id] ??= [];
-      comps[components[i].id].push(...world.archetypes[a][components[i].id]);
+      comps[i] ??= [];
+      comps[i].push(...world.archetypes[a][components[i].id]);
     }
   }
   
+  return comps;
+}
+
+BozoECS.forEach = (world, components, callback) => {
+  let comps = BozoECS.getComponentLists(world, components);
+  
   // call the callback function
-  for (let i = 0; i < comps[components[0].id].length; i++) {
+  for (let i = 0; i < comps[0].length; i++) {
     let args = new Array(components.length);
-    for (let j = 0; j < components.length; j++) {
-      args[j] = comps[components[j].id][i];
+    for (let j = 0; j < comps.length; j++) {
+      args[j] = comps[j][i];
     }
     callback(...args);
   }
