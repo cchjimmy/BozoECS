@@ -27,11 +27,8 @@ const movement = BozoECS.createSystem(world => {
 
 const randomize = BozoECS.createSystem(world => {
   BozoECS.forEach(world, [spawn, position, time], (s, p, t) => {
-    if (p.x > canvas.width || p.x < 0) {
+    if (p.x > canvas.width || p.x < 0 || p.y > canvas.height || p.y < 0) {
       s.x = random(0, canvas.width);
-      t.value = 0;
-    }
-    if (p.y > canvas.height || p.y < 0) {
       s.y = random(0, canvas.height);
       t.value = 0;
     }
@@ -58,10 +55,7 @@ let entities = new Array(600);
 for (let i = 0; i < entities.length; i++) {
   let instance = BozoECS.instantiate(baseEntity);
 
-  let [s, v, a] = BozoECS.getComponents(instance, [spawn, velocity, appearance]);
-
-  s.x = random(0, canvas.width);
-  s.y = random(0, canvas.height);
+  let [v, a] = BozoECS.getComponents(instance, [velocity, appearance]);
 
   v.x = random(-maxSpeed, maxSpeed);
   v.y = random(-maxSpeed, maxSpeed);
@@ -90,7 +84,7 @@ let dt = 0;
 requestAnimationFrame(update);
 
 function update() {
-  BozoECS.update(world, ctx, dt);
+  BozoECS.update(world);
   dt = performance.now() - past;
   past += dt;
   dt /= 1000;
