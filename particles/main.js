@@ -1,5 +1,6 @@
 import BozoECS from "../BozoECS.js";
 import { random } from "../helper.js";
+import { time, position, velocity, acceleration, spawn, appearance } from "../components.js";
 
 const container = document.createElement("div");
 
@@ -12,44 +13,20 @@ document.body.appendChild(container);
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d");
 
-canvas.width = innerWidth;
-canvas.height = innerHeight;
+canvas.width = 400;
+canvas.height = 400;
 document.body.appendChild(canvas);
-
-const position = BozoECS.createComponent({
-  x: 0,
-  y: 0
-});
-
-const velocity = BozoECS.createComponent({
-  x: 0,
-  y: 0
-});
-
-const acceleration = BozoECS.createComponent({
-  x: 0,
-  y: -981
-})
-
-const appearance = BozoECS.createComponent({
-  color: "black",
-  radius: 10
-})
-
-const time = BozoECS.createComponent({
-  value: 0
-})
-
-const spawn = BozoECS.createComponent({
-  x: 0,
-  y: 0
-})
 
 const movement = BozoECS.createSystem(world => {
   BozoECS.forEach(world, [spawn, position, velocity, acceleration, time], (s, p, v, a, t) => {
-    t.value += dt;
     p.x = s.x + v.x * t.value + 0.5 * a.x * t.value ** 2;
     p.y = s.y + v.y * t.value + 0.5 * a.y * t.value ** 2;
+    t.value += dt;
+  })
+});
+
+const randomize = BozoECS.createSystem(world => {
+  BozoECS.forEach(world, [spawn, position, time], (s, p, t) => {
     if (p.x > canvas.width || p.x < 0) {
       s.x = random(0, canvas.width);
       t.value = 0;
@@ -59,7 +36,7 @@ const movement = BozoECS.createSystem(world => {
       t.value = 0;
     }
   })
-});
+})
 
 const render = BozoECS.createSystem(world => {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -90,12 +67,12 @@ for (let i = 0; i < entities.length; i++) {
   v.y = random(-maxSpeed, maxSpeed);
 
   a.color = `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`;
-  a.radius = random(10, 50);
+  a.radius = random(5, 20);
 
   entities[i] = instance;
 }
 
-let systems = [render, movement];
+let systems = [render, movement, randomize];
   
 let world = BozoECS.createWorld(entities, systems);
 
@@ -113,10 +90,10 @@ let dt = 0;
 requestAnimationFrame(update);
 
 function update() {
-  fps.innerText = (1 / dt).toFixed(0);
-  BozoECS.update(world);
+  BozoECS.update(world, ctx, dt);
   dt = performance.now() - past;
   past += dt;
   dt /= 1000;
+  fps.innerText = parseInt(1 / dt);
   requestAnimationFrame(update);
 }
