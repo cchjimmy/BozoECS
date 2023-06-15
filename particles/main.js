@@ -99,6 +99,14 @@ let systems = [render, movement];
   
 let world = BozoECS.createWorld(entities, systems);
 
+let main = entities[0];
+
+let [a] = BozoECS.getComponents(main, [appearance]);
+
+a.color = "white";
+
+BozoECS.addEntities(world, [main]);
+
 let past = performance.now();
 let dt = 0;
 
