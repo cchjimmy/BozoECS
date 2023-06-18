@@ -70,13 +70,13 @@ let systems = [render, movement, randomize];
   
 let world = BozoECS.createWorld(entities, systems);
 
-let main = entities[0];
+let test = entities[0];
 
-let [a] = BozoECS.getComponents(main, [appearance]);
+let [a] = BozoECS.getComponents(test, [appearance]);
 
 a.color = "white";
 
-BozoECS.addEntities(world, [main]);
+BozoECS.addEntities(world, [test]);
 
 let past = performance.now();
 let dt = 0;

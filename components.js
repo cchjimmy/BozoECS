@@ -28,3 +28,5 @@ export const spawn = BozoECS.createComponent({
   x: 0,
   y: 0
 })
+
+export const playerTag = BozoECS.createComponent();

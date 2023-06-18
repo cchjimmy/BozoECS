@@ -1,5 +1,5 @@
 import BozoECS from "../BozoECS.js";
-import { position, velocity, appearance  } from "../components.js";
+import { position, velocity, appearance, playerTag } from "../components.js";
 import { random } from "../helper.js";
 
 const container = document.createElement("div");
@@ -31,20 +31,26 @@ const bounce = BozoECS.createSystem(world => {
     let futureX = p.x + v.x * dt;
     if (futureX < 0 || futureX > canvas.width) {
       v.x *= -1;
+      p.x = v.x < 0 ? canvas.width : 0;
     }
     let futureY = p.y + v.y * dt;
     if (futureY < 0 || futureY > canvas.height) {
       v.y *= -1;
+      p.y = v.y < 0 ? canvas.height : 0;
     }
   })
 })
 
 const render = BozoECS.createSystem(world => {
+  let [cameraPos] = BozoECS.getComponentLists(world, [position, playerTag]);
+  
+  cameraPos = cameraPos[0];
+  
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   BozoECS.forEach(world, [position, appearance], (p, a) => {
     ctx.strokeStyle = a.color;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, a.radius, 0, 2 * Math.PI);
+    ctx.arc(p.x - cameraPos.x + canvas.width * 0.5, p.y - cameraPos.y + canvas.height * 0.5, a.radius, 0, 2 * Math.PI);
     ctx.stroke();
   })
 })
@@ -70,6 +76,10 @@ for (let i = 0; i < entities.length; i++) {
   
   a.color = "white";
 }
+
+BozoECS.addComponents(entities[0], [playerTag]);
+
+BozoECS.getComponents(entities[0], [appearance])[0].color = "green";
 
 let systems = [render, bounce, movement];
 

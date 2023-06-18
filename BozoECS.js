@@ -83,10 +83,12 @@ BozoECS.addEntities = (world, entities) => {
     }
     
     // if current archetype does not exist, create a new one
-    world.archetypes[archetype] ??= { ids: [] };
+    if (!world.archetypes[archetype]) {
+      world.archetypes[archetype] = { ids: [] };
     
-    for (let comp in entities[i].components) {
-      world.archetypes[archetype][comp] ??= [];
+      for (let comp in entities[i].components) {
+        world.archetypes[archetype][comp] = [];
+      }
     }
     
     // compare old archetype if exist
@@ -111,9 +113,7 @@ BozoECS.addEntities = (world, entities) => {
       index = world.archetypes[archetype].ids.push(entities[i].id) - 1;
       
       world.archetypeMap.set(entities[i].id, archetype);
-    }
-    
-    if (oldArchetype == archetype) {
+    } else {
       index = BozoECS.findIndex(world.archetypes[archetype], entities[i]);
     }
     
