@@ -9,7 +9,7 @@ BozoECS.createWorld = (entities, systems) => {
   BozoECS.defineSystems(world, systems);
   BozoECS.addEntities(world, entities);
   return world;
-};
+}
 
 BozoECS.createSystem = (update = () => { }) => {
   return {
@@ -70,7 +70,7 @@ BozoECS.defineSystems = (world, systems) => {
 
 BozoECS.addEntities = (world, entities) => {
   let unique = Object.keys(world.compEnums).length;
-  
+
   for (let i = 0; i < entities.length; i++) {
     // figure out archetype
     let archetype = 0;
@@ -81,42 +81,42 @@ BozoECS.addEntities = (world, entities) => {
       }
       archetype += world.compEnums[comp];
     }
-    
+
     // if current archetype does not exist, create a new one
     if (!world.archetypes[archetype]) {
       world.archetypes[archetype] = { ids: [] };
-    
+
       for (let comp in entities[i].components) {
         world.archetypes[archetype][comp] = [];
       }
     }
-    
+
     // compare old archetype if exist
     let oldArchetype = world.archetypeMap.get(entities[i].id);
-    
+
     let index;
-    
+
     if (oldArchetype != archetype) {
       // remove entity from old archetype if it is different from current archetype
       if (!isNaN(oldArchetype)) {
         index = BozoECS.findIndex(world.archetypes[oldArchetype], entities[i]);
-        
+
         for (let prop in world.archetypes[oldArchetype]) {
           world.archetypes[oldArchetype][prop].splice(index, 1);
         }
-        
+
         // remove old archetype if it does not contain any entities
-        if (world.archetypes[oldArchetype].ids.length == 0) delete world.archetypes[oldArchetype]; 
+        if (world.archetypes[oldArchetype].ids.length == 0) delete world.archetypes[oldArchetype];
       }
-    
+
       // store entity id
       index = world.archetypes[archetype].ids.push(entities[i].id) - 1;
-      
+
       world.archetypeMap.set(entities[i].id, archetype);
     } else {
       index = BozoECS.findIndex(world.archetypes[archetype], entities[i]);
     }
-    
+
     // store components in archetype;
     for (let comp in entities[i].components) {
       // clone entity components into archetype records
@@ -131,10 +131,10 @@ BozoECS.getComponentLists = (world, components) => {
   for (let i = 0; i < components.length; i++) {
     archetype += world.compEnums[components[i].id];
   }
-  
+
   // return if archetype does not exist due to components not existing in world.compEnums or it is an archetype with no components
   if (!archetype) return;
-  
+
   // search for archetypes with those components
   let comps = new Array(components.length);
   for (let a in world.archetypes) {
@@ -146,13 +146,13 @@ BozoECS.getComponentLists = (world, components) => {
       comps[i].push(...world.archetypes[a][components[i].id]);
     }
   }
-  
+
   return comps;
 }
 
 BozoECS.forEach = (world, components, callback) => {
   let comps = BozoECS.getComponentLists(world, components);
-  
+
   // call the callback function
   for (let i = 0; i < comps[0].length; i++) {
     let args = new Array(components.length);
