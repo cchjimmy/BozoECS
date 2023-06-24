@@ -30,3 +30,11 @@ export const spawn = BozoECS.createComponent({
 })
 
 export const playerTag = BozoECS.createComponent();
+
+const canvas = document.createElement("canvas");
+const ctx = canvas.getContext("2d");
+
+export const ctx2d = BozoECS.createComponent({
+  canvas,
+  ctx
+}, true);

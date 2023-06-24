@@ -17,10 +17,11 @@ BozoECS.createSystem = (update = () => { }) => {
   }
 }
 
-BozoECS.createComponent = (properties) => {
+BozoECS.createComponent = (properties, reference = false) => {
   return {
     id: crypto.randomUUID(),
-    properties
+    properties,
+    reference
   }
 }
 
@@ -39,7 +40,11 @@ BozoECS.update = (world, ...args) => {
 
 BozoECS.addComponents = (entity, components) => {
   for (let i = 0; i < components.length; i++) {
-    entity.components[components[i].id] = structuredClone(components[i].properties);
+    let comp = {};
+    comp.properties = components[i].reference ? components[i].properties : structuredClone(components[i].properties);
+    comp.reference = components[i].reference;
+    
+    entity.components[components[i].id] = comp;
   }
 }
 
@@ -52,7 +57,7 @@ BozoECS.removeComponents = (entity, components) => {
 BozoECS.getComponents = (entity, components) => {
   let result = new Array(components.length);
   for (let i = 0; i < components.length; i++) {
-    result[i] = entity.components[components[i].id];
+    result[i] = entity.components[components[i].id].properties;
   }
   return result;
 }
@@ -120,7 +125,7 @@ BozoECS.addEntities = (world, entities) => {
     // store components in archetype;
     for (let comp in entities[i].components) {
       // clone entity components into archetype records
-      world.archetypes[archetype][comp][index] = structuredClone(entities[i].components[comp]);
+      world.archetypes[archetype][comp][index] = entities[i].components[comp].reference ? entities[i].components[comp].properties : structuredClone(entities[i].components[comp].properties);
     }
   }
 }
@@ -132,8 +137,8 @@ BozoECS.getComponentLists = (world, components) => {
     archetype += world.compEnums[components[i].id];
   }
 
-  // return if archetype does not exist due to components not existing in world.compEnums or it is an archetype with no components
-  if (!archetype) return;
+  // return if archetype does not exist due to components not existing in world.compEnums
+  if (isNaN(archetype)) return;
 
   let comps = new Array(components.length);
   for (let i = 0; i < comps.length; i++) {
@@ -168,7 +173,9 @@ BozoECS.forEach = (world, components, callback) => {
 
 BozoECS.instantiate = (entity) => {
   let e = BozoECS.createEntity();
-  e.components = structuredClone(entity.components);
+  for (let comp in entity.components) {
+    e.components[comp] = entity.components[comp].reference ? entity.components[comp] : structuredClone(entity.components[comp]);
+  }
   return e;
 }
 

@@ -1,6 +1,6 @@
 import BozoECS from "../BozoECS.js";
 import { random } from "../helper.js";
-import { time, position, velocity, acceleration, spawn, appearance } from "../components.js";
+import { time, position, velocity, acceleration, spawn, appearance, ctx2d } from "../components.js";
 
 const container = document.createElement("div");
 
@@ -9,13 +9,6 @@ container.innerText = "FPS: ";
 const fps = document.createElement("span");
 container.appendChild(fps);
 document.body.appendChild(container);
-
-const canvas = document.createElement("canvas");
-const ctx = canvas.getContext("2d");
-
-canvas.width = 400;
-canvas.height = 400;
-document.body.appendChild(canvas);
 
 const movement = BozoECS.createSystem(world => {
   BozoECS.forEach(world, [spawn, position, velocity, acceleration, time], (s, p, v, a, t) => {
@@ -26,6 +19,11 @@ const movement = BozoECS.createSystem(world => {
 });
 
 const randomize = BozoECS.createSystem(world => {
+  let [c] = BozoECS.getComponentLists(world, [ctx2d]);
+  
+  const ctx = c[0].ctx;
+  const canvas = c[0].canvas;
+  
   BozoECS.forEach(world, [spawn, position, time], (s, p, t) => {
     if (p.x > canvas.width || p.x < 0 || p.y > canvas.height || p.y < 0) {
       s.x = random(0, canvas.width);
@@ -36,6 +34,11 @@ const randomize = BozoECS.createSystem(world => {
 })
 
 const render = BozoECS.createSystem(world => {
+  let [c] = BozoECS.getComponentLists(world, [ctx2d]);
+  
+  const ctx = c[0].ctx;
+  const canvas = c[0].canvas;
+  
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   BozoECS.forEach(world, [position, appearance], (p, a) => {
     ctx.strokeStyle = a.color;
@@ -70,13 +73,18 @@ let systems = [render, movement, randomize];
   
 let world = BozoECS.createWorld(entities, systems);
 
-let test = entities[0];
+let ctx = BozoECS.createEntity();
 
-let [a] = BozoECS.getComponents(test, [appearance]);
+BozoECS.addComponents(ctx, [ctx2d]);
 
-a.color = "white";
+let [c] = BozoECS.getComponents(ctx, [ctx2d]);
 
-BozoECS.addEntities(world, [test]);
+document.body.appendChild(c.canvas);
+
+c.canvas.width = 400;
+c.canvas.height = 400;
+
+BozoECS.addEntities(world, [ctx]);
 
 let past = performance.now();
 let dt = 0;
