@@ -82,7 +82,7 @@ BozoECS.addEntities = (world, entities) => {
       archetype += world.compEnums[comp];
     }
 
-    // if current archetype does not exist, create a new one
+    // if current archetype does not exist, create it
     if (!world.archetypes[archetype]) {
       world.archetypes[archetype] = { ids: [] };
 
@@ -135,14 +135,17 @@ BozoECS.getComponentLists = (world, components) => {
   // return if archetype does not exist due to components not existing in world.compEnums or it is an archetype with no components
   if (!archetype) return;
 
-  // search for archetypes with those components
   let comps = new Array(components.length);
+  for (let i = 0; i < comps.length; i++) {
+    comps[i] = [];
+  }
+
+  // search for archetypes with those components
   for (let a in world.archetypes) {
     // if archetype does not have all required components then skip
     if ((archetype & a) !== archetype) continue;
     // otherwise append components to "comps"
     for (let i = 0; i < components.length; i++) {
-      comps[i] ??= [];
       comps[i].push(...world.archetypes[a][components[i].id]);
     }
   }

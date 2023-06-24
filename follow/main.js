@@ -42,9 +42,9 @@ const bounce = BozoECS.createSystem(world => {
 })
 
 const render = BozoECS.createSystem(world => {
-  let [cameraPos] = BozoECS.getComponentLists(world, [position, playerTag]);
+  let [positions] = BozoECS.getComponentLists(world, [position, playerTag]);
 
-  cameraPos = cameraPos[0];
+  let cameraPos = positions[0];
 
   // background
   ctx.fillRect(0, 0, canvas.width, canvas.height);
