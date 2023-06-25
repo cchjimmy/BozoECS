@@ -4,7 +4,7 @@ BozoECS.createWorld = (entities, systems) => {
   let world = {
     compEnums: {}, // for bitmasking
     archetypes: {}, // entity components storage
-    archetypeMap: new Map // entity to archetype mapping
+    archetypeMap: {} // entity to archetype mapping
   };
   BozoECS.defineSystems(world, systems);
   BozoECS.addEntities(world, entities);
@@ -43,7 +43,6 @@ BozoECS.addComponents = (entity, components) => {
     let comp = {};
     comp.properties = components[i].reference ? components[i].properties : structuredClone(components[i].properties);
     comp.reference = components[i].reference;
-    
     entity.components[components[i].id] = comp;
   }
 }
@@ -92,12 +91,12 @@ BozoECS.addEntities = (world, entities) => {
       world.archetypes[archetype] = { ids: [] };
 
       for (let comp in entities[i].components) {
-        world.archetypes[archetype][comp] = [];
+        world.archetypes[archetype][world.compEnums[comp]] = [];
       }
     }
 
     // compare old archetype if exist
-    let oldArchetype = world.archetypeMap.get(entities[i].id);
+    let oldArchetype = world.archetypeMap[entities[i].id];
 
     let index;
 
@@ -117,15 +116,15 @@ BozoECS.addEntities = (world, entities) => {
       // store entity id
       index = world.archetypes[archetype].ids.push(entities[i].id) - 1;
 
-      world.archetypeMap.set(entities[i].id, archetype);
+      world.archetypeMap[entities[i].id] = archetype;
     } else {
       index = BozoECS.findIndex(world.archetypes[archetype], entities[i]);
     }
 
     // store components in archetype;
     for (let comp in entities[i].components) {
-      // clone entity components into archetype records
-      world.archetypes[archetype][comp][index] = entities[i].components[comp].reference ? entities[i].components[comp].properties : structuredClone(entities[i].components[comp].properties);
+      // put entity components into archetype records
+      world.archetypes[archetype][world.compEnums[comp]][index] = entities[i].components[comp].reference ? entities[i].components[comp].properties : structuredClone(entities[i].components[comp].properties);
     }
   }
 }
@@ -151,7 +150,7 @@ BozoECS.getComponentLists = (world, components) => {
     if ((archetype & a) !== archetype) continue;
     // otherwise append components to "comps"
     for (let i = 0; i < components.length; i++) {
-      comps[i].push(...world.archetypes[a][components[i].id]);
+      comps[i].push(...world.archetypes[a][world.compEnums[components[i].id]]);
     }
   }
 
@@ -180,12 +179,13 @@ BozoECS.instantiate = (entity) => {
 }
 
 BozoECS.removeEntity = (world, entity) => {
-  let archetype = world.archetypeMap.get(entity.id);
+  let archetype = world.archetypeMap[entity.id];
   if (isNaN(archetype)) return;
   let index = BozoECS.findIndex(world.archetypes[archetype], entity);
   for (let prop in world.archetypes[archetype]) {
     world.archetypes[archetype][prop].splice(index, 1);
   }
+  delete world.archetypeMap[entity.id];
 }
 
 BozoECS.findIndex = (archetype, entity) => {
