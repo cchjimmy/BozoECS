@@ -1,0 +1,22 @@
+{
+  "name": "bozoecs",
+  "version": "1.0.0",
+  "description": "entity component system",
+  "main": "BozoECS.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cchjimmy/BozoECS.git"
+  },
+  "keywords": [
+    "ecs"
+  ],
+  "author": "cchjimmy",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cchjimmy/BozoECS/issues"
+  },
+  "homepage": "https://github.com/cchjimmy/BozoECS#readme"
+}
