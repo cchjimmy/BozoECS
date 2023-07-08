@@ -35,5 +35,3 @@ step 2: it is ready to use with the namespace BozoECS
 ```javascript
 console.log(BozoECS);
 ```
-
-[Documentation](https://cchjimmy.github.io/BozoECS/)
