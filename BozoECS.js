@@ -87,21 +87,17 @@
   }
 
   BozoECS.insertEntity = (world, entity, archetypeBit, componentObject) => {
-    if (!world.archetypes[archetypeBit]) {
-      world.archetypes[archetypeBit] = [];
-    }
-
+    world.archetypes[archetypeBit] ??= [];
     world.archetypes[archetypeBit].push(entity);
-    
     world.componentMap[entity] = componentObject;
-
     world.archetypeMap[entity] = archetypeBit;
   }
 
   BozoECS.getComponents = (world, entity, components) => {
+    let comps = world.componentMap[entity];
     let result = new Array(components.length);
     for (let i = 0; i < components.length; i++) {
-      result[i] = world.componentMap[entity][world.compEnums[components[i].id]];
+      result[i] = comps[world.compEnums[components[i].id]];
     }
     return result;
   }
@@ -124,12 +120,7 @@
       entities.push(...world.archetypes[a]);
     }
     for (let i = 0; i < entities.length; i++) {
-      let comps = world.componentMap[entities[i]];
-      let args = new Array(components.length);
-      for (let j = 0; j < components.length; j++) {
-        args[j] = comps[world.compEnums[components[j].id]];
-      }
-      callback(...args);
+      callback(...BozoECS.getComponents(world, entities[i], components));
     }
   }
 
