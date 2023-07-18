@@ -152,6 +152,7 @@
     if (index !== -1) archetype.splice(index, 1);
     let oldComponents = world.componentMap[entity] || {};
     delete world.componentMap[entity];
+    delete world.archetypeMap[entity];
     return oldComponents;
   }
 
