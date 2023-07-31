@@ -16,14 +16,13 @@
 }(typeof self !== 'undefined' ? self : this, function () {
   const BozoECS = {};
 
-  BozoECS.createWorld = (systems) => {
+  BozoECS.createWorld = () => {
     let world = {
       compEnums: {}, // for bitmasking
-      archetypes: {}, // entity components storage
+      archetypes: {},
       archetypeMap: {}, // entity to archetype mapping
       componentMap: {}
-    };
-    BozoECS.defineSystems(world, systems);
+    }
     return world;
   }
 
@@ -44,9 +43,9 @@
     return crypto.randomUUID();
   }
 
-  BozoECS.update = (world, ...args) => {
-    for (let i = 0; i < world.systems.length; i++) {
-      world.systems[i].update(world, ...args);
+  BozoECS.update = (world, systems, ...args) => {
+    for (let i = 0; i < systems.length; i++) {
+      systems[i].update(world, ...args);
     }
   }
 
@@ -95,9 +94,10 @@
 
   BozoECS.getComponents = (world, entity, components) => {
     let comps = world.componentMap[entity];
+    let e = world.compEnums;
     let result = new Array(components.length);
     for (let i = 0; i < components.length; i++) {
-      result[i] = comps[world.compEnums[components[i].id]];
+      result[i] = comps[e[components[i].id]];
     }
     return result;
   }
@@ -108,16 +108,13 @@
     return archetype & bit === bit;
   }
 
-  BozoECS.defineSystems = (world, systems) => {
-    world.systems = systems;
-  }
-
   BozoECS.forEach = (world, components, callback) => {
     let entities = [];
+    let archetypes = world.archetypes;
     let bit = BozoECS.getComponentBit(world, components);
-    for (let a in world.archetypes) {
-      if ((bit & a) !== bit) continue; // 
-      entities.push(...world.archetypes[a]);
+    for (let a in archetypes) {
+      if ((bit & a) !== bit) continue;
+      entities.push(...archetypes[a]);
     }
     for (let i = 0; i < entities.length; i++) {
       callback(...BozoECS.getComponents(world, entities[i], components));
@@ -126,14 +123,12 @@
 
   BozoECS.instantiate = (world, entity) => {
     let e = BozoECS.createEntity();
-    let archetype = world.archetypes[world.archetypeMap[entity]];
-    archetype.push(e);
+    let type = world.archetypeMap[entity];
+    let archetype = world.archetypes[type];
     let comps = world.componentMap[entity];
-    world.componentMap[e] = {};
-    for (let prop in comps) {
-      world.componentMap[e][prop] = structuredClone(comps[prop]);
-    }
-    world.archetypeMap[e] = world.archetypeMap[entity];
+    archetype.push(e);
+    world.componentMap[e] = structuredClone(comps);
+    world.archetypeMap[e] = type;
     return e;
   }
 
