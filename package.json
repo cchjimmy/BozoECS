@@ -1,11 +1,10 @@
 {
   "name": "bozoecs",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "entity component system",
   "main": "BozoECS.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "mini": "minify BozoECS.js > BozoECS.min.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",

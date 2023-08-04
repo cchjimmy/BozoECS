@@ -17,13 +17,12 @@
   const BozoECS = {};
 
   BozoECS.createWorld = () => {
-    let world = {
-      compEnums: {}, // for bitmasking
+    return {
+      compEnum: {}, // for bitmasking
       archetypes: {},
       archetypeMap: {}, // entity to archetype mapping
       componentMap: {}
     }
-    return world;
   }
 
   BozoECS.createSystem = (update = () => { }) => {
@@ -32,10 +31,10 @@
     }
   }
 
-  BozoECS.createComponent = (properties) => {
+  BozoECS.createComponent = (properties = {}, reference = false) => {
     return {
       id: crypto.randomUUID(),
-      factory: () => structuredClone(properties)
+      factory: reference ? () => properties : () => structuredClone(properties)
     }
   }
 
@@ -50,36 +49,30 @@
   }
 
   BozoECS.addComponents = (world, entity, components) => {
-    let bit = BozoECS.getComponentBit(world, components);
-    let entityType = world.archetypeMap[entity];
+    let bit = BozoECS.getCombinedBit(world.compEnum, components);
+    let entityType = world.archetypeMap[entity] || 0;
 
-    // if there are overlapping components, return
-    if (bit & entityType) return;
-
-    bit = bit + (entityType || 0);
+    bit |= entityType;
 
     let oldComponents = BozoECS.removeEntity(world, entity);
 
     for (let i = 0; i < components.length; i++) {
-      oldComponents[world.compEnums[components[i].id]] = components[i].factory();
+      oldComponents[world.compEnum[components[i].id]] = components[i].factory();
     }
 
     BozoECS.insertEntity(world, entity, bit, oldComponents);
   }
 
   BozoECS.removeComponents = (world, entity, components) => {
-    let bit = BozoECS.getComponentBit(world, components);
-    let entityType = world.archetypeMap[entity]
+    let bit = BozoECS.getCombinedBit(world.compEnum, components);
+    let entityType = world.archetypeMap[entity] || 0;
 
-    // if some input components do not exist in entity, return
-    if (bit & entityType !== bit) return;
-
-    bit = Math.abs(bit - (entityType || 0));
+    bit = entityType & ~bit;
 
     let oldComponents = BozoECS.removeEntity(world, entity);
 
     for (let i = 0; i < components.length; i++) {
-      delete oldComponents[world.compEnums[components[i].id]];
+      delete oldComponents[world.compEnum[components[i].id]];
     }
 
     BozoECS.insertEntity(world, entity, bit, oldComponents);
@@ -88,64 +81,78 @@
   BozoECS.insertEntity = (world, entity, archetypeBit, componentObject) => {
     world.archetypes[archetypeBit] ??= [];
     world.archetypes[archetypeBit].push(entity);
-    world.componentMap[entity] = componentObject;
     world.archetypeMap[entity] = archetypeBit;
+    for (let bit in componentObject) {
+      world.componentMap[bit] ??= {};
+      world.componentMap[bit][entity] = componentObject[bit];
+    }
   }
 
   BozoECS.getComponents = (world, entity, components) => {
-    let comps = world.componentMap[entity];
-    let e = world.compEnums;
     let result = new Array(components.length);
+    let comps = world.componentMap;
+    let e = world.compEnum;
     for (let i = 0; i < components.length; i++) {
-      result[i] = comps[e[components[i].id]];
+      result[i] = comps[e[components[i].id]][entity];
     }
     return result;
   }
 
   BozoECS.hasComponents = (world, entity, components) => {
-    let bit = BozoECS.getComponentBit(world, components);
-    let archetype = world.archetypeMap[entity];
-    return archetype & bit === bit;
+    let bit = BozoECS.getCombinedBit(world.compEnum, components);
+    return world.archetypeMap[entity] & bit === bit;
   }
 
   BozoECS.forEach = (world, components, callback) => {
+    let entities = BozoECS.filter(world, components);
+    for (let i = 0; i < entities.length; i++) {
+      callback(entities[i]);
+    }
+  }
+
+  BozoECS.filter = (world, components) => {
     let entities = [];
     let archetypes = world.archetypes;
-    let bit = BozoECS.getComponentBit(world, components);
+    let bit = BozoECS.getCombinedBit(world.compEnum, components);
     for (let a in archetypes) {
       if ((bit & a) !== bit) continue;
       entities.push(...archetypes[a]);
     }
-    for (let i = 0; i < entities.length; i++) {
-      callback(...BozoECS.getComponents(world, entities[i], components));
-    }
+    return entities;
   }
 
   BozoECS.instantiate = (world, entity) => {
     let e = BozoECS.createEntity();
     let type = world.archetypeMap[entity];
-    let archetype = world.archetypes[type];
-    let comps = world.componentMap[entity];
-    archetype.push(e);
-    world.componentMap[e] = structuredClone(comps);
+    world.archetypes[type].push(e);
     world.archetypeMap[e] = type;
+    let cMap = world.componentMap;
+    for (let comp in cMap) {
+      if (!(comp & type)) continue;
+      let comps = cMap[comp];
+      comps[e] = structuredClone(comps[entity]);
+    }
     return e;
   }
 
   BozoECS.removeEntity = (world, entity) => {
-    let archetype = world.archetypes[world.archetypeMap[entity]];
+    let type = world.archetypeMap[entity]
+    let archetype = world.archetypes[type];
     let index = BozoECS.findIndex(archetype, entity);
     if (index !== -1) archetype.splice(index, 1);
-    let oldComponents = world.componentMap[entity] || {};
-    delete world.componentMap[entity];
-    delete world.archetypeMap[entity];
+    let cMap = world.componentMap;
+    let oldComponents = {};
+    for (let comp in cMap) {
+      if (!(comp & type)) continue;
+      oldComponents[comp] = cMap[comp][entity];
+      delete cMap[comp][entity];
+    }
     return oldComponents;
   }
 
   BozoECS.findIndex = (archetype, entity) => {
     let index = -1;
-    if (!archetype) return index;
-    for (let i = 0; i < archetype.length; i++) {
+    for (let i = 0; i < archetype?.length; i++) {
       if (archetype[i] !== entity) continue;
       index = i;
       break;
@@ -153,15 +160,10 @@
     return index;
   }
 
-  BozoECS.getComponentBit = (world, components) => {
-    let unique = Object.keys(world.compEnums).length;
+  BozoECS.getCombinedBit = (compEnum, components) => {
     let bit = 0;
     for (let i = 0; i < components.length; i++) {
-      if (!world.compEnums[components[i].id]) {
-        world.compEnums[components[i].id] = 2 ** unique;
-        unique++;
-      }
-      bit += world.compEnums[components[i].id];
+      bit += (compEnum[components[i].id] ??= 1 << Object.keys(compEnum).length);
     }
     return bit;
   }
