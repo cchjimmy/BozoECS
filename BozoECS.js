@@ -31,7 +31,7 @@
     }
   }
 
-  BozoECS.createComponent = (properties = {}, reference = false) => {
+  BozoECS.createComponent = (properties, reference = false) => {
     return {
       id: crypto.randomUUID(),
       factory: reference ? () => properties : () => structuredClone(properties)
@@ -42,9 +42,9 @@
     return crypto.randomUUID();
   }
 
-  BozoECS.update = (world, systems, ...args) => {
+  BozoECS.update = (systems, ...args) => {
     for (let i = 0; i < systems.length; i++) {
-      systems[i].update(world, ...args);
+      systems[i].update(...args);
     }
   }
 
@@ -57,7 +57,7 @@
     let oldComponents = BozoECS.removeEntity(world, entity);
 
     for (let i = 0; i < components.length; i++) {
-      oldComponents[world.compEnum[components[i].id]] = components[i].factory();
+      oldComponents[components[i].id] = components[i].factory();
     }
 
     BozoECS.insertEntity(world, entity, bit, oldComponents);
@@ -72,7 +72,7 @@
     let oldComponents = BozoECS.removeEntity(world, entity);
 
     for (let i = 0; i < components.length; i++) {
-      delete oldComponents[world.compEnum[components[i].id]];
+      delete oldComponents[components[i].id];
     }
 
     BozoECS.insertEntity(world, entity, bit, oldComponents);
@@ -82,32 +82,23 @@
     world.archetypes[archetypeBit] ??= [];
     world.archetypes[archetypeBit].push(entity);
     world.archetypeMap[entity] = archetypeBit;
-    for (let bit in componentObject) {
-      world.componentMap[bit] ??= {};
-      world.componentMap[bit][entity] = componentObject[bit];
+    for (let comp in componentObject) {
+      world.componentMap[comp] ??= {};
+      world.componentMap[comp][entity] = componentObject[comp];
     }
   }
 
   BozoECS.getComponents = (world, entity, components) => {
     let result = new Array(components.length);
-    let comps = world.componentMap;
-    let e = world.compEnum;
     for (let i = 0; i < components.length; i++) {
-      result[i] = comps[e[components[i].id]][entity];
+      result[i] = world.componentMap[components[i].id][entity];
     }
     return result;
   }
 
   BozoECS.hasComponents = (world, entity, components) => {
     let bit = BozoECS.getCombinedBit(world.compEnum, components);
-    return world.archetypeMap[entity] & bit === bit;
-  }
-
-  BozoECS.forEach = (world, components, callback) => {
-    let entities = BozoECS.filter(world, components);
-    for (let i = 0; i < entities.length; i++) {
-      callback(entities[i]);
-    }
+    return (world.archetypeMap[entity] & bit) === bit;
   }
 
   BozoECS.filter = (world, components) => {
@@ -123,27 +114,26 @@
 
   BozoECS.instantiate = (world, entity) => {
     let e = BozoECS.createEntity();
-    let type = world.archetypeMap[entity];
+    let type = world.archetypeMap[e] = world.archetypeMap[entity];
     world.archetypes[type].push(e);
-    world.archetypeMap[e] = type;
     let cMap = world.componentMap;
     for (let comp in cMap) {
-      if (!(comp & type)) continue;
-      let comps = cMap[comp];
-      comps[e] = structuredClone(comps[entity]);
+      if (!(world.compEnum[comp] & type)) continue;
+      cMap[comp][e] = structuredClone(cMap[comp][entity]);
     }
     return e;
   }
 
   BozoECS.removeEntity = (world, entity) => {
-    let type = world.archetypeMap[entity]
+    let type = world.archetypeMap[entity];
     let archetype = world.archetypes[type];
-    let index = BozoECS.findIndex(archetype, entity);
-    if (index !== -1) archetype.splice(index, 1);
-    let cMap = world.componentMap;
     let oldComponents = {};
+    let index = BozoECS.findIndex(archetype, entity);
+    if (index === -1) return oldComponents;
+    archetype.splice(index, 1);
+    let cMap = world.componentMap;
     for (let comp in cMap) {
-      if (!(comp & type)) continue;
+      if (!(world.compEnum[comp] & type)) continue;
       oldComponents[comp] = cMap[comp][entity];
       delete cMap[comp][entity];
     }
