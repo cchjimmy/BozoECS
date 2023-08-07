@@ -50,32 +50,40 @@
 
   BozoECS.addComponents = (world, entity, components) => {
     let bit = BozoECS.getCombinedBit(world.compEnum, components);
-    let entityType = world.archetypeMap[entity] || 0;
 
-    bit |= entityType;
+    bit |= world.archetypeMap[entity];
 
     let oldComponents = BozoECS.removeEntity(world, entity);
 
+    let added = new Array(components.length);
+
     for (let i = 0; i < components.length; i++) {
       oldComponents[components[i].id] = components[i].factory();
+      added[i] = oldComponents[components[i].id];
     }
 
     BozoECS.insertEntity(world, entity, bit, oldComponents);
+
+    return added;
   }
 
   BozoECS.removeComponents = (world, entity, components) => {
     let bit = BozoECS.getCombinedBit(world.compEnum, components);
-    let entityType = world.archetypeMap[entity] || 0;
 
-    bit = entityType & ~bit;
+    bit = world.archetypeMap[entity] & ~bit;
 
     let oldComponents = BozoECS.removeEntity(world, entity);
 
+    let removed = new Array(components.length);
+
     for (let i = 0; i < components.length; i++) {
+      removed[i] = oldComponents[components[i].id];
       delete oldComponents[components[i].id];
     }
 
     BozoECS.insertEntity(world, entity, bit, oldComponents);
+
+    return removed;
   }
 
   BozoECS.insertEntity = (world, entity, archetypeBit, componentObject) => {
