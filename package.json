@@ -22,8 +22,5 @@
   "homepage": "https://github.com/cchjimmy/BozoECS#readme",
   "devDependencies": {
     "webpack": "^5.88.2"
-  },
-  "dependencies": {
-    "bozoevent": "^1.0.0"
   }
 }
