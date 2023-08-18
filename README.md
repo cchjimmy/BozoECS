@@ -19,7 +19,7 @@ npm install bozoecs
 step 2: import in js
 
 ```javascript
-const BozoECS = require("bozoecs");
+const ecs = require("bozoecs");
 ```
 
 ### With HTML
@@ -33,5 +33,5 @@ step 1: include BozoECS in HTML with [unpkg](https://unpkg.com)
 step 2: it is ready to use with the namespace BozoECS
 
 ```javascript
-console.log(BozoECS);
+console.log(bozoecs);
 ```

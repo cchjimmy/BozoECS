@@ -1,10 +1,11 @@
 {
   "name": "bozoecs",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "entity component system",
-  "main": "BozoECS.js",
+  "main": "./dist/bozoecs.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack --config webpack.config.js"
   },
   "repository": {
     "type": "git",
@@ -18,5 +19,11 @@
   "bugs": {
     "url": "https://github.com/cchjimmy/BozoECS/issues"
   },
-  "homepage": "https://github.com/cchjimmy/BozoECS#readme"
+  "homepage": "https://github.com/cchjimmy/BozoECS#readme",
+  "devDependencies": {
+    "webpack": "^5.88.2"
+  },
+  "dependencies": {
+    "bozoevent": "^1.0.0"
+  }
 }
