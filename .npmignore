@@ -1,3 +1,4 @@
 rollup.config.js
 test
 src
+.vscode

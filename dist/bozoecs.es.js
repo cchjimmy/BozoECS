@@ -91,7 +91,7 @@ function filter(world, components) {
 function removeEntity(world, entity) {
   let archetype = world.archetypes[world.archetypeMap[entity]];
   let index = archetype?.indexOf(entity) ?? -1;
-  if (index > 0) archetype.splice(index, 1);
+  if (index > -1) archetype.splice(index, 1);
 }
 
 function getCombinedBit(components) {
