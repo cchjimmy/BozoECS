@@ -6,9 +6,9 @@
 
   function createWorld() {
     return {
-      archetypes: {},
-      archetypeMap: {}, // entity to archetype mapping
-      componentMap: {}
+      archetypes: [],
+      archetypeMap: [], // entity to archetype mapping
+      componentMap: []
     }
   }
 
@@ -90,7 +90,7 @@
     world.archetypes[archetypeBit].push(entity);
     world.archetypeMap[entity] = archetypeBit;
     for (let comp in componentObject) {
-      world.componentMap[comp] ??= {};
+      world.componentMap[comp] ??= [];
       world.componentMap[comp][entity] = componentObject[comp];
     }
   }
