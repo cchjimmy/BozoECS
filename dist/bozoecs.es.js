@@ -39,7 +39,7 @@ function createEntity() {
 function update(systems, ...args) {
   systems.forEach(system => {
     system.update(...args);
-  })
+  });
 }
 
 function addComponents(world, entity, components) {
@@ -137,7 +137,7 @@ function getCombinedBit(components) {
   return bit;
 }
 
-export default {
+var main = {
   createWorld,
   createSystem,
   createComponent,
@@ -151,4 +151,6 @@ export default {
   filter,
   removeEntity,
   getCombinedBit
-}
+};
+
+export { main as default };
