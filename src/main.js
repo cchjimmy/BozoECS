@@ -1,9 +1,9 @@
 var store = {
   entities: [],
-  components: {},
+  components: [],
 };
 
-function createWorld() {
+export function createWorld() {
   return {
     archetypes: [],
     archetypeMap: [], // entity to archetype mapping
@@ -11,24 +11,21 @@ function createWorld() {
   };
 }
 
-function createSystem(update = () => {}) {
+export function createSystem(update = () => {}) {
   return {
     update,
   };
 }
 
 const compIdGenerator = (function* () {
-  var count = 0;
+  var id = 1;
   while (true) {
-    yield (() => {
-      let id = 1 << count;
-      count++;
-      return id;
-    })();
+    yield id;
+    id <<= 1;
   }
 })();
 
-function createComponent(properties) {
+export function createComponent(properties) {
   return {
     id: compIdGenerator.next().value,
     properties,
@@ -48,24 +45,24 @@ const entityIdGenerator = (function* () {
   }
 })();
 
-function createEntity() {
+export function createEntity() {
   return entityIdGenerator.next().value;
 }
 
-function update(systems, ...args) {
+export function update(systems, ...args) {
   systems.forEach((system) => {
     system.update(...args);
   });
 }
 
-function addComponents(world, entity, components) {
+export function addComponents(world, entity, components) {
   let type = world.archetypeMap[entity];
   removeFromArchetype(world.archetypes[type], entity);
   type |= getCombinedBit(components);
   world.archetypeMap[entity] = type;
   (world.archetypes[type] ??= []).push(entity);
   for (let i = 0; i < components.length; i++) {
-    // reset existing component || add a new record
+    // reset existing component || create a new one
     let id = components[i].id;
     let comp = ((world.componentMap[id] ??= [])[entity] ??=
       store.components[components[i].id]?.pop() || {});
@@ -75,7 +72,7 @@ function addComponents(world, entity, components) {
   return components;
 }
 
-function removeComponents(world, entity, components) {
+export function removeComponents(world, entity, components) {
   let type = world.archetypeMap[entity];
   removeFromArchetype(world.archetypes[type], entity);
   type &= ~getCombinedBit(components);
@@ -91,18 +88,18 @@ function removeComponents(world, entity, components) {
   return components;
 }
 
-function getComponents(world, entity, components) {
+export function getComponents(world, entity, components) {
   for (let i = 0; i < components.length; i++) {
     components[i] = world.componentMap[components[i].id][entity];
   }
   return components;
 }
 
-function hasComponent(world, entity, component) {
+export function hasComponent(world, entity, component) {
   return world.archetypeMap[entity] & component.id;
 }
 
-function filter(world, components) {
+export function filter(world, components) {
   let result = [];
   let archetypes = world.archetypes;
   let bit = getCombinedBit(components);
@@ -114,7 +111,7 @@ function filter(world, components) {
   return [].concat(...result);
 }
 
-function removeEntity(world, entity) {
+export function removeEntity(world, entity) {
   if (entity == undefined) return;
   let type = world.archetypeMap[entity];
   delete world.archetypeMap[entity];
@@ -142,17 +139,3 @@ function getCombinedBit(components) {
   }
   return bit;
 }
-
-export default {
-  createWorld,
-  createSystem,
-  createComponent,
-  createEntity,
-  update,
-  addComponents,
-  removeComponents,
-  getComponents,
-  hasComponent,
-  filter,
-  removeEntity,
-};

@@ -1,17 +1,17 @@
 (function (global, factory) {
   typeof exports === "object" && typeof module !== "undefined"
-    ? (module.exports = factory())
+    ? factory(exports)
     : typeof define === "function" && define.amd
-    ? define(factory)
+    ? define(["exports"], factory)
     : ((global =
         typeof globalThis !== "undefined" ? globalThis : global || self),
-      (global.bozoecs = factory()));
-})(this, function () {
+      factory((global.bozoecs = {})));
+})(this, function (exports) {
   "use strict";
 
   var store = {
     entities: [],
-    components: {},
+    components: [],
   };
 
   function createWorld() {
@@ -29,13 +29,10 @@
   }
 
   const compIdGenerator = (function* () {
-    var count = 0;
+    var id = 1;
     while (true) {
-      yield (() => {
-        let id = 1 << count;
-        count++;
-        return id;
-      })();
+      yield id;
+      id <<= 1;
     }
   })();
 
@@ -76,7 +73,7 @@
     world.archetypeMap[entity] = type;
     (world.archetypes[type] ??= []).push(entity);
     for (let i = 0; i < components.length; i++) {
-      // reset existing component || add a new record
+      // reset existing component || create a new one
       let id = components[i].id;
       let comp = ((world.componentMap[id] ??= [])[entity] ??=
         store.components[components[i].id]?.pop() || {});
@@ -154,19 +151,15 @@
     return bit;
   }
 
-  var main = {
-    createWorld,
-    createSystem,
-    createComponent,
-    createEntity,
-    update,
-    addComponents,
-    removeComponents,
-    getComponents,
-    hasComponent,
-    filter,
-    removeEntity,
-  };
-
-  return main;
+  exports.addComponents = addComponents;
+  exports.createComponent = createComponent;
+  exports.createEntity = createEntity;
+  exports.createSystem = createSystem;
+  exports.createWorld = createWorld;
+  exports.filter = filter;
+  exports.getComponents = getComponents;
+  exports.hasComponent = hasComponent;
+  exports.removeComponents = removeComponents;
+  exports.removeEntity = removeEntity;
+  exports.update = update;
 });

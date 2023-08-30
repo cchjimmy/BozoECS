@@ -1,6 +1,6 @@
 var store = {
   entities: [],
-  components: {},
+  components: [],
 };
 
 function createWorld() {
@@ -18,13 +18,10 @@ function createSystem(update = () => {}) {
 }
 
 const compIdGenerator = (function* () {
-  var count = 0;
+  var id = 1;
   while (true) {
-    yield (() => {
-      let id = 1 << count;
-      count++;
-      return id;
-    })();
+    yield id;
+    id <<= 1;
   }
 })();
 
@@ -65,7 +62,7 @@ function addComponents(world, entity, components) {
   world.archetypeMap[entity] = type;
   (world.archetypes[type] ??= []).push(entity);
   for (let i = 0; i < components.length; i++) {
-    // reset existing component || add a new record
+    // reset existing component || create a new one
     let id = components[i].id;
     let comp = ((world.componentMap[id] ??= [])[entity] ??=
       store.components[components[i].id]?.pop() || {});
@@ -143,18 +140,16 @@ function getCombinedBit(components) {
   return bit;
 }
 
-var main = {
-  createWorld,
-  createSystem,
+export {
+  addComponents,
   createComponent,
   createEntity,
-  update,
-  addComponents,
-  removeComponents,
+  createSystem,
+  createWorld,
+  filter,
   getComponents,
   hasComponent,
-  filter,
+  removeComponents,
   removeEntity,
+  update,
 };
-
-export { main as default };
