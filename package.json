@@ -1,12 +1,12 @@
 {
   "name": "bozoecs",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "entity component system",
-  "main": "./dist/bozoecs.umd.js",
-  "module": "./dist/bozoecs.es.js",
+  "main": "./dist/main.umd.js",
+  "module": "./dist/main.es.js",
   "exports": {
-    "import": "./dist/bozoecs.es.js",
-    "require": "./dist/bozoecs.umd.js"
+    "import": "./dist/main.es.js",
+    "require": "./dist/main.umd.js"
   },
   "type": "module",
   "scripts": {
