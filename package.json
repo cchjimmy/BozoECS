@@ -1,6 +1,6 @@
 {
   "name": "bozoecs",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "entity component system",
   "main": "./dist/main.umd.js",
   "module": "./dist/main.es.js",
@@ -11,7 +11,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rollup -c",
+    "build": "rollup -c; npm run format",
     "format": "prettier . --write"
   },
   "repository": {
