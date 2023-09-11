@@ -33,18 +33,15 @@ function createComponent(properties) {
 const entityIdGenerator = (function* () {
   var nextId = 0;
   while (true) {
-    yield store.entities.length
-      ? store.entities.pop()
-      : (() => {
-          let id = nextId;
-          nextId++;
-          return id;
-        })();
+    yield nextId;
+    nextId++;
   }
 })();
 
 function createEntity() {
-  return entityIdGenerator.next().value;
+  return store.entities.length
+    ? store.entities.pop()
+    : entityIdGenerator.next().value;
 }
 
 function update(systems, ...args) {
@@ -53,31 +50,33 @@ function update(systems, ...args) {
   });
 }
 
-function addComponents(world, entity, components) {
-  let type = (world.archetypeMap[entity] ??= 0);
-  type |= getCombinedBit(components);
-  moveEntity(world, entity, world.archetypeMap[entity], type);
-  let cMap = world.componentMap;
+function getComponents(world, entity, components) {
   for (let i = 0; i < components.length; i++) {
-    // reset existing component || create a new one
-    let id = components[i].id;
-    let comp = ((cMap[id] ??= [])[entity] ??=
-      store.components[id]?.pop() || {});
-    Object.assign(comp, components[i].properties);
-    components[i] = comp;
+    components[i] = world.componentMap[components[i].id][entity];
+  }
+  return components;
+}
+
+function addComponents(world, entity, components) {
+  let oldType = (world.archetypeMap[entity] ??= 0);
+  let newType = oldType | getCombinedBit(components);
+  if (oldType != newType) moveEntity(world, entity, oldType, newType);
+  for (let i = 0; i < components.length; i++) {
+    let map = (world.componentMap[components[i].id] ??= []);
+    map[entity] = store.components[components[i].id]?.pop() ?? {};
+    components[i] = Object.assign(map[entity], components[i].properties);
   }
   return components;
 }
 
 function removeComponents(world, entity, components) {
-  let type = world.archetypeMap[entity];
-  type &= ~getCombinedBit(components);
-  moveEntity(world, entity, world.archetypeMap[entity], type);
-  let cMap = world.componentMap;
+  let oldType = (world.archetypeMap[entity] ??= 0);
+  let newType = oldType & ~getCombinedBit(components);
+  if (oldType != newType) moveEntity(world, entity, oldType, newType);
   for (let i = 0; i < components.length; i++) {
-    let id = components[i].id;
-    (store.components[id] ??= []).push((components[i] = cMap[id][entity]));
-    delete cMap[id][entity];
+    let map = world.componentMap[components[i].id];
+    (store.components[components[i].id] ??= []).push(map[entity]);
+    map[entity] = null;
   }
 }
 
@@ -89,13 +88,6 @@ function moveEntity(world, entity, typeBefore, typeAfter) {
     index == -1 ? entity : old.splice(index, 1)[0],
   );
   world.archetypeMap[entity] = typeAfter;
-}
-
-function getComponents(world, entity, components) {
-  for (let i = 0; i < components.length; i++) {
-    components[i] = world.componentMap[components[i].id][entity];
-  }
-  return components;
 }
 
 function hasComponent(world, entity, component) {
@@ -123,7 +115,7 @@ function removeEntity(world, entity) {
   for (let comp in cMap) {
     if (!(type & comp)) continue;
     (store.components[comp] ??= []).push(cMap[comp][entity]);
-    delete cMap[comp][entity];
+    cMap[comp][entity] = null;
   }
 }
 

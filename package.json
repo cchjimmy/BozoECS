@@ -1,6 +1,6 @@
 {
   "name": "bozoecs",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "entity component system",
   "main": "./dist/main.umd.js",
   "module": "./dist/main.es.js",
