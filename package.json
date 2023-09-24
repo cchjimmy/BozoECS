@@ -10,7 +10,7 @@
   },
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "serve .",
     "build": "rollup -c; npm run format",
     "format": "prettier . --write"
   },
@@ -29,6 +29,7 @@
   "homepage": "https://github.com/cchjimmy/BozoECS#readme",
   "devDependencies": {
     "prettier": "^3.0.3",
-    "rollup": "^3.28.1"
+    "rollup": "^3.28.1",
+    "serve": "^14.2.1"
   }
 }
