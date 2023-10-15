@@ -1,17 +1,22 @@
 {
   "name": "bozoecs",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "entity component system",
-  "main": "./dist/main.umd.js",
-  "module": "./dist/main.es.js",
+  "main": "./build/main.cjs",
+  "module": "./build/main.mjs",
   "exports": {
-    "import": "./dist/main.es.js",
-    "require": "./dist/main.umd.js"
+    ".": {
+      "import": "./build/main.mjs",
+      "require": "./build/main.cjs"
+    }
   },
   "type": "module",
   "scripts": {
     "test": "serve .",
-    "build": "rollup -c; npm run format",
+    "build-web": "esbuild --bundle src/exports.js --outfile=build/main.js --global-name=bozoecs --minify",
+    "build-cjs": "esbuild --bundle src/exports.js --outfile=build/main.cjs --format=cjs",
+    "build-esm": "esbuild --bundle src/exports.js --outfile=build/main.mjs --format=esm",
+    "build": "npm run build-web && npm run build-esm && npm run build-cjs",
     "format": "prettier . --write"
   },
   "repository": {
@@ -28,8 +33,8 @@
   },
   "homepage": "https://github.com/cchjimmy/BozoECS#readme",
   "devDependencies": {
+    "esbuild": "^0.19.4",
     "prettier": "^3.0.3",
-    "rollup": "^3.28.1",
     "serve": "^14.2.1"
   }
 }
