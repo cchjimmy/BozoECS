@@ -1,6 +1,6 @@
 {
   "name": "bozoecs",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "entity component system",
   "main": "./build/main.cjs",
   "module": "./build/main.mjs",

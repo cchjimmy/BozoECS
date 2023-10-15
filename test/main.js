@@ -4,6 +4,7 @@ import {
   entity,
   filter,
   getComponents,
+  removeEntity,
   system,
   world,
 } from "../build/main.mjs";
@@ -64,6 +65,7 @@ import {
     let hh = canvas.height * 0.5;
     p.x = random(-hw, hw);
     p.y = random(-hh, hh);
+    // removeEntity(w, e);
   }
 
   for (let i = 0; i < 10000; i++) {

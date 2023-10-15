@@ -25,6 +25,7 @@ __export(exports_exports, {
   filter: () => filter,
   getComponents: () => getComponents,
   removeComponents: () => removeComponents,
+  removeEntity: () => removeEntity,
   system: () => system,
   world: () => world
 });
@@ -57,6 +58,20 @@ var entityIdGenerator = function* () {
 function entity() {
   return entityIdGenerator.next().value;
 }
+function removeEntity(world2, entity2) {
+  let mask = 0;
+  for (let i = 0; i < world2.components.length; i++) {
+    world2.components[i] && world2.components[i][entity2] && (() => {
+      world2.componentStore[i].push(world2.components[i][entity2]);
+      world2.components[i][entity2] = void 0;
+      mask += i;
+    })();
+  }
+  for (let i = 0; i < world2.filters.length; i++) {
+    let filter2 = world2.filters[i]();
+    filter2.mask & mask && filter2.results.delete(entity2);
+  }
+}
 
 // src/component.js
 var componentIdGenerator = function* () {
@@ -73,29 +88,33 @@ function component(properties) {
   };
 }
 function addComponents(world2, entity2, ...components) {
+  let mask = 0;
   for (let i = 0; i < components.length; i++) {
     let compId = components[i].id;
     let initComponent = world2.componentStore[compId].pop() || world2.components[compId][entity2] || {};
-    for (let j = 0; j < world2.filters.length; j++) {
-      let filter2 = world2.filters[j]();
-      filter2.mask & compId && filter2.results.add(entity2);
-    }
     components[i] = world2.components[compId][entity2] = Object.assign(
       initComponent,
       components[i].properties
     );
+    mask += compId;
+  }
+  for (let j = 0; j < world2.filters.length; j++) {
+    let filter2 = world2.filters[j]();
+    filter2.mask & mask && filter2.results.add(entity2);
   }
   return components;
 }
 function removeComponents(world2, entity2, ...components) {
+  let mask = 0;
   for (let i = 0; i < components.length; i++) {
     let compId = components[i].id;
-    for (let j = 0; j < world2.filters.length; j++) {
-      let filter2 = world2.filters[j]();
-      filter2.mask & compId && filter2.results.delete(entity2);
-    }
     world2.componentStore[compId].push(world2.components[compId][entity2]);
     world2.components[compId][entity2] = void 0;
+    mask += compId;
+  }
+  for (let j = 0; j < world2.filters.length; j++) {
+    let filter2 = world2.filters[j]();
+    filter2.mask & mask && filter2.results.delete(entity2);
   }
 }
 function getComponents(world2, entity2, ...components) {

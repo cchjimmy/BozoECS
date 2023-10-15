@@ -12,31 +12,35 @@ export function component(properties) {
   };
 }
 export function addComponents(world, entity, ...components) {
+  let mask = 0;
   for (let i = 0; i < components.length; i++) {
     let compId = components[i].id;
     let initComponent = world.componentStore[compId].pop() ||
       world.components[compId][entity] ||
       {};
-    for (let j = 0; j < world.filters.length; j++) {
-      let filter = world.filters[j]();
-      filter.mask & compId && filter.results.add(entity);
-    }
     components[i] = world.components[compId][entity] = Object.assign(
       initComponent,
       components[i].properties,
     );
+    mask += compId;
+  }
+  for (let j = 0; j < world.filters.length; j++) {
+    let filter = world.filters[j]();
+    filter.mask & mask && filter.results.add(entity);
   }
   return components;
 }
 export function removeComponents(world, entity, ...components) {
+  let mask = 0;
   for (let i = 0; i < components.length; i++) {
     let compId = components[i].id;
-    for (let j = 0; j < world.filters.length; j++) {
-      let filter = world.filters[j]();
-      filter.mask & compId && filter.results.delete(entity);
-    }
     world.componentStore[compId].push(world.components[compId][entity]);
     world.components[compId][entity] = undefined;
+    mask += compId;
+  }
+  for (let j = 0; j < world.filters.length; j++) {
+    let filter = world.filters[j]();
+    filter.mask & mask && filter.results.delete(entity);
   }
 }
 export function getComponents(world, entity, ...components) {

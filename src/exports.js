@@ -1,5 +1,5 @@
 import { world } from "./world";
-import { entity } from "./entity";
+import { entity, removeEntity } from "./entity";
 import {
   addComponents,
   component,
@@ -15,6 +15,7 @@ export {
   filter,
   getComponents,
   removeComponents,
+  removeEntity,
   system,
   world,
 };
