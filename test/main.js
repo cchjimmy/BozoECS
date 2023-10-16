@@ -46,12 +46,7 @@ import {
     return [p, v];
   }
 
-  const mainChain = [
-    getComps,
-    Render,
-    Move,
-    Bounce,
-  ];
+  const mainChain = [getComps, Render, Move, Bounce];
 
   const mainSystem = system(f)(...mainChain);
 

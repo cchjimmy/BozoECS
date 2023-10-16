@@ -35,8 +35,7 @@ function removeEntity(world2, entity2) {
     })();
   }
   for (let i = 0; i < world2.filters.length; i++) {
-    let filter2 = world2.filters[i]();
-    filter2.mask & mask && filter2.results.delete(entity2);
+    world2.filters[i].mask & mask && world2.filters[i].results.delete(entity2);
   }
 }
 
@@ -65,9 +64,8 @@ function addComponents(world2, entity2, ...components) {
     );
     mask += compId;
   }
-  for (let j = 0; j < world2.filters.length; j++) {
-    let filter2 = world2.filters[j]();
-    filter2.mask & mask && filter2.results.add(entity2);
+  for (let i = 0; i < world2.filters.length; i++) {
+    world2.filters[i].mask & mask && world2.filters[i].results.add(entity2);
   }
   return components;
 }
@@ -79,9 +77,8 @@ function removeComponents(world2, entity2, ...components) {
     world2.components[compId][entity2] = void 0;
     mask += compId;
   }
-  for (let j = 0; j < world2.filters.length; j++) {
-    let filter2 = world2.filters[j]();
-    filter2.mask & mask && filter2.results.delete(entity2);
+  for (let i = 0; i < world2.filters.length; i++) {
+    world2.filters[i].mask & mask && world2.filters[i].results.delete(entity2);
   }
 }
 function getComponents(world2, entity2, ...components) {
@@ -94,7 +91,7 @@ function getComponents(world2, entity2, ...components) {
 
 // src/system.js
 function system(filter2) {
-  let entities = filter2().results;
+  let entities = filter2.results;
   return (...modules) => () => {
     entities.forEach(
       (e) => modules.reduce((output, module) => module(output), e)
@@ -108,11 +105,10 @@ function filter(...components) {
   for (let i = 0; i < components.length; i++) {
     mask += components[i].id;
   }
-  let f = {
+  return {
     mask,
     results: /* @__PURE__ */ new Set()
   };
-  return () => f;
 }
 export {
   addComponents,

@@ -1,6 +1,6 @@
 {
   "name": "bozoecs",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "description": "entity component system",
   "main": "./build/main.cjs",
   "module": "./build/main.mjs",
@@ -12,7 +12,7 @@
   },
   "type": "module",
   "scripts": {
-    "test": "serve .",
+    "test": "npm run build && esbuild --servedir=.",
     "build-web": "esbuild --bundle src/exports.js --outfile=build/main.js --global-name=bozoecs --minify",
     "build-cjs": "esbuild --bundle src/exports.js --outfile=build/main.cjs --format=cjs",
     "build-esm": "esbuild --bundle src/exports.js --outfile=build/main.mjs --format=esm",
@@ -34,7 +34,6 @@
   "homepage": "https://github.com/cchjimmy/BozoECS#readme",
   "devDependencies": {
     "esbuild": "^0.19.4",
-    "prettier": "^3.0.3",
-    "serve": "^14.2.1"
+    "prettier": "^3.0.3"
   }
 }
