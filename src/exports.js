@@ -1,20 +1,21 @@
 import { world } from "./world";
-import { entity, removeEntity } from "./entity";
+import { entity, getEntityPointer, removeEntity } from "./entity";
 import {
-  addComponents,
+  addComponent,
   component,
-  getComponents,
-  removeComponents,
+  getComponent,
+  removeComponent,
 } from "./component";
 import { system } from "./system";
 import { filter } from "./filter";
 export {
-  addComponents,
+  addComponent,
   component,
   entity,
   filter,
-  getComponents,
-  removeComponents,
+  getComponent,
+  getEntityPointer,
+  removeComponent,
   removeEntity,
   system,
   world,

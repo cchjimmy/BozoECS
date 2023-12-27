@@ -1,9 +1,9 @@
 export function system(filter) {
   let entities = filter.results;
-  return (...modules) =>
-    () => {
-      entities.forEach((e) =>
-        modules.reduce((output, module) => module(output), e),
-      );
-    };
+  return (...modules) => (...args) => {
+    let input = [entities, ...args];
+    for (let i = 0; i < modules.length; i++) {
+      input = modules[i](input);
+    }
+  };
 }

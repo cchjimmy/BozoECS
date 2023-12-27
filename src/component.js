@@ -11,41 +11,31 @@ export function component(properties) {
     properties,
   };
 }
-export function addComponents(world, entity, ...components) {
-  let mask = 0;
-  for (let i = 0; i < components.length; i++) {
-    let compId = components[i].id;
-    let initComponent =
-      world.componentStore[compId].pop() ||
-      world.components[compId][entity] ||
-      {};
-    components[i] = world.components[compId][entity] = Object.assign(
-      initComponent,
-      components[i].properties,
-    );
-    mask += compId;
+export function addComponent(world, entity, component) {
+  const idx = world.indexMap.get(entity) ?? (() => {
+    let i = world.nextIdx++;
+    world.indexMap.set(entity, i);
+    return i;
+  })();
+  const c = world
+    .components[component.id][idx] ??= {};
+  for (let p in component.properties) {
+    c[p] = component.properties[p];
   }
   for (let i = 0; i < world.filters.length; i++) {
-    world.filters[i].mask & mask && world.filters[i].results.add(entity);
+    if (world.filters[i].mask & component.id) {
+      world.filters[i].results.add(entity);
+    }
   }
-  return components;
+  return c;
 }
-export function removeComponents(world, entity, ...components) {
-  let mask = 0;
-  for (let i = 0; i < components.length; i++) {
-    let compId = components[i].id;
-    world.componentStore[compId].push(world.components[compId][entity]);
-    world.components[compId][entity] = undefined;
-    mask += compId;
-  }
+export function removeComponent(world, entity, component) {
   for (let i = 0; i < world.filters.length; i++) {
-    world.filters[i].mask & mask && world.filters[i].results.delete(entity);
+    if (world.filters[i].mask & component.id) {
+      world.filters[i].results.delete(entity);
+    }
   }
 }
-export function getComponents(world, entity, ...components) {
-  for (let i = 0; i < components.length; i++) {
-    let compId = components[i].id;
-    components[i] = world.components[compId][entity];
-  }
-  return components;
+export function getComponent(world, entityPtr, component) {
+  return world.components[component.id][entityPtr];
 }
