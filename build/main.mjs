@@ -1,42 +1,34 @@
 // src/world.js
 function world(...componentsToRegister) {
-  let world2 = {
-    components: [],
-    componentStore: []
-  };
-  for (let i = 0; i < componentsToRegister.length; i++) {
-    world2.components[componentsToRegister[i].id] = [];
-    world2.componentStore[componentsToRegister[i].id] = [];
-  }
   return (...filtersToRegister) => {
-    world2.filters = filtersToRegister;
+    let world2 = {
+      components: {},
+      filters: filtersToRegister,
+      indexMap: /* @__PURE__ */ new Map(),
+      nextIdx: 0
+    };
+    for (let i = 0; i < componentsToRegister.length; i++) {
+      world2.components[componentsToRegister[i].id] = [];
+    }
     return world2;
   };
 }
 
 // src/entity.js
-var entityIdGenerator = function* () {
-  let id = 0;
-  while (1) {
-    yield id;
-    id++;
-  }
-}();
 function entity() {
-  return entityIdGenerator.next().value;
+  return parseInt(Math.random() * 2 ** 64);
 }
 function removeEntity(world2, entity2) {
   let mask = 0;
   for (let i = 0; i < world2.components.length; i++) {
-    world2.components[i] && world2.components[i][entity2] && (() => {
-      world2.componentStore[i].push(world2.components[i][entity2]);
-      world2.components[i][entity2] = void 0;
-      mask += i;
-    })();
+    world2.components[i] && world2.components[i][entity2] && (mask += i);
   }
   for (let i = 0; i < world2.filters.length; i++) {
     world2.filters[i].mask & mask && world2.filters[i].results.delete(entity2);
   }
+}
+function getEntityPointer(world2, entity2) {
+  return world2.indexMap.get(entity2);
 }
 
 // src/component.js
@@ -53,49 +45,42 @@ function component(properties) {
     properties
   };
 }
-function addComponents(world2, entity2, ...components) {
-  let mask = 0;
-  for (let i = 0; i < components.length; i++) {
-    let compId = components[i].id;
-    let initComponent = world2.componentStore[compId].pop() || world2.components[compId][entity2] || {};
-    components[i] = world2.components[compId][entity2] = Object.assign(
-      initComponent,
-      components[i].properties
-    );
-    mask += compId;
+function addComponent(world2, entity2, component2) {
+  const idx = world2.indexMap.get(entity2) ?? (() => {
+    let i = world2.nextIdx++;
+    world2.indexMap.set(entity2, i);
+    return i;
+  })();
+  const c = world2.components[component2.id][idx] ??= {};
+  for (let p in component2.properties) {
+    c[p] = component2.properties[p];
   }
   for (let i = 0; i < world2.filters.length; i++) {
-    world2.filters[i].mask & mask && world2.filters[i].results.add(entity2);
+    if (world2.filters[i].mask & component2.id) {
+      world2.filters[i].results.add(entity2);
+    }
   }
-  return components;
+  return c;
 }
-function removeComponents(world2, entity2, ...components) {
-  let mask = 0;
-  for (let i = 0; i < components.length; i++) {
-    let compId = components[i].id;
-    world2.componentStore[compId].push(world2.components[compId][entity2]);
-    world2.components[compId][entity2] = void 0;
-    mask += compId;
-  }
+function removeComponent(world2, entity2, component2) {
   for (let i = 0; i < world2.filters.length; i++) {
-    world2.filters[i].mask & mask && world2.filters[i].results.delete(entity2);
+    if (world2.filters[i].mask & component2.id) {
+      world2.filters[i].results.delete(entity2);
+    }
   }
 }
-function getComponents(world2, entity2, ...components) {
-  for (let i = 0; i < components.length; i++) {
-    let compId = components[i].id;
-    components[i] = world2.components[compId][entity2];
-  }
-  return components;
+function getComponent(world2, entityPtr, component2) {
+  return world2.components[component2.id][entityPtr];
 }
 
 // src/system.js
 function system(filter2) {
   let entities = filter2.results;
-  return (...modules) => () => {
-    entities.forEach(
-      (e) => modules.reduce((output, module) => module(output), e)
-    );
+  return (...modules) => (...args) => {
+    let input = [entities, ...args];
+    for (let i = 0; i < modules.length; i++) {
+      input = modules[i](...input);
+    }
   };
 }
 
@@ -111,12 +96,13 @@ function filter(...components) {
   };
 }
 export {
-  addComponents,
+  addComponent,
   component,
   entity,
   filter,
-  getComponents,
-  removeComponents,
+  getComponent,
+  getEntityPointer,
+  removeComponent,
   removeEntity,
   system,
   world

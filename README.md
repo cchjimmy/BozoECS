@@ -4,7 +4,7 @@
 
 ## Examples
 
-- [particles](https://cchjimmy.github.io/particles/)
+- [particles](./example)
 
 ## Installation
 
