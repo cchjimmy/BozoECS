@@ -27,23 +27,23 @@ __export(exports_exports, {
   getEntityPointer: () => getEntityPointer,
   removeComponent: () => removeComponent,
   removeEntity: () => removeEntity,
-  system: () => system,
+  systemGroup: () => systemGroup,
   world: () => world
 });
 module.exports = __toCommonJS(exports_exports);
 
 // src/world.js
 function world(...componentsToRegister) {
+  let world2 = {
+    components: {},
+    indexMap: /* @__PURE__ */ new Map(),
+    nextIdx: 0
+  };
+  for (let i = 0; i < componentsToRegister.length; ++i) {
+    world2.components[componentsToRegister[i].id] = [];
+  }
   return (...filtersToRegister) => {
-    let world2 = {
-      components: {},
-      filters: filtersToRegister,
-      indexMap: /* @__PURE__ */ new Map(),
-      nextIdx: 0
-    };
-    for (let i = 0; i < componentsToRegister.length; i++) {
-      world2.components[componentsToRegister[i].id] = [];
-    }
+    world2.filters = filtersToRegister;
     return world2;
   };
 }
@@ -108,12 +108,10 @@ function getComponent(world2, entityPtr, component2) {
 }
 
 // src/system.js
-function system(filter2) {
-  let entities = filter2.results;
-  return (...modules) => (...args) => {
-    let input = [entities, ...args];
-    for (let i = 0; i < modules.length; i++) {
-      input = modules[i](...input);
+function systemGroup(filter2) {
+  return (...systems) => (...args) => {
+    for (let i = 0; i < systems.length; ++i) {
+      systems[i](filter2.results, ...args);
     }
   };
 }

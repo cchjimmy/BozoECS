@@ -5,7 +5,7 @@ import {
   filter,
   getComponent,
   getEntityPointer,
-  system,
+  systemGroup,
   world,
 } from "../../build/main.mjs";
 
@@ -66,7 +66,6 @@ function main() {
       ctx.arc(p.x, p.y, c.radius, 0, twoPI);
       ctx.stroke();
     });
-    return [entities, world, dt];
   }
   function move(entities, world, dt) {
     entities.forEach((e) => {
@@ -76,7 +75,6 @@ function main() {
       p.x += v.x * dt;
       p.y += v.y * dt;
     });
-    return [entities, world];
   }
   function bounce(entities, world) {
     entities.forEach((e) => {
@@ -95,7 +93,8 @@ function main() {
       }
     });
   }
-  const pipeline = system(f)(render, move, bounce);
+
+  const pipeline = systemGroup(f)(render, move, bounce);
 
   // world
   const w = world(Position, Velocity, Circle)(f);

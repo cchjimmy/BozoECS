@@ -6,7 +6,7 @@ import {
   getComponent,
   removeComponent,
 } from "./component";
-import { system } from "./system";
+import { systemGroup } from "./system";
 import { filter } from "./filter";
 export {
   addComponent,
@@ -17,6 +17,6 @@ export {
   getEntityPointer,
   removeComponent,
   removeEntity,
-  system,
+  systemGroup,
   world,
 };
