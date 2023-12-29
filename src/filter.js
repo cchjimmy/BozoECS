@@ -3,8 +3,5 @@ export function filter(...components) {
   for (let i = 0; i < components.length; i++) {
     mask += components[i].id;
   }
-  return {
-    mask,
-    results: new Set(),
-  };
+  return mask;
 }

@@ -9,7 +9,13 @@ function world(...componentsToRegister) {
     world2.components[componentsToRegister[i].id] = [];
   }
   return (...filtersToRegister) => {
-    world2.filters = filtersToRegister;
+    world2.filters = new Array(filtersToRegister.length);
+    for (let i = 0; i < filtersToRegister.length; ++i) {
+      world2.filters[i] = {
+        mask: filtersToRegister[i],
+        results: /* @__PURE__ */ new Set()
+      };
+    }
     return world2;
   };
 }
@@ -74,10 +80,16 @@ function getComponent(world2, entityPtr, component2) {
 }
 
 // src/system.js
-function systemGroup(filter2) {
+function systemGroup(filter2, world2) {
+  let entities;
+  for (let i = 0; i < world2.filters.length; ++i) {
+    if (world2.filters[i].mask !== filter2)
+      continue;
+    entities = world2.filters[i].results;
+  }
   return (...systems) => (...args) => {
     for (let i = 0; i < systems.length; ++i) {
-      systems[i](filter2.results, ...args);
+      systems[i](entities, world2, ...args);
     }
   };
 }
@@ -88,10 +100,7 @@ function filter(...components) {
   for (let i = 0; i < components.length; i++) {
     mask += components[i].id;
   }
-  return {
-    mask,
-    results: /* @__PURE__ */ new Set()
-  };
+  return mask;
 }
 export {
   addComponent,

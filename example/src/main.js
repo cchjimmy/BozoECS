@@ -12,10 +12,10 @@ import {
 function random(min, max) {
   return Math.random() * (max - min) + min;
 }
-function update(world, pipeline, past) {
+function update(baseGroup, past) {
   const now = performance.now();
-  pipeline(world, (now - past) * 0.001);
-  requestAnimationFrame(() => update(world, pipeline, now));
+  baseGroup((now - past) * 0.001);
+  requestAnimationFrame(() => update(baseGroup, now));
 }
 function main() {
   const canvas = document.createElement("canvas");
@@ -94,10 +94,10 @@ function main() {
     });
   }
 
-  const pipeline = systemGroup(f)(render, move, bounce);
-
   // world
   const w = world(Position, Velocity, Circle)(f);
+
+  const baseGroup = systemGroup(f, w)(render, move, bounce);
 
   // entity
   function createEntity() {
@@ -118,7 +118,7 @@ function main() {
     createEntity();
   }
 
-  update(w, pipeline, performance.now());
+  update(baseGroup, performance.now());
 
   console.log(w);
 }
