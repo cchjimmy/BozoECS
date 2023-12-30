@@ -5,6 +5,7 @@ import {
   filter,
   getComponent,
   getEntityPointer,
+  getResults,
   systemGroup,
   world,
 } from "../../build/main.mjs";
@@ -12,10 +13,10 @@ import {
 function random(min, max) {
   return Math.random() * (max - min) + min;
 }
-function update(baseGroup, past) {
+function update(world, baseGroup, past) {
   const now = performance.now();
-  baseGroup((now - past) * 0.001);
-  requestAnimationFrame(() => update(baseGroup, now));
+  baseGroup(world, (now - past) * 0.001);
+  requestAnimationFrame(() => update(world, baseGroup, now));
 }
 function main() {
   const canvas = document.createElement("canvas");
@@ -53,8 +54,9 @@ function main() {
   const f = filter(Position, Velocity, Circle);
 
   // systems
-  function render(entities, world, dt) {
+  function render(world, dt) {
     const twoPI = 2 * Math.PI;
+    const entities = getResults(world, f);
     ctx.lineWidth = 3;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     entities.forEach((e) => {
@@ -67,7 +69,8 @@ function main() {
       ctx.stroke();
     });
   }
-  function move(entities, world, dt) {
+  function move(world, dt) {
+    const entities = getResults(world, f);
     entities.forEach((e) => {
       const ptr = getEntityPointer(world, e);
       const p = getComponent(world, ptr, Position);
@@ -76,13 +79,13 @@ function main() {
       p.y += v.y * dt;
     });
   }
-  function bounce(entities, world) {
+  function bounce(world) {
+    const entities = getResults(world, f);
     entities.forEach((e) => {
       const ptr = getEntityPointer(world, e);
       const p = getComponent(world, ptr, Position);
       const v = getComponent(world, ptr, Velocity);
       const c = getComponent(world, ptr, Circle);
-
       if (p.x - c.radius < 0 || p.x + c.radius > canvas.width) {
         v.x *= -1;
         p.x = p.x < canvas.width * 0.5 ? c.radius : canvas.width - c.radius;
@@ -97,7 +100,7 @@ function main() {
   // world
   const w = world(Position, Velocity, Circle)(f);
 
-  const baseGroup = systemGroup(f, w)(render, move, bounce);
+  const baseGroup = systemGroup(render, move, bounce);
 
   // entity
   function createEntity() {
@@ -118,8 +121,6 @@ function main() {
     createEntity();
   }
 
-  update(baseGroup, performance.now());
-
-  console.log(w);
+  update(w, baseGroup, performance.now());
 }
 main();

@@ -5,13 +5,13 @@ const componentIdGenerator = (function* () {
     id <<= 1;
   }
 })();
-export function component(properties) {
+function component(properties) {
   return {
     id: componentIdGenerator.next().value,
     properties,
   };
 }
-export function addComponent(world, entity, component) {
+function addComponent(world, entity, component) {
   const idx = world.indexMap.get(entity) ?? (() => {
     let i = world.nextIdx++;
     world.indexMap.set(entity, i);
@@ -29,13 +29,14 @@ export function addComponent(world, entity, component) {
   }
   return c;
 }
-export function removeComponent(world, entity, component) {
+function removeComponent(world, entity, component) {
   for (let i = 0; i < world.filters.length; i++) {
     if (world.filters[i].mask & component.id) {
       world.filters[i].results.delete(entity);
     }
   }
 }
-export function getComponent(world, entityPtr, component) {
+function getComponent(world, entityPtr, component) {
   return world.components[component.id][entityPtr];
 }
+export { addComponent, component, getComponent, removeComponent };

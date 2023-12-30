@@ -1,4 +1,4 @@
-export function world(...componentsToRegister) {
+function world(...componentsToRegister) {
   return (...filtersToRegister) => {
     let world = {
       components: {},
@@ -18,3 +18,4 @@ export function world(...componentsToRegister) {
     return world;
   };
 }
+export { world };

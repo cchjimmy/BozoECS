@@ -37,6 +37,31 @@ function getEntityPointer(world2, entity2) {
   return world2.indexMap.get(entity2);
 }
 
+// src/filter.js
+function filter(...components) {
+  let mask = 0;
+  for (let i = 0; i < components.length; i++) {
+    mask += components[i].id;
+  }
+  return mask;
+}
+function getResults(world2, filter2) {
+  for (let i = 0; i < world2.filters.length; ++i) {
+    if (world2.filters[i].mask != filter2)
+      continue;
+    return world2.filters[i].results;
+  }
+}
+
+// src/system.js
+function systemGroup(...systems) {
+  return (...args) => {
+    for (let i = 0; i < systems.length; ++i) {
+      systems[i](...args);
+    }
+  };
+}
+
 // src/component.js
 var componentIdGenerator = function* () {
   let id = 1;
@@ -78,30 +103,6 @@ function removeComponent(world2, entity2, component2) {
 function getComponent(world2, entityPtr, component2) {
   return world2.components[component2.id][entityPtr];
 }
-
-// src/system.js
-function systemGroup(filter2, world2) {
-  let entities;
-  for (let i = 0; i < world2.filters.length; ++i) {
-    if (world2.filters[i].mask !== filter2)
-      continue;
-    entities = world2.filters[i].results;
-  }
-  return (...systems) => (...args) => {
-    for (let i = 0; i < systems.length; ++i) {
-      systems[i](entities, world2, ...args);
-    }
-  };
-}
-
-// src/filter.js
-function filter(...components) {
-  let mask = 0;
-  for (let i = 0; i < components.length; i++) {
-    mask += components[i].id;
-  }
-  return mask;
-}
 export {
   addComponent,
   component,
@@ -109,6 +110,7 @@ export {
   filter,
   getComponent,
   getEntityPointer,
+  getResults,
   removeComponent,
   removeEntity,
   systemGroup,
