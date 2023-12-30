@@ -22,14 +22,17 @@ function addComponent(world, entity, component) {
   for (let p in component.properties) {
     c[p] = component.properties[p];
   }
+  const mask = world.componentMasks[idx] |= component.id;
   for (let i = 0; i < world.filters.length; i++) {
-    if (world.filters[i].mask & component.id) {
+    if (!(world.filters[i].mask & ~mask)) {
       world.filters[i].results.add(entity);
     }
   }
   return c;
 }
 function removeComponent(world, entity, component) {
+  const idx = world.indexMap.get(entity);
+  world.componentMasks[idx] &= ~component.id;
   for (let i = 0; i < world.filters.length; i++) {
     if (world.filters[i].mask & component.id) {
       world.filters[i].results.delete(entity);

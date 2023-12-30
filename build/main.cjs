@@ -40,7 +40,8 @@ function world(...componentsToRegister) {
       components: {},
       indexMap: /* @__PURE__ */ new Map(),
       nextIdx: 0,
-      filters: new Array(filtersToRegister.length)
+      filters: new Array(filtersToRegister.length),
+      componentMasks: {}
     };
     for (let i = 0; i < componentsToRegister.length; ++i) {
       world2.components[componentsToRegister[i].id] = [];
@@ -121,14 +122,17 @@ function addComponent(world2, entity2, component2) {
   for (let p in component2.properties) {
     c[p] = component2.properties[p];
   }
+  const mask = world2.componentMasks[idx] |= component2.id;
   for (let i = 0; i < world2.filters.length; i++) {
-    if (world2.filters[i].mask & component2.id) {
+    if (!(world2.filters[i].mask & ~mask)) {
       world2.filters[i].results.add(entity2);
     }
   }
   return c;
 }
 function removeComponent(world2, entity2, component2) {
+  const idx = world2.indexMap.get(entity2);
+  world2.componentMasks[idx] &= ~component2.id;
   for (let i = 0; i < world2.filters.length; i++) {
     if (world2.filters[i].mask & component2.id) {
       world2.filters[i].results.delete(entity2);

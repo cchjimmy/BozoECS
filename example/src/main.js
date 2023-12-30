@@ -6,6 +6,7 @@ import {
   getComponent,
   getEntityPointer,
   getResults,
+  removeComponent,
   systemGroup,
   world,
 } from "../../build/main.mjs";
@@ -23,7 +24,7 @@ function main() {
   const ctx = canvas.getContext("2d");
   document.body.appendChild(canvas);
 
-  const ENTITY_COUNT = 100;
+  const ENTITY_COUNT = 1;
 
   function fullsrn() {
     canvas.width = innerWidth;
@@ -115,12 +116,19 @@ function main() {
     v.y = random(-maxSpeed, maxSpeed);
     c.radius = random(10, 30);
     c.color = `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`;
+    return e;
   }
 
   for (let i = 0; i < ENTITY_COUNT; ++i) {
     createEntity();
   }
 
+  const test = createEntity();
+
+  removeComponent(w, test, Circle);
+
   update(w, baseGroup, performance.now());
+
+  console.log(w);
 }
 main();

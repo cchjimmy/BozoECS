@@ -5,6 +5,7 @@ function world(...componentsToRegister) {
       indexMap: new Map(),
       nextIdx: 0,
       filters: new Array(filtersToRegister.length),
+      componentMasks: {},
     };
     for (let i = 0; i < componentsToRegister.length; ++i) {
       world.components[componentsToRegister[i].id] = [];
