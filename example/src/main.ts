@@ -90,7 +90,7 @@ function render(world: World, _dt: number) {
   if (!ctx) return;
   const twoPI = 2 * Math.PI;
   const entities = query(world, renderQ);
-  ctx.lineWidth = 3;
+  //ctx.lineWidth = 1;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const oldStyle = ctx.strokeStyle;
   entities.forEach((e) => {
