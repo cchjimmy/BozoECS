@@ -1,39 +1,28 @@
 {
-  "name": "bozoecs",
-  "version": "0.0.29",
-  "description": "entity component system",
-  "main": "./build/main.cjs",
-  "module": "./build/main.mjs",
-  "exports": {
-    ".": {
-      "import": "./build/main.mjs",
-      "require": "./build/main.cjs"
-    }
-  },
-  "type": "module",
-  "scripts": {
-    "test": "npm run build && esbuild --servedir=.",
-    "build-web": "esbuild --bundle src/exports.js --outfile=build/main.js --global-name=bozoecs --minify",
-    "build-cjs": "esbuild --bundle src/exports.js --outfile=build/main.cjs --format=cjs",
-    "build-esm": "esbuild --bundle src/exports.js --outfile=build/main.mjs --format=esm",
-    "build": "npm run build-web && npm run build-esm && npm run build-cjs",
-    "format": "prettier . --write"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/cchjimmy/BozoECS.git"
-  },
-  "keywords": [
-    "ecs"
-  ],
-  "author": "cchjimmy",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/cchjimmy/BozoECS/issues"
-  },
-  "homepage": "https://github.com/cchjimmy/BozoECS#readme",
-  "devDependencies": {
-    "esbuild": "^0.19.4",
-    "prettier": "^3.0.3"
-  }
+	"name": "bozoecs",
+	"version": "0.0.29",
+	"description": "entity component system",
+	"type": "module",
+	"scripts": {
+		"start": "npm run build-release && esbuild --servedir=example",
+		"debug": "npm run build-debug && esbuild --servedir=example",
+		"build-release": "esbuild --bundle example/src/main.ts --outfile=example/build/out.js --minify",
+		"build-debug": "esbuild --bundle example/src/main.ts --outfile=example/build/out.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/cchjimmy/BozoECS.git"
+	},
+	"keywords": [
+		"ecs"
+	],
+	"author": "cchjimmy",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/cchjimmy/BozoECS/issues"
+	},
+	"homepage": "https://github.com/cchjimmy/BozoECS#readme",
+	"dependencies": {
+		"esbuild": "^0.25.3"
+	}
 }

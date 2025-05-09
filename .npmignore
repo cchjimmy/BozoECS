@@ -1,4 +1,4 @@
 test
-src
 .prettierignore
 example
+deno.json
