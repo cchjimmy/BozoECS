@@ -24,4 +24,8 @@ export class ObjectPool<T> {
     this.reserve.push(removed);
     return removed;
   }
+
+  len(): number {
+    return this.active.length;
+  }
 }

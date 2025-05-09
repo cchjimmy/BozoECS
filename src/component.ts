@@ -41,6 +41,6 @@ export class ComponentManager {
   }
 
   len<T extends typeof Component>(component: T): number {
-    return this.pools[component.id].active.length;
+    return this.pools[component.id].len();
   }
 }
