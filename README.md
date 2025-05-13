@@ -4,9 +4,9 @@
 
 ## Examples
 
-- [particles](./example)
+[Examples](./examples)
 
-## Installation
+<!-- ## Installation
 
 ### With npm
 
@@ -34,4 +34,4 @@ step 2: it is ready to use with the namespace BozoECS
 
 ```javascript
 console.log(bozoecs);
-```
+``` -->

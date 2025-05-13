@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+
+<head>
+	<style>
+		html,
+		a {
+			background-color: black;
+			color: white;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>Examples</h1>
+	<script>
+		const examples = ["particles", "pong"]
+		for (const example of examples) {
+			const a = document.createElement("a");
+			a.href = example
+			a.innerText = example
+			document.body.append(a)
+			document.body.append(document.createElement("br"))
+		}
+	</script>
+</body>
+
+</html>

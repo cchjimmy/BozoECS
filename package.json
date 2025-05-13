@@ -3,11 +3,13 @@
 	"version": "0.0.29",
 	"description": "entity component system",
 	"type": "module",
+	"types": "types",
 	"scripts": {
-		"start": "npm run build-release && esbuild --servedir=example",
-		"debug": "npm run build-debug && esbuild --servedir=example",
-		"build-release": "esbuild --bundle example/src/main.ts --outfile=example/build/out.js --minify",
-		"build-debug": "esbuild --bundle example/src/main.ts --outfile=example/build/out.js"
+		"start": "npm run build; npm run serve",
+		"dev": "nodemon --exec 'npm run build-debug; npm run serve' --watch examples --ignore **/build/** -e ts",
+		"serve": "esbuild --servedir=examples",
+		"build": "node --experimental-strip-types build.ts",
+		"build-debug": "npm run build -- debug"
 	},
 	"repository": {
 		"type": "git",
@@ -22,7 +24,8 @@
 		"url": "https://github.com/cchjimmy/BozoECS/issues"
 	},
 	"homepage": "https://github.com/cchjimmy/BozoECS#readme",
-	"dependencies": {
-		"esbuild": "^0.25.3"
+	"devDependencies": {
+		"esbuild": "^0.25.4",
+		"nodemon": "^3.1.10"
 	}
 }
