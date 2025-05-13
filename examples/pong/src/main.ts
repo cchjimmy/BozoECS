@@ -21,7 +21,7 @@ class Velocity extends Component {
 class Text extends Component {
 	content = "";
 	fontSize = 20;
-	margin = 3;
+	padding = 3;
 	color = "black";
 	backgroundColor = "white";
 }
@@ -45,19 +45,48 @@ function handlePlayerControl(world: World) {
 		const v = world.getComponent(e, Velocity);
 		const pc = world.getComponent(e, PlayerControl);
 		v.y = 0;
+		let movingUp = false;
+		let movingDown = false;
 		if (pc.isLeft) {
 			if (keys["w"]) {
 				v.y += -config.paddle.speed;
+				movingUp = true;
 			}
 			if (keys["s"]) {
 				v.y += config.paddle.speed;
+				movingDown = true;
 			}
 		} else {
 			if (keys["ArrowUp"]) {
 				v.y += -config.paddle.speed;
+				movingUp = true;
 			}
 			if (keys["ArrowDown"]) {
 				v.y += config.paddle.speed;
+				movingDown = true;
+			}
+		}
+		for (const pos of Object.values(touches)) {
+			if (ctx) {
+				const old = ctx.fillStyle;
+				ctx.fillStyle = "green";
+				ctx.fillRect(pos.x, pos.y, 20, 20);
+				ctx.fillStyle = old;
+			}
+			if (pos.x < config.playArea.width * 0.5) {
+				if (!pc.isLeft) continue;
+			} else {
+				if (pc.isLeft) continue;
+			}
+			if (pos.y < config.playArea.height * 0.5) {
+				if (movingDown) continue;
+				v.y -= config.paddle.speed;
+				movingDown = true;
+			}
+			if (pos.y > config.playArea.height * 0.5) {
+				if (movingUp) continue;
+				v.y += config.paddle.speed;
+				movingUp = true;
 			}
 		}
 	});
@@ -110,14 +139,14 @@ function drawTexts(world: World, dt: number) {
 		ctx.fillRect(
 			p.x,
 			p.y,
-			t.margin * 2 + txtMetric.width,
-			t.margin * 2 + txtMetric.fontBoundingBoxAscent,
+			t.padding * 2 + txtMetric.width,
+			t.padding * 2 + txtMetric.fontBoundingBoxAscent,
 		);
 		ctx.fillStyle = t.color;
 		ctx.fillText(
 			t.content,
-			p.x + t.margin,
-			p.y + t.margin + txtMetric.fontBoundingBoxAscent,
+			p.x + t.padding,
+			p.y + t.padding + txtMetric.fontBoundingBoxAscent,
 		);
 		ctx.fillStyle = old;
 	});
@@ -220,6 +249,33 @@ globalThis.onkeydown = (e) => {
 };
 globalThis.onkeyup = (e) => {
 	delete keys[e.key];
+};
+
+// multi touch
+const touches: Record<number, { x: number; y: number }> = {};
+globalThis.window.ontouchmove = globalThis.window.ontouchstart = (e) => {
+	if (!canvas) return;
+	const rect = canvas.getBoundingClientRect();
+	for (let i = 0, l = e.changedTouches.length; i < l; i++) {
+		const p = touches[e.changedTouches[i].identifier] = {
+			x: e.changedTouches[i].clientX,
+			y: e.changedTouches[i].clientY,
+		};
+		p.x -= rect.left;
+		p.y -= rect.top;
+		if (innerWidth / innerHeight < canvas.width / canvas.height) {
+			p.x *= canvas.width / innerWidth;
+			p.y *= canvas.width / innerWidth;
+		} else {
+			p.x *= canvas.height / innerHeight;
+			p.y *= canvas.height / innerHeight;
+		}
+	}
+};
+globalThis.window.ontouchend = (e) => {
+	for (let i = 0, l = e.changedTouches.length; i < l; i++) {
+		delete touches[e.changedTouches[i].identifier];
+	}
 };
 
 //bottom wall
