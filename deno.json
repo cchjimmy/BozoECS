@@ -1,0 +1,21 @@
+{
+	"tasks": {
+		"start": "deno run build; deno run serve",
+		"dev": "nodemon --exec 'deno run build-debug; deno run serve' --watch 'examples' --ignore 'examples/*/build/*' -e ts",
+		"serve": "esbuild --serve --servedir='examples'",
+		"build": "deno -A build.ts",
+		"build-debug": "deno run build -- debug"
+	},
+	"nodeModulesDir": "auto",
+	"imports": {
+		"@types/node": "npm:@types/node@^22.15.18",
+		"esbuild": "npm:esbuild@^0.25.4",
+		"nodemon": "npm:nodemon@^3.1.10"
+	},
+	"compilerOptions": {
+		"lib": [
+			"dom",
+			"esnext"
+		]
+	}
+}

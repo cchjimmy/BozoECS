@@ -64,9 +64,7 @@ export class World {
 
 	static componentExists<T extends typeof Component>(component: T) {
 		if (!World.components.isRegistered(component)) {
-			throw new Error(
-				`Component ${component.name} is not registered.`,
-			);
+			World.components.register(component);
 		}
 	}
 
