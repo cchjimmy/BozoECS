@@ -1,0 +1,10 @@
+[
+	{
+		"name": "particles",
+		"desc": "1000 particles test."
+	},
+	{
+		"name": "pong",
+		"desc": "Endless pong, use 'w', 's' to move the left paddle and 'ArrowUp' and 'ArrowDown' to move the right paddle. Also supports touch control."
+	}
+]

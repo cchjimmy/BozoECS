@@ -3,24 +3,40 @@
 
 <head>
 	<style>
-		html,
-		a {
+		html {
 			background-color: black;
+			color: white;
+			font-size: 40px;
+		}
+
+		a {
 			color: white;
 		}
 	</style>
 </head>
 
 <body>
-	<h1>Examples</h1>
-	<script>
-		const examples = ["particles", "pong"]
+	<h1>Stuff made with BozoECS</h1>
+	<table id="example-list"></table>
+	<script type="module">
+		import {default as examples} from "./examples.json" with {type: "json"};
+
+		addRow(true, "Example", "Description");
 		for (const example of examples) {
 			const a = document.createElement("a");
-			a.href = example
-			a.innerText = example
-			document.body.append(a)
-			document.body.append(document.createElement("br"))
+			a.href = example.name;
+			a.innerText = example.name;
+			addRow(false, a, example.desc);
+		}
+		function addRow(isHeader, ...entries) {
+			const exampleList = document.getElementById("example-list");
+			const tr = document.createElement("tr");
+			for (const entry of entries) {
+				const td = document.createElement(isHeader ? "th" : "td");
+				td.append(entry);
+				tr.append(td);
+			}
+			exampleList.append(tr);
 		}
 	</script>
 </body>

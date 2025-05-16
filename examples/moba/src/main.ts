@@ -59,6 +59,7 @@ function handleTimers(world: World) {
     t.callback(e);
   });
 }
+
 function drawTexts(world: World) {
   if (!ctx) return;
   world.query({ and: [Text, Position] }).forEach((e) => {
@@ -85,25 +86,34 @@ function drawTexts(world: World) {
   });
 }
 
+function drawRectangle(
+  ctx: CanvasRenderingContext2D,
+  p: Position,
+  r: Rect,
+  c: Colour,
+) {
+  const oldF = ctx.fillStyle;
+  const oldS = ctx.strokeStyle;
+  ctx.fillStyle = c.fill;
+  ctx.strokeStyle = c.stroke;
+  const rect = new Path2D(
+    `M ${p.x - r.width * 0.5} ${
+      p.y - r.height * 0.5
+    } h ${r.width} v ${r.height} h ${-r.width} Z`,
+  );
+  ctx.fill(rect);
+  ctx.stroke(rect);
+  ctx.fillStyle = oldF;
+  ctx.strokeStyle = oldS;
+}
+
 function drawRects(world: World) {
-  world.query({ and: [Position, Rect, Colour], not: [Button] }).forEach((e) => {
+  world.query({ and: [Position, Rect, Colour] }).forEach((e) => {
     if (!ctx) return;
     const p = world.getComponent(e, Position);
     const r = world.getComponent(e, Rect);
     const c = world.getComponent(e, Colour);
-    const oldF = ctx.fillStyle;
-    const oldS = ctx.strokeStyle;
-    ctx.fillStyle = c.fill;
-    ctx.strokeStyle = c.stroke;
-    const rect = new Path2D(
-      `M ${p.x - r.width * 0.5} ${
-        p.y - r.height * 0.5
-      } h ${r.width} v ${r.height} h ${-r.width} Z`,
-    );
-    ctx.fill(rect);
-    ctx.stroke(rect);
-    ctx.fillStyle = oldF;
-    ctx.strokeStyle = oldS;
+    drawRectangle(ctx, p, r, c);
   });
 }
 
@@ -121,13 +131,13 @@ function handleInput(world: World) {
     v.x = 0;
     v.y = 0;
     if (keys["w"] || keys["ArrowUp"]) {
-      v.y++;
+      v.y--;
     }
     if (keys["a"] || keys["ArrowLeft"]) {
       v.x--;
     }
     if (keys["s"] || keys["ArrowDown"]) {
-      v.y--;
+      v.y++;
     }
     if (keys["d"] || keys["ArrowRight"]) {
       v.x++;
@@ -152,12 +162,12 @@ function handleCamera(world: World) {
     const sin = Math.sin(c.tilt);
     const cos = Math.cos(c.tilt);
     const translateX = -p.x * c.zoom;
-    const translateY = -p.y * -c.zoom;
+    const translateY = -p.y * c.zoom;
     ctx.setTransform(
       cos * c.zoom,
-      -sin * -c.zoom,
+      -sin * c.zoom,
       sin * c.zoom,
-      cos * -c.zoom,
+      cos * c.zoom,
       translateX * cos + translateY * -sin + ctx.canvas.width * 0.5,
       translateX * sin + translateY * cos + ctx.canvas.height * 0.5,
     );
@@ -181,11 +191,17 @@ function drawImg(world: World) {
     const r = World.hasComponent(e, Rect) && world.getComponent(e, Rect);
     const img = new Image();
     img.src = g.src;
-    const scaleX = r ? r.width / img.width : 1;
-    const scaleY = r ? r.height / img.height : 1;
-    ctx.transform(scaleX, 0, 0, -scaleY, p.x, p.y);
-    ctx.drawImage(img, 0, 0);
-    ctx.transform(1 / scaleX, 0, 0, 1 / -scaleY, -p.x / scaleX, p.y / scaleY);
+    const imgWidth = r ? r.width : img.width;
+    const imgHeight = r ? r.height : img.height;
+    const scaleX = imgWidth / img.width;
+    const scaleY = imgHeight / img.height;
+    ctx.transform(scaleX, 0, 0, scaleY, 0, 0);
+    ctx.drawImage(
+      img,
+      (p.x - imgWidth / 2) / scaleX,
+      (p.y - imgHeight / 2) / scaleY,
+    );
+    ctx.transform(1 / scaleX, 0, 0, 1 / scaleY, 0, 0);
   });
 }
 
@@ -211,18 +227,6 @@ function handleButtons(world: World) {
 function resetTransform() {
   if (!ctx) return;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-}
-
-function drawButtons(world: World) {
-  world.query({ and: [Position, Button, Rect] }).forEach((e) => {
-    if (!ctx) return;
-    const p = world.getComponent(e, Position);
-    const r = world.getComponent(e, Rect);
-    const old = ctx.fillStyle;
-    ctx.fillStyle = "green";
-    ctx.fillRect(p.x - r.width * 0.5, p.y - r.height * 0.5, r.width, r.height);
-    ctx.fillStyle = old;
-  });
 }
 
 // entities
@@ -285,6 +289,10 @@ function addTimer(
   return e;
 }
 
+type vec2 = { x: number; y: number };
+function screenToWorld(pointerPos: vec2, camPos: vec2) {
+}
+
 const canvas = document.querySelector("canvas");
 const ctx = canvas?.getContext("2d");
 const keys: Record<string, boolean> = {};
@@ -298,6 +306,8 @@ const mouse = {
 };
 
 if (canvas && ctx) {
+  canvas.width = config.viewport.width;
+  canvas.height = config.viewport.height;
   canvas.style.imageRendering = "pixelated";
   ctx.lineWidth = 0.1;
 
@@ -333,10 +343,10 @@ if (canvas && ctx) {
 
   document.body.append(canvas);
 
-  const w = new World();
+  const game = new World();
 
-  const player = addRect(w, 0, 0);
-  const r = w.getComponent(player, Rect);
+  const player = addRect(game, 0, 0);
+  const r = game.getComponent(player, Rect);
   r.width = 1;
   r.height = 1;
   const camera = World.addComponent(player, Camera);
@@ -345,28 +355,49 @@ if (canvas && ctx) {
   camera.isActive = true;
   World.addComponent(player, PlayerControl);
 
-  addGraphic(w, "./assets/Map_of_MOBA.svg", 0, 300, 300, 300);
+  addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
 
-  addButton(w, 25, 15, 50, 30, (e) => {
-    const b = w.getComponent(e, Button);
-    b.clicked && console.log("clicked");
-  });
+  addTimer(game, 1000, () => console.log("TimerUp"));
 
-  addTimer(w, 1000, () => console.log("TimerUp"));
+  const inGameUi = new World();
+
+  addButton(
+    inGameUi,
+    config.viewport.width * 0.9,
+    config.viewport.height * 0.8,
+    config.viewport.height * 0.3,
+    config.viewport.height * 0.3,
+    (e) => {
+      const b = inGameUi.getComponent(e, Button);
+      b.clicked && console.log("clicked");
+    },
+  );
+
+  addGraphic(
+    inGameUi,
+    "./assets/Map_of_MOBA.svg",
+    config.viewport.width * 0.1,
+    config.viewport.height * 0.2,
+    config.viewport.height * 0.3,
+    config.viewport.height * 0.3,
+  );
 
   (function update() {
-    w.update(
+    game.update(
       drawBg,
       handleCamera,
       drawImg,
       drawRects,
       resetTransform,
-      drawButtons,
-      drawTexts,
       handleInput,
-      handleButtons,
       handleTimers,
       move,
+    );
+    inGameUi.update(
+      drawImg,
+      drawRects,
+      drawTexts,
+      handleButtons,
     );
     mouse.justReleased = false;
     requestAnimationFrame(update);
