@@ -3,18 +3,18 @@ import { ObjectPool } from "./pool.ts";
 export type entityT = number;
 
 export class EntityManager {
-  nextId = 0;
-  pool = new ObjectPool<entityT>(() => this.nextId++);
+  static nextId = 0;
+  static pool = new ObjectPool<entityT>(() => EntityManager.nextId++);
 
-  add(): entityT {
-    return this.pool.addObj();
+  static add(): entityT {
+    return EntityManager.pool.addObj();
   }
 
-  findIndex(entity: entityT): number {
-    return this.pool.findIndex(entity);
+  static findIndex(entity: entityT): number {
+    return EntityManager.pool.findIndex(entity);
   }
 
-  delete(index: number): entityT {
-    return this.pool.removeObj(index);
+  static delete(index: number): entityT {
+    return EntityManager.pool.removeObj(index);
   }
 }

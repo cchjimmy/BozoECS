@@ -3,14 +3,18 @@
 
 <head>
 	<style>
+		* {
+			color: white;
+		}
+
 		html {
 			background-color: black;
-			color: white;
 			font-size: 40px;
 		}
 
-		a {
-			color: white;
+		th,
+		td {
+			padding: 10px;
 		}
 	</style>
 </head>
@@ -21,12 +25,28 @@
 	<script type="module">
 		import {default as examples} from "./examples.json" with {type: "json"};
 
-		addRow(true, "Example", "Description");
+		addRow(true, "Example", "Description", "Supports (desktop, mobile)", "Developers");
+		const temp = [];
 		for (const example of examples) {
-			const a = document.createElement("a");
-			a.href = example.name;
-			a.innerText = example.name;
-			addRow(false, a, example.desc);
+			const linkToExample = document.createElement("a");
+			linkToExample.href = example.url;
+			linkToExample.innerText = example.name;
+			temp.length = 0;
+			const supports = Object.keys(example.supports).reduce((arr, x) => {
+				if (example.supports[x]) arr.push(x);
+				return arr;
+			}, temp).join(", ");
+			let devLen = example.developers.length;
+			const developers = example.developers.reduce((acc, x) => {
+				const a = document.createElement("a");
+				a.href = "https://github.com/" + x;
+				a.innerText = x;
+				acc.append(a);
+				devLen--;
+				devLen && acc.append(", ");
+				return acc;
+			}, document.createElement("span"));
+			addRow(false, linkToExample, example.desc, supports || "No support", developers);
 		}
 		function addRow(isHeader, ...entries) {
 			const exampleList = document.getElementById("example-list");

@@ -1,37 +1,44 @@
 export class ObjectPool<T> {
-	private reserve: T[];
-	private active: T[];
-	private objectConstructor: () => T;
+  private storage: T[] = [];
+  private objectConstructor: () => T;
+  private size = 0;
 
-	constructor(objectConstructor: () => T) {
-		this.reserve = [];
-		this.active = [];
-		this.objectConstructor = objectConstructor;
-	}
+  constructor(objectConstructor: () => T) {
+    this.objectConstructor = objectConstructor;
+  }
 
-	addObj(): T {
-		this.active.push(this.reserve.pop() ?? this.objectConstructor());
-		return this.active[this.active.length - 1];
-	}
+  len() {
+    return this.size;
+  }
 
-	findIndex(object: T): number {
-		return this.active.findIndex((v) => v == object);
-	}
+  addObj(): T {
+    let obj;
+    if (this.storage[this.size]) {
+      obj = this.storage[this.size];
+    } else {
+      obj = this.objectConstructor();
+      this.storage.push(obj);
+    }
+    this.size++;
+    return obj;
+  }
 
-	removeObj(index: number): T {
-		const removed = this.active[index];
-		// swap with last to maintain packed
-		this.active[index] = this.active[this.active.length - 1];
-		this.active.length--;
-		this.reserve.push(removed);
-		return removed;
-	}
+  findIndex(object: T): number {
+    return this.storage.findIndex((v) => v == object);
+  }
 
-	getObj(index: number): T {
-		return this.active[index];
-	}
+  removeObj(index: number): T {
+    if (index >= this.size) throw new Error("Index out of range.");
+    const removed = this.storage[index];
+    // swap with last to maintain packed
+    this.storage[index] = this.storage[this.storage.length - 1];
+    this.storage[this.storage.length - 1] = removed;
+    this.size--;
+    return removed;
+  }
 
-	len(): number {
-		return this.active.length;
-	}
+  getObj(index: number): T {
+    if (index >= this.size) throw new Error("Index out of range.");
+    return this.storage[index];
+  }
 }

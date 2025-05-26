@@ -1,46 +1,54 @@
-import { entityT } from "./entity.ts";
 import { ObjectPool } from "./pool.ts";
 
-export class Component {
-	static id: number = -1;
-	owner: entityT = -1;
-}
-
 export class ComponentManager {
-	pools: ObjectPool<InstanceType<typeof Component>>[] = [];
+  private static pools: Map<object, any> = new Map();
+  private static idMap: Map<object, number> = new Map();
 
-	register<T extends typeof Component>(
-		component: T,
-	) {
-		component.id == -1 && (component.id = this.pools.length);
-		this.pools[component.id] ??= new ObjectPool(() => new component());
-	}
+  static register<T extends object>(component: T) {
+    ComponentManager.idMap.set(component, ComponentManager.idMap.size);
+    ComponentManager.pools.set(
+      component,
+      new ObjectPool<T>(() => Object.assign({}, component)),
+    );
+  }
 
-	isRegistered<T extends typeof Component>(
-		component: T,
-	): boolean {
-		return !!(this.pools[component.id]);
-	}
+  static getId<T extends object>(component: T) {
+    const id = ComponentManager.idMap.get(component);
+    if (id == undefined) throw new Error("Component not registered.");
+    return id;
+  }
 
-	add<T extends typeof Component>(component: T): InstanceType<T> {
-		return this.pools[component.id].addObj() as InstanceType<T>;
-	}
+  static add<T extends object>(component: T): T {
+    return (ComponentManager.pools.get(component) as ObjectPool<T>).addObj();
+  }
 
-	delete<T extends typeof Component>(
-		component: T,
-		index: number,
-	): InstanceType<T> {
-		return this.pools[component.id].removeObj(index) as InstanceType<T>;
-	}
+  static delete<T extends object>(
+    component: T,
+    index: number,
+  ): T {
+    return (ComponentManager.pools.get(component) as ObjectPool<T>).removeObj(
+      index,
+    );
+  }
 
-	get<T extends typeof Component>(
-		component: T,
-		index: number,
-	): InstanceType<T> {
-		return this.pools[component.id].getObj(index) as InstanceType<T>;
-	}
+  static get<T extends object>(
+    component: T,
+    index: number,
+  ): T {
+    return (ComponentManager.pools.get(component) as ObjectPool<T>).getObj(
+      index,
+    );
+  }
 
-	len<T extends typeof Component>(component: T): number {
-		return this.pools[component.id].len();
-	}
+  static len<T extends object>(component: T): number {
+    return (ComponentManager.pools.get(component) as ObjectPool<T>).len();
+  }
+
+  static typeLen(): number {
+    return ComponentManager.pools.size;
+  }
+
+  static types(): object[] {
+    return ComponentManager.pools.keys().toArray();
+  }
 }

@@ -1,8 +1,10 @@
 import { build, type BuildOptions } from "npm:esbuild";
 import { argv } from "node:process";
 import { readdir, rm, stat } from "node:fs/promises";
+import { denoPlugins } from "jsr:@luca/esbuild-deno-loader";
 
 const options: BuildOptions = {
+  plugins: [...denoPlugins()],
   bundle: true,
   minify: true,
 };

@@ -1,10 +1,26 @@
 [
 	{
 		"name": "particles",
-		"desc": "1000 particles test."
+		"url": "./particles",
+		"desc": "1000 particles test.",
+		"supports": {
+			"desktop": true,
+			"mobile": true
+		},
+		"developers": [
+			"cchjimmy"
+		]
 	},
 	{
 		"name": "pong",
-		"desc": "Endless pong, use 'w', 's' to move the left paddle and 'ArrowUp' and 'ArrowDown' to move the right paddle. Also supports touch control."
+		"url": "./pong",
+		"desc": "Endless pong.",
+		"supports": {
+			"desktop": true,
+			"mobile": true
+		},
+		"developers": [
+			"cchjimmy"
+		]
 	}
 ]
