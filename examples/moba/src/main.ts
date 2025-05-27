@@ -132,33 +132,14 @@ function drawBg() {
 }
 
 function handleInput(world: World) {
-  world.query({ and: [PlayerControl, Velocity], or: [Camera] }).forEach((e) => {
-    const v = World.getComponent(e, Velocity);
-    v.x = 0;
-    v.y = 0;
-    if (keys["w"] || keys["ArrowUp"]) {
-      v.y--;
-    }
-    if (keys["a"] || keys["ArrowLeft"]) {
-      v.x--;
-    }
-    if (keys["s"] || keys["ArrowDown"]) {
-      v.y++;
-    }
-    if (keys["d"] || keys["ArrowRight"]) {
-      v.x++;
-    }
-    const mag = (v.x ** 2 + v.y ** 2) ** 0.5;
-    if (mag != 0) {
-      v.x = v.x / mag * config.player.speed;
-      v.y = v.y / mag * config.player.speed;
-    }
-
-    if (!World.hasComponent(e, Camera)) return;
+  let camP: typeof Transform;
+  world.query({ and: [Camera, Transform] }).forEach((e) => {
     const c = World.getComponent(e, Camera);
-    const dt = world.dtMilli / 1000;
-    if (keys["q"]) c.tilt -= 5 * dt;
-    if (keys["e"]) c.tilt += 5 * dt;
+    if (c.isActive) {
+      camP = World.getComponent(e, Transform);
+    }
+  });
+  world.query({ and: [PlayerControl, Transform, Velocity] }).forEach((e) => {
   });
 }
 

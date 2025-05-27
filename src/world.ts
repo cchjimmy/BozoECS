@@ -6,12 +6,12 @@ export type queryT = Partial<
 >;
 
 export class World {
-  private static indexMap: Map<object, number[]> = new Map();
-  private static entityMasks: number[] = [];
+  private static indexMap: Map<object, Map<number, number>> = new Map();
+  private static maskMap: Map<number, number> = new Map();
   private static archetypeMap: Map<number, Set<entityT>> = new Map();
   private static worlds: World[] = [];
   private static removeMap: Map<number, (_: entityT) => object> = new Map();
-  private static ownerMap: Map<object, entityT[]> = new Map();
+  private static ownerMap: Map<object, Map<number, number>> = new Map();
 
   timeMilli = 0;
   dtMilli = 0;
@@ -23,7 +23,7 @@ export class World {
 
   static createEntity(): entityT {
     const entity = EntityManager.add();
-    World.entityMasks[entity] = 0;
+    World.maskMap.set(entity, 0);
     World.getArchetype(0).add(entity);
     return entity;
   }
@@ -44,16 +44,17 @@ export class World {
     }
     const types = ComponentManager.types();
     for (let i = 0, l = ComponentManager.typeLen(); i < l; i++) {
-      if (!(World.entityMasks[entity] & 1 << i)) continue;
+      if (!(World.getMask(entity) & 1 << i)) continue;
       World.getRemoveFn(i)(entity);
       const indices = World.getIndices(types[i]);
       const owners = World.getOwners(types[i]);
-      const backEntity = owners[owners.length - 1];
-      owners[indices[entity]] = backEntity;
-      indices[backEntity] = indices[entity];
+      const backEntity = World.getOwner(owners, owners.size - 1);
+      const entityIdx = World.getIndex(indices, entity);
+      owners.set(entityIdx, backEntity);
+      indices.set(backEntity, entityIdx);
     }
-    World.getArchetype(World.entityMasks[entity]).delete(entity);
-    World.entityMasks[entity] = 0;
+    World.getArchetype(World.getMask(entity)).delete(entity);
+    World.maskMap.set(entity, 0);
     EntityManager.delete(EntityManager.findIndex(entity));
   }
 
@@ -73,10 +74,8 @@ export class World {
     this.localEntities.delete(entity);
   }
 
-  entityExists(entity: entityT) {
-    if (!this.localEntities.has(entity)) {
-      throw new Error(`Entity ${entity} does not exist.`);
-    }
+  entityExists(entity: entityT): boolean {
+    return this.localEntities.has(entity);
   }
 
   static componentExists<T extends object>(component: T) {
@@ -87,13 +86,16 @@ export class World {
     component: T,
   ): typeof World {
     ComponentManager.register(component);
-    World.indexMap.set(component, []);
+    World.indexMap.set(component, new Map());
     World.removeMap.set(
       ComponentManager.getId(component),
       (e: entityT) =>
-        ComponentManager.delete(component, this.getIndices(component)[e]),
+        ComponentManager.delete(
+          component,
+          World.getIndex(World.getIndices(component), e),
+        ),
     );
-    World.ownerMap.set(component, []);
+    World.ownerMap.set(component, new Map());
     return World;
   }
 
@@ -101,7 +103,7 @@ export class World {
     entity: entityT,
     component: T,
   ): boolean {
-    return (World.entityMasks[entity] &
+    return (World.getMask(entity) &
       1 << ComponentManager.getId(component)) > 0;
   }
 
@@ -110,15 +112,18 @@ export class World {
     component: T,
   ): T {
     World.componentExists(component);
-    if (World.hasComponent(entity, component)) {
-      throw new Error(`Entity ${entity} already had this component.`);
+    let mask = World.getMask(entity);
+    const compId = ComponentManager.getId(component);
+    if ((mask & 1 << compId) != 0) {
+      throw new Error(`Entity ${entity} already had that component.`);
     }
-    World.getArchetype(World.entityMasks[entity]).delete(entity);
-    World.entityMasks[entity] |= 1 << ComponentManager.getId(component);
-    World.getArchetype(World.entityMasks[entity]).add(entity);
+    World.getArchetype(mask).delete(entity);
+    mask |= 1 << compId;
+    World.maskMap.set(entity, mask);
+    World.getArchetype(mask).add(entity);
     const idx = ComponentManager.len(component);
-    World.getIndices(component)[entity] = idx;
-    World.getOwners(component)[idx] = entity;
+    World.getIndices(component).set(entity, idx);
+    World.getOwners(component).set(idx, entity);
     return ComponentManager.add(component);
   }
 
@@ -128,10 +133,25 @@ export class World {
     return indices;
   }
 
+  private static getIndex(
+    indices: Map<number, number>,
+    entity: entityT,
+  ) {
+    const index = indices.get(entity);
+    if (index == undefined) throw new Error(`Entity ${entity} does not exist.`);
+    return index;
+  }
+
   private static getOwners<T extends object>(component: T) {
     const owners = World.ownerMap.get(component);
     if (owners == undefined) throw new Error("Component not registered.");
     return owners;
+  }
+
+  private static getOwner(owners: Map<number, number>, index: number) {
+    const owner = owners.get(index);
+    if (owner == undefined) throw new Error("Owner not found.");
+    return owner;
   }
 
   static removeComponent<T extends object>(
@@ -139,21 +159,29 @@ export class World {
     component: T,
   ): T {
     World.componentExists(component);
-    if (!World.hasComponent(entity, component)) {
+    let mask = World.getMask(entity);
+    const compId = ComponentManager.getId(component);
+    if ((mask & 1 << compId) == 0) {
       throw new Error(
-        `Entity ${entity} does not have this component.`,
+        `Entity ${entity} does not have that component.`,
       );
     }
-    World.getArchetype(World.entityMasks[entity]).delete(entity);
-    World.entityMasks[entity] &= ~(1 << ComponentManager.getId(component));
-    World.getArchetype(World.entityMasks[entity]).add(entity);
+    World.getArchetype(mask).delete(entity);
+    mask &= ~(1 << compId);
+    World.maskMap.set(entity, mask);
+    World.getArchetype(mask).add(entity);
     const indices = World.getIndices(component);
     const owners = World.getOwners(component);
-    const removed = ComponentManager.delete(component, indices[entity]);
-    const backEntity = owners[owners.length - 1];
-    owners[indices[entity]] = backEntity;
-    indices[backEntity] = indices[entity];
+    const entityIdx = World.getIndex(indices, entity);
+    const removed = ComponentManager.delete(component, entityIdx);
+    const backEntity = World.getOwner(owners, owners.size - 1);
+    owners.set(entityIdx, backEntity);
+    indices.set(backEntity, entityIdx);
     return removed;
+  }
+
+  private static getMask(e: entityT): number {
+    return World.maskMap.get(e) ?? -1;
   }
 
   static getComponent<T extends object>(
@@ -161,13 +189,11 @@ export class World {
     component: T,
   ): T {
     if (!World.hasComponent(entity, component)) {
-      throw new Error(
-        `Entity ${entity} does not have this component.`,
-      );
+      throw new Error(`Entity ${entity} does not have that component.`);
     }
     return ComponentManager.get(
       component,
-      World.getIndices(component)[entity],
+      World.getIndex(World.getIndices(component), entity),
     );
   }
 

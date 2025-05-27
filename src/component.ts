@@ -12,10 +12,8 @@ export class ComponentManager {
     );
   }
 
-  static getId<T extends object>(component: T) {
-    const id = ComponentManager.idMap.get(component);
-    if (id == undefined) throw new Error("Component not registered.");
-    return id;
+  static getId<T extends object>(component: T): number {
+    return ComponentManager.idMap.get(component) ?? -1;
   }
 
   static add<T extends object>(component: T): T {

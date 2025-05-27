@@ -1,5 +1,5 @@
 import { World } from "../../../src/index.ts";
-import { Application, Graphics, Text } from "npm:pixi.js";
+import { Application, Container, Graphics, Text } from "npm:pixi.js";
 
 function random(min: number, max: number): number {
   return Math.random() * (max - min) + min;
@@ -72,6 +72,8 @@ function random(min: number, max: number): number {
   }
 
   // entity
+  const circles = new Container();
+  app.stage.addChild(circles);
   function createEntity() {
     const e = w.addEntity();
     const p = World.addComponent(e, Position);
@@ -88,7 +90,7 @@ function random(min: number, max: number): number {
       color: "white",
       width: 0.1,
     });
-    app.stage.addChild(c.graphics);
+    circles.addChild(c.graphics);
     return e;
   }
 
