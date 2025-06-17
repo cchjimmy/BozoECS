@@ -1,9 +1,7 @@
 import { ComponentManager } from "./component.ts";
 import { EntityManager, entityT } from "./entity.ts";
 
-export type queryT = Partial<
-  Record<"and" | "or" | "not", object[]>
->;
+export type queryT = Partial<Record<"and" | "or" | "not", object[]>>;
 
 export class World {
   private static indexMap: Map<object, Map<number, number>> = new Map();
