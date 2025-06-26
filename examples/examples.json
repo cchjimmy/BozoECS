@@ -22,5 +22,17 @@
 		"developers": [
 			"cchjimmy"
 		]
+	},
+	{
+		"name": "flappySquare",
+		"url": "./flappySquare",
+		"desc": "Avoid obstacles to get high score.",
+		"supports": {
+			"desktop": true,
+			"mobile": true
+		},
+		"developers": [
+			"cchjimmy"
+		]
 	}
 ]

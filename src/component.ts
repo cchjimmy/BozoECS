@@ -8,7 +8,7 @@ export class ComponentManager {
     ComponentManager.idMap.set(component, ComponentManager.idMap.size);
     ComponentManager.pools.set(
       component,
-      new ObjectPool<T>(() => Object.assign({}, component)),
+      new ObjectPool<T>(() => ({ ...component })),
     );
   }
 

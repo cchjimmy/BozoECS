@@ -6,46 +6,26 @@ import { entityT, World } from "../../../src/index.ts";
 import { default as config } from "./config.json" with { type: "json" };
 
 // components
-const Speed = {
-  max: 100,
-};
+const Speed = { max: 100 };
 const Combat = {
   healthPoint: 0,
   attackPoint: 0,
   defencePoint: 0,
   abilityPower: 0,
 };
-const Position = {
-  x: 0,
-  y: 0,
-};
-const Velocity = {
-  x: 0,
-  y: 0,
-};
+const Transform = { x: 0, y: 0, rad: 0, scaleX: 1, scaleY: 1 };
+const Velocity = { x: 0, y: 0 };
 const PlayerControl = {};
-const Camera = {
-  zoom: 1,
-  tilt: 0,
-  isActive: false,
-};
-const Rect = {
-  width: 2,
-  height: 2,
-};
-const Graphic = {
-  src: "",
-};
+const Camera = { zoom: 1, tilt: 0, isActive: false };
+const Rect = { width: 2, height: 2 };
+const Graphic = { src: "" };
 const Button = {
   hovered: false,
   pressed: false,
   clicked: false,
   callback: (_: entityT) => {},
 };
-const Colour = {
-  fill: "white",
-  stroke: "black",
-};
+const Colour = { fill: "white", stroke: "black" };
 const Text = {
   content: "",
   fontSize: 20,
@@ -78,12 +58,12 @@ const Keys: Record<KeyboardEvent["key"], boolean> = {};
 
 // systems
 function handleInput(world: World) {
-  world.query({ and: [PathFinder, Camera, PlayerControl, Position] }).forEach(
+  world.query({ and: [PathFinder, Camera, PlayerControl, Transform] }).forEach(
     (e) => {
+      const pf = World.getComponent(e, PathFinder);
+      const c = World.getComponent(e, Camera);
+      const p = World.getComponent(e, Transform);
       if (Mouse.justPressed) {
-        const pf = World.getComponent(e, PathFinder);
-        const c = World.getComponent(e, Camera);
-        const p = World.getComponent(e, Position);
         const worldPos = screenToWorld(
           { x: Mouse.x, y: Mouse.y },
           p,
@@ -93,30 +73,38 @@ function handleInput(world: World) {
         pf.targetX = worldPos.x;
         pf.targetY = worldPos.y;
       }
+      if (Keys["q"]) {
+        c.tilt += 1 * world.dtMilli / 1000;
+      }
+      if (Keys["e"]) {
+        c.tilt -= 1 * world.dtMilli / 1000;
+      }
     },
   );
 }
 
 function handlePathfind(world: World) {
-  world.query({ and: [PathFinder, Position, Velocity, Speed] }).forEach((e) => {
-    // tap to move
-    const pf = World.getComponent(e, PathFinder);
-    const p = World.getComponent(e, Position);
-    const v = World.getComponent(e, Velocity);
-    const s = World.getComponent(e, Speed);
+  world.query({ and: [PathFinder, Transform, Velocity, Speed] }).forEach(
+    (e) => {
+      // tap to move
+      const pf = World.getComponent(e, PathFinder);
+      const p = World.getComponent(e, Transform);
+      const v = World.getComponent(e, Velocity);
+      const s = World.getComponent(e, Speed);
 
-    const dx = pf.targetX - p.x;
-    const dy = pf.targetY - p.y;
-    const dMag = (dx * dx + dy * dy) ** 0.5;
+      const dx = pf.targetX - p.x;
+      const dy = pf.targetY - p.y;
+      const dMag = (dx * dx + dy * dy) ** 0.5;
 
-    if (dMag < pf.deactivateTolerance) {
-      v.x = v.y = 0;
-      return;
-    }
+      if (dMag < pf.deactivateTolerance) {
+        v.x = v.y = 0;
+        return;
+      }
 
-    v.x = dx / dMag * s.max;
-    v.y = dy / dMag * s.max;
-  });
+      v.x = dx / dMag * s.max;
+      v.y = dy / dMag * s.max;
+    },
+  );
 }
 
 function handleTimers(world: World) {
@@ -130,9 +118,9 @@ function handleTimers(world: World) {
 
 function drawTexts(world: World) {
   if (!ctx) return;
-  world.query({ and: [Text, Position] }).forEach((e) => {
+  world.query({ and: [Text, Transform] }).forEach((e) => {
     const t = World.getComponent(e, Text);
-    const p = World.getComponent(e, Position);
+    const p = World.getComponent(e, Transform);
 
     ctx.font = `${t.fontSize}px serif`;
     const txtMetric = ctx.measureText(t.content);
@@ -156,7 +144,7 @@ function drawTexts(world: World) {
 
 function drawRectangle(
   ctx: CanvasRenderingContext2D,
-  p: typeof Position,
+  p: typeof Transform,
   r: typeof Rect,
   c: typeof Colour,
 ) {
@@ -177,8 +165,8 @@ function drawRectangle(
 
 function drawRects(world: World) {
   if (!ctx) return;
-  world.query({ and: [Position, Rect, Colour] }).forEach((e) => {
-    const p = World.getComponent(e, Position);
+  world.query({ and: [Transform, Rect, Colour] }).forEach((e) => {
+    const p = World.getComponent(e, Transform);
     const r = World.getComponent(e, Rect);
     const c = World.getComponent(e, Colour);
     drawRectangle(ctx, p, r, c);
@@ -194,18 +182,18 @@ function drawBg() {
 }
 
 function handleCamera(world: World) {
-  world.query({ and: [Camera, Position, Velocity] }).forEach((e) => {
+  world.query({ and: [Camera, Transform, Velocity] }).forEach((e) => {
     const c = World.getComponent(e, Camera);
     if (!ctx || !c.isActive) return;
-    const p = World.getComponent(e, Position);
+    const p = World.getComponent(e, Transform);
     const sin = Math.sin(c.tilt);
     const cos = Math.cos(c.tilt);
     const translateX = -p.x * c.zoom;
     const translateY = -p.y * c.zoom;
     ctx.transform(
       cos * c.zoom,
-      -sin * c.zoom,
       sin * c.zoom,
+      -sin * c.zoom,
       cos * c.zoom,
       // inverse rotation
       cos * translateX + sin * translateY + ctx.canvas.width * 0.5,
@@ -221,8 +209,8 @@ function handleCamera(world: World) {
 
 function move(world: World) {
   const dt = world.dtMilli / 1000;
-  world.query({ and: [Position, Velocity] }).forEach((e) => {
-    const p = World.getComponent(e, Position);
+  world.query({ and: [Transform, Velocity] }).forEach((e) => {
+    const p = World.getComponent(e, Transform);
     const v = World.getComponent(e, Velocity);
     p.x += v.x * dt;
     p.y += v.y * dt;
@@ -231,9 +219,9 @@ function move(world: World) {
 
 function drawImg(world: World) {
   if (!ctx) return;
-  world.query({ and: [Graphic, Position], or: [Rect] }).forEach((e) => {
+  world.query({ and: [Graphic, Transform], or: [Rect] }).forEach((e) => {
     const g = World.getComponent(e, Graphic);
-    const p = World.getComponent(e, Position);
+    const p = World.getComponent(e, Transform);
     const r = World.hasComponent(e, Rect) && World.getComponent(e, Rect);
     const img = new Image();
     img.src = g.src;
@@ -252,8 +240,8 @@ function drawImg(world: World) {
 }
 
 function handleButtons(world: World) {
-  world.query({ and: [Button, Position, Rect] }).forEach((e) => {
-    const p = World.getComponent(e, Position);
+  world.query({ and: [Button, Transform, Rect] }).forEach((e) => {
+    const p = World.getComponent(e, Transform);
     const b = World.getComponent(e, Button);
     const r = World.getComponent(e, Rect);
     const pressedWithinButton =
@@ -278,7 +266,7 @@ function resetTransform() {
 // entities
 function addGraphic(world: World, src: string, x = 0, y = 0, w = 1, h = 1) {
   const e = world.addEntity();
-  const p = World.addComponent(e, Position);
+  const p = World.addComponent(e, Transform);
   const g = World.addComponent(e, Graphic);
   const r = World.addComponent(e, Rect);
   p.x = x;
@@ -291,7 +279,7 @@ function addGraphic(world: World, src: string, x = 0, y = 0, w = 1, h = 1) {
 
 function addRect(world: World, x: number = 0, y: number = 0) {
   const e = world.addEntity();
-  const p = World.addComponent(e, Position);
+  const p = World.addComponent(e, Transform);
   World.addComponent(e, Velocity);
   World.addComponent(e, Speed);
   World.addComponent(e, Rect);
@@ -312,7 +300,7 @@ function addButton(
   cb: (e: entityT) => void = () => {},
 ) {
   const e = world.addEntity();
-  const p = World.addComponent(e, Position);
+  const p = World.addComponent(e, Transform);
   const r = World.addComponent(e, Rect);
   const b = World.addComponent(e, Button);
   World.addComponent(e, Colour);
@@ -342,7 +330,7 @@ function addPlayer(world: World) {
   r.width = 1;
   r.height = 1;
   const s = World.getComponent(player, Speed);
-  s.max = 30;
+  s.max = 10;
   const camera = World.addComponent(player, Camera);
   camera.zoom = 30;
   camera.isActive = true;
@@ -400,28 +388,23 @@ if (canvas && ctx) {
       Mouse.y *= canvas.height / innerHeight;
     }
   };
+
   document.onpointerdown = () => {
     Mouse.isDown = true;
     Mouse.justPressed = true;
-    Mouse.pressPos.x = Mouse.x;
-    Mouse.pressPos.y = Mouse.y;
+    Object.assign(Mouse.pressPos, Mouse);
 
-    const p = World.getComponent(mouseRect, Position);
+    const mp = World.getComponent(mouseRect, Transform);
+    const pp = World.getComponent(player, Transform);
     const c = World.getComponent(player, Camera);
-    const worldPos = screenToWorld(
-      Mouse,
-      World.getComponent(player, Position),
-      c.tilt,
-      c.zoom,
-    );
-    p.x = worldPos.x;
-    p.y = worldPos.y;
+    const worldPos = screenToWorld(Mouse, pp, c.tilt, c.zoom);
+    Object.assign(mp, worldPos);
   };
+
   document.onpointerup = () => {
     Mouse.isDown = false;
     Mouse.justReleased = true;
-    Mouse.releasePos.x = Mouse.x;
-    Mouse.releasePos.y = Mouse.y;
+    Object.assign(Mouse.releasePos, Mouse);
   };
 
   document.body.append(canvas);
@@ -430,9 +413,9 @@ if (canvas && ctx) {
 
   const player = addPlayer(game);
 
-  addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
+  const mouseRect = addRect(game);
 
-  const mouseRect = addRect(game, 0, 0);
+  addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
 
   //addTimer(game, 1000, () => {
   //  const minion = addRect(game, 0, 0);
@@ -458,6 +441,7 @@ if (canvas && ctx) {
     },
   );
 
+  // minimap
   addGraphic(
     inGameUi,
     "./assets/Map_of_MOBA.svg",
