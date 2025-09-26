@@ -1,10 +1,10 @@
 export class ObjectPool<T> {
   private storage: T[] = [];
-  private objectConstructor: () => T;
+  private objectFactory: () => T;
   private size = 0;
 
-  constructor(objectConstructor: () => T) {
-    this.objectConstructor = objectConstructor;
+  constructor(objectFactory: () => T) {
+    this.objectFactory = objectFactory;
   }
 
   len() {
@@ -13,10 +13,10 @@ export class ObjectPool<T> {
 
   addObj(): T {
     let obj;
-    if (this.storage[this.size]) {
+    if (this.size < this.storage.length) {
       obj = this.storage[this.size];
     } else {
-      obj = this.objectConstructor();
+      obj = this.objectFactory();
       this.storage.push(obj);
     }
     this.size++;
@@ -28,7 +28,7 @@ export class ObjectPool<T> {
   }
 
   removeObj(index: number): T {
-    if (index >= this.size) throw new Error("Index out of range.");
+    if (index < 0 || index >= this.size) throw new Error("Index out of range.");
     const removed = this.storage[index];
     // swap with last to maintain packed
     this.storage[index] = this.storage[this.storage.length - 1];
@@ -38,7 +38,7 @@ export class ObjectPool<T> {
   }
 
   getObj(index: number): T {
-    if (index >= this.size) throw new Error("Index out of range.");
+    if (index < 0 || index >= this.size) throw new Error("Index out of range.");
     return this.storage[index];
   }
 }

@@ -1,9 +1,13 @@
 {
-	"viewport": {
-		"width": 800,
-		"height": 400
-	},
-	"player": {
-		"speed": 20
-	}
+  "viewport": {
+    "width": 800,
+    "height": 400
+  },
+  "player": {
+    "speed": 20
+  },
+  "minions": {
+    "speed": 20,
+    "spawnRate": 2
+  }
 }

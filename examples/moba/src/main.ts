@@ -6,24 +6,45 @@ import { entityT, World } from "../../../src/index.ts";
 import { default as config } from "./config.json" with { type: "json" };
 
 // components
-const Speed = { max: 100 };
-const Combat = {
+const PIDController = {
+  kp: 0,
+  ki: 0,
+  kd: 0,
+  prevErr: 0,
+  accumErr: 0,
+  result: function (currentErr: number, dt: number): number {
+    if (dt == 0) return 0;
+    this.accumErr += currentErr;
+    const out =
+      this.kp * currentErr +
+      this.ki * this.accumErr +
+      (this.kd * (currentErr - this.prevErr)) / dt;
+    this.prevErr = currentErr;
+    return out;
+  },
+  reset: function (): void {
+    this.prevErr = this.accumErr = 0;
+  },
+};
+const Stats = {
   healthPoint: 0,
   attackPoint: 0,
   defencePoint: 0,
   abilityPower: 0,
+  moveSpeed: 0,
+  attackSpeed: 0,
 };
+const Callback = { callback: new Function() };
 const Transform = { x: 0, y: 0, rad: 0, scaleX: 1, scaleY: 1 };
 const Velocity = { x: 0, y: 0 };
 const PlayerControl = {};
-const Camera = { zoom: 1, tilt: 0, isActive: false };
+const Camera = { zoom: 20, tilt: 0, isActive: false };
 const Rect = { width: 2, height: 2 };
 const Graphic = { src: "" };
 const Button = {
   hovered: false,
   pressed: false,
   clicked: false,
-  callback: (_: entityT) => {},
 };
 const Colour = { fill: "white", stroke: "black" };
 const Text = {
@@ -34,14 +55,13 @@ const Text = {
   backgroundColor: "white",
 };
 const Timer = {
-  durationMilli: 1000,
-  startMilli: 0,
-  callback: (_: entityT) => {},
+  timeMilli: 0,
+  reset: false,
+  stop: false,
 };
 const PathFinder = {
   targetX: 0,
   targetY: 0,
-  deactivateTolerance: 1,
 };
 
 // singletons
@@ -58,61 +78,83 @@ const Keys: Record<KeyboardEvent["key"], boolean> = {};
 
 // systems
 function handleInput(world: World) {
-  world.query({ and: [PathFinder, Camera, PlayerControl, Transform] }).forEach(
-    (e) => {
-      const pf = World.getComponent(e, PathFinder);
-      const c = World.getComponent(e, Camera);
-      const p = World.getComponent(e, Transform);
-      if (Mouse.justPressed) {
-        const worldPos = screenToWorld(
-          { x: Mouse.x, y: Mouse.y },
-          p,
-          c.tilt,
-          c.zoom,
-        );
-        pf.targetX = worldPos.x;
-        pf.targetY = worldPos.y;
-      }
-      if (Keys["q"]) {
-        c.tilt += 1 * world.dtMilli / 1000;
-      }
-      if (Keys["e"]) {
-        c.tilt -= 1 * world.dtMilli / 1000;
-      }
-    },
-  );
+  let camera: typeof Camera | null;
+  let camTransform: typeof Transform | null;
+  world.query({ and: [Camera, Transform] }).forEach((e) => {
+    const c = World.getComponent(e, Camera);
+    if (!c.isActive) return;
+    camera = c;
+    camTransform = World.getComponent(e, Transform);
+    if (Keys["q"]) {
+      camera.tilt += (1 * world.dtMilli) / 1000;
+    }
+    if (Keys["e"]) {
+      camera.tilt -= (1 * world.dtMilli) / 1000;
+    }
+  });
+  world.query({ and: [PathFinder, PlayerControl] }).forEach((e) => {
+    if (!camera || !camTransform) return;
+    const pf = World.getComponent(e, PathFinder);
+    if (Mouse.justPressed) {
+      const worldPos = screenToWorld(
+        { x: Mouse.x, y: Mouse.y },
+        camTransform,
+        camera.tilt,
+        camera.zoom,
+      );
+      pf.targetX = worldPos.x;
+      pf.targetY = worldPos.y;
+    }
+  });
 }
 
 function handlePathfind(world: World) {
-  world.query({ and: [PathFinder, Transform, Velocity, Speed] }).forEach(
-    (e) => {
-      // tap to move
+  world
+    .query({
+      and: [PathFinder, Transform, Velocity, Stats],
+      or: [PIDController],
+    })
+    .forEach((e) => {
       const pf = World.getComponent(e, PathFinder);
       const p = World.getComponent(e, Transform);
       const v = World.getComponent(e, Velocity);
-      const s = World.getComponent(e, Speed);
+      const s = World.getComponent(e, Stats);
 
       const dx = pf.targetX - p.x;
       const dy = pf.targetY - p.y;
       const dMag = (dx * dx + dy * dy) ** 0.5;
-
-      if (dMag < pf.deactivateTolerance) {
-        v.x = v.y = 0;
-        return;
+      if (dMag == 0) return;
+      const controlDistance = ((s.moveSpeed * world.dtMilli) / 1000) * 2;
+      let adjustedSpeed =
+        dMag > controlDistance
+          ? s.moveSpeed
+          : (s.moveSpeed * dMag) / controlDistance;
+      if (World.hasComponent(e, PIDController)) {
+        const pid = World.getComponent(e, PIDController);
+        const velocityMag = (v.x * v.x + v.y * v.y) ** 0.5;
+        if (dMag > controlDistance) {
+          pid.reset();
+          adjustedSpeed = s.moveSpeed;
+        } else {
+          adjustedSpeed =
+            velocityMag + pid.result(-velocityMag, world.dtMilli / 1000);
+        }
       }
-
-      v.x = dx / dMag * s.max;
-      v.y = dy / dMag * s.max;
-    },
-  );
+      v.x = (dx / dMag) * adjustedSpeed;
+      v.y = (dy / dMag) * adjustedSpeed;
+    });
 }
 
 function handleTimers(world: World) {
-  world.query({ and: [Timer] }).forEach((e) => {
+  world.query({ and: [Timer], or: [Callback] }).forEach((e) => {
+    if (World.hasComponent(e, Callback)) {
+      const cb = World.getComponent(e, Callback);
+      cb.callback(e);
+    }
     const t = World.getComponent(e, Timer);
-    if (world.timeMilli - t.startMilli < t.durationMilli) return;
-    t.startMilli = world.timeMilli;
-    t.callback(e);
+    if (t.reset) t.timeMilli = 0;
+    t.reset = false;
+    if (!t.stop) t.timeMilli += world.dtMilli;
   });
 }
 
@@ -121,23 +163,25 @@ function drawTexts(world: World) {
   world.query({ and: [Text, Transform] }).forEach((e) => {
     const t = World.getComponent(e, Text);
     const p = World.getComponent(e, Transform);
-
     ctx.font = `${t.fontSize}px serif`;
-    const txtMetric = ctx.measureText(t.content);
     const old = ctx.fillStyle;
-    ctx.fillStyle = t.backgroundColor;
-    ctx.fillRect(
-      p.x,
-      p.y,
-      t.padding * 2 + txtMetric.width,
-      t.padding * 2 + txtMetric.fontBoundingBoxAscent,
-    );
-    ctx.fillStyle = t.color;
-    ctx.fillText(
-      t.content,
-      p.x + t.padding,
-      p.y + t.padding + txtMetric.fontBoundingBoxAscent,
-    );
+    const lines = t.content.split("\n");
+    for (let i = 0, l = lines.length; i < l; i++) {
+      const txtMetric = ctx.measureText(lines[i]);
+      ctx.fillStyle = t.backgroundColor;
+      ctx.fillRect(
+        p.x,
+        p.y + i * (2 * t.padding) + i * txtMetric.fontBoundingBoxAscent,
+        t.padding * 2 + txtMetric.width,
+        t.padding * 2 + txtMetric.fontBoundingBoxAscent,
+      );
+      ctx.fillStyle = t.color;
+      ctx.fillText(
+        lines[i],
+        p.x + t.padding,
+        p.y + i * (2 * t.padding) + (i + 1) * txtMetric.fontBoundingBoxAscent,
+      );
+    }
     ctx.fillStyle = old;
   });
 }
@@ -173,18 +217,19 @@ function drawRects(world: World) {
   });
 }
 
-function drawBg() {
+function drawBg(color: string = "#424242") {
   if (!ctx) return;
   const old = ctx.fillStyle;
-  ctx.fillStyle = "#424242";
+  ctx.fillStyle = color;
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.fillStyle = old;
 }
 
 function handleCamera(world: World) {
-  world.query({ and: [Camera, Transform, Velocity] }).forEach((e) => {
+  if (!ctx) return;
+  world.query({ and: [Camera, Transform] }).forEach((e) => {
     const c = World.getComponent(e, Camera);
-    if (!ctx || !c.isActive) return;
+    if (!c.isActive) return;
     const p = World.getComponent(e, Transform);
     const sin = Math.sin(c.tilt);
     const cos = Math.cos(c.tilt);
@@ -192,18 +237,13 @@ function handleCamera(world: World) {
     const translateY = -p.y * c.zoom;
     ctx.transform(
       cos * c.zoom,
-      sin * c.zoom,
       -sin * c.zoom,
+      sin * c.zoom,
       cos * c.zoom,
       // inverse rotation
       cos * translateX + sin * translateY + ctx.canvas.width * 0.5,
       -sin * translateX + cos * translateY + ctx.canvas.height * 0.5,
     );
-    const v = World.getComponent(e, Velocity);
-    const x = v.x;
-    const y = v.y;
-    v.x = cos * x - sin * y;
-    v.y = sin * x + cos * y;
   });
 }
 
@@ -214,6 +254,11 @@ function move(world: World) {
     const v = World.getComponent(e, Velocity);
     p.x += v.x * dt;
     p.y += v.y * dt;
+    // const v = World.getComponent(e, Velocity);
+    // const x = v.x;
+    // const y = v.y;
+    // v.x = cos * x - sin * y;
+    // v.y = sin * x + cos * y;
   });
 }
 
@@ -240,27 +285,25 @@ function drawImg(world: World) {
 }
 
 function handleButtons(world: World) {
-  world.query({ and: [Button, Transform, Rect] }).forEach((e) => {
+  world.query({ and: [Button, Transform, Rect, Callback] }).forEach((e) => {
     const p = World.getComponent(e, Transform);
     const b = World.getComponent(e, Button);
     const r = World.getComponent(e, Rect);
+    const cb = World.getComponent(e, Callback);
     const pressedWithinButton =
       (Mouse.pressPos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
       (Mouse.pressPos.y - p.y) ** 2 < (r.height / 2) ** 2;
-
-    b.hovered = (Mouse.x - p.x) ** 2 < (r.width / 2) ** 2 &&
+    b.hovered =
+      (Mouse.x - p.x) ** 2 < (r.width / 2) ** 2 &&
       (Mouse.y - p.y) ** 2 < (r.height / 2) ** 2;
     b.pressed = b.hovered && Mouse.isDown && pressedWithinButton;
-    b.clicked = Mouse.justReleased && pressedWithinButton &&
+    b.clicked =
+      Mouse.justReleased &&
+      pressedWithinButton &&
       (Mouse.releasePos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
       (Mouse.releasePos.y - p.y) ** 2 < (r.height / 2) ** 2;
-    b.callback(e);
+    cb.callback(e);
   });
-}
-
-function resetTransform() {
-  if (!ctx) return;
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 // entities
@@ -280,8 +323,6 @@ function addGraphic(world: World, src: string, x = 0, y = 0, w = 1, h = 1) {
 function addRect(world: World, x: number = 0, y: number = 0) {
   const e = world.addEntity();
   const p = World.addComponent(e, Transform);
-  World.addComponent(e, Velocity);
-  World.addComponent(e, Speed);
   World.addComponent(e, Rect);
   const c = World.addComponent(e, Colour);
   c.fill = "green";
@@ -308,19 +349,15 @@ function addButton(
   p.y = y;
   r.width = w;
   r.height = h;
-  b.callback = cb;
+  const c = World.addComponent(e, Callback);
+  c.callback = cb;
   return e;
 }
 
-function addTimer(
-  world: World,
-  durationMilli: number,
-  callback: (e: entityT) => void = () => {},
-) {
+function addTimerWithCallback(world: World, cb: (e: entityT) => void) {
   const e = world.addEntity();
-  const t = World.addComponent(e, Timer);
-  t.durationMilli = durationMilli;
-  t.callback = callback;
+  World.addComponent(e, Timer);
+  World.addComponent(e, Callback).callback = cb;
   return e;
 }
 
@@ -329,14 +366,20 @@ function addPlayer(world: World) {
   const r = World.getComponent(player, Rect);
   r.width = 1;
   r.height = 1;
-  const s = World.getComponent(player, Speed);
-  s.max = 10;
-  const camera = World.addComponent(player, Camera);
-  camera.zoom = 30;
-  camera.isActive = true;
+  World.addComponent(player, Velocity);
+  const s = World.addComponent(player, Stats);
+  s.moveSpeed = config.player.speed;
   World.addComponent(player, PlayerControl);
   World.addComponent(player, PathFinder);
+  const pid = World.addComponent(player, PIDController);
+  ((pid.kp = 0.5), (pid.ki = 0.001), (pid.kd = 0.0));
   return player;
+}
+
+function addTurrent(world: World, x: number, y: number) {
+  const turrent = addRect(world, x, y);
+  World.addComponent(turrent, Stats);
+  return turrent;
 }
 
 //utils
@@ -359,6 +402,15 @@ function screenToWorld(
   res.x += cameraPos.x;
   res.y += cameraPos.y;
   return res;
+}
+function resetTransform(ctx: CanvasRenderingContext2D) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+// credit: https://www.30secondsofcode.org/js/s/detect-device-type/
+function detectDeviceType(): string {
+  return /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)
+    ? "Mobile"
+    : "Desktop";
 }
 
 const canvas = document.querySelector("canvas");
@@ -389,16 +441,11 @@ if (canvas && ctx) {
     }
   };
 
-  document.onpointerdown = () => {
+  document.onpointerdown = (e) => {
+    if (e.target != canvas) return;
     Mouse.isDown = true;
     Mouse.justPressed = true;
     Object.assign(Mouse.pressPos, Mouse);
-
-    const mp = World.getComponent(mouseRect, Transform);
-    const pp = World.getComponent(player, Transform);
-    const c = World.getComponent(player, Camera);
-    const worldPos = screenToWorld(Mouse, pp, c.tilt, c.zoom);
-    Object.assign(mp, worldPos);
   };
 
   document.onpointerup = () => {
@@ -413,19 +460,25 @@ if (canvas && ctx) {
 
   const player = addPlayer(game);
 
-  const mouseRect = addRect(game);
+  const turrent = addTurrent(game, 10, 0);
 
-  addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
+  const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
 
-  //addTimer(game, 1000, () => {
-  //  const minion = addRect(game, 0, 0);
-  //  const v = game.getComponent(minion, Velocity);
-  //  const speed = 10;
-  //  const c = Math.cos(-Math.PI / 4);
-  //  const s = Math.sin(-Math.PI / 4);
-  //  v.x = c * speed;
-  //  v.y = s * speed;
-  //});
+  const camera = World.addComponent(player, Camera);
+  camera.zoom = 30;
+  camera.isActive = true;
+
+  // addTimerWithCallback(game, (e) => {
+  //   const t = World.getComponent(e, Timer);
+  //   if (t.timeMilli < 1000 / config.minions.spawnRate) return;
+  //   t.reset = true;
+  //   const minion = addRect(game, 0, 0);
+  //   const v = World.addComponent(minion, Velocity);
+  //   const c = Math.cos(-Math.PI / 4);
+  //   const s = Math.sin(-Math.PI / 4);
+  //   v.x = c * config.minions.speed;
+  //   v.y = s * config.minions.speed;
+  // });
 
   const inGameUi = new World();
 
@@ -451,8 +504,16 @@ if (canvas && ctx) {
     config.viewport.height * 0.3,
   );
 
+  const debugTextEntity = inGameUi.addEntity();
+  const debugText = World.addComponent(debugTextEntity, Text, {
+    content: "test string",
+    backgroundColor: "white",
+  });
+  World.addComponent(debugTextEntity, Transform);
+
   (function update() {
     drawBg();
+    debugText.content = `FPS: ${Math.ceil(1000 / game.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}`;
     game.update(
       handleTimers,
       handleCamera,
@@ -462,13 +523,8 @@ if (canvas && ctx) {
       drawRects,
       move,
     );
-    resetTransform();
-    inGameUi.update(
-      drawImg,
-      drawRects,
-      drawTexts,
-      handleButtons,
-    );
+    resetTransform(ctx);
+    inGameUi.update(drawImg, drawRects, drawTexts, handleButtons);
     Mouse.justReleased = false;
     Mouse.justPressed = false;
     requestAnimationFrame(update);

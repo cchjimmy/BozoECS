@@ -15,19 +15,9 @@ function random(min: number, max: number): number {
   const w = new World();
 
   // components
-  const Position = {
-    x: 0,
-    y: 0,
-  };
-  const Velocity = {
-    x: 0,
-    y: 0,
-  };
-  const Circle = {
-    radius: 10,
-    color: "green",
-    graphics: new Graphics(),
-  };
+  const Position = { x: 0, y: 0 };
+  const Velocity = { x: 0, y: 0 };
+  const Circle = { radius: 10, color: "green", graphics: new Graphics() };
 
   // not necessary
   World
@@ -76,19 +66,22 @@ function random(min: number, max: number): number {
   app.stage.addChild(circles);
   function createEntity() {
     const e = w.addEntity();
-    const p = World.addComponent(e, Position);
-    const v = World.addComponent(e, Velocity);
-    const c = World.addComponent(e, Circle);
+    World.addComponent(e, Position, {
+      x: random(0, innerWidth),
+      y: random(0, innerHeight),
+    });
     const maxSpeed = 100;
-    p.x = random(0, innerWidth);
-    p.y = random(0, innerHeight);
-    v.x = random(-maxSpeed, maxSpeed);
-    v.y = random(-maxSpeed, maxSpeed);
-    c.radius = random(10, 30);
-    c.color = `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`;
-    c.graphics = new Graphics().circle(0, 0, 1).stroke({
-      color: "white",
-      width: 0.1,
+    World.addComponent(e, Velocity, {
+      x: random(-maxSpeed, maxSpeed),
+      y: random(-maxSpeed, maxSpeed),
+    });
+    const c = World.addComponent(e, Circle, {
+      radius: random(10, 30),
+      color: `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`,
+      graphics: new Graphics().circle(0, 0, 1).stroke({
+        color: "white",
+        width: 0.1,
+      }),
     });
     circles.addChild(c.graphics);
     return e;
@@ -103,8 +96,11 @@ function random(min: number, max: number): number {
   app.stage.addChild(text);
 
   app.ticker.add(() => {
-    w.update(render, move, bounce);
+    w.update(
+      render,
+      move,
+      bounce,
+    );
     text.text = `FPS: ${(1000 / w.dtMilli).toFixed(0)}`;
-    app.render();
   });
 })();

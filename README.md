@@ -22,7 +22,7 @@ typedef entityT = number;
 
 Components are plain objects and are stored in separate [ObjectPool](./src/pool.ts)s,
 they must be registered by "World.registerComponent" or by "World.addComponent".
-Components are instantiated via "Object.assign" to a new plain object.
+Components are instantiated via the spread operator.
 
 ### System
 
@@ -49,15 +49,14 @@ which can be added or removed from World instances.
 static registerComponent<T extends object>(component: T): typeof World;
 ```
 
-This internally adds an object pool, index map, owner map for the input component.
+This internally adds an object pool, index map for the input component.
 Index map maps an entity to an index into an object pool.
-Owner map maps an index in an object pool to an entity.
 
 ```typescript
-static addComponent<T extends object>(entity: entityT, component: T): T;
+static addComponent<T extends object>(entity: entityT, component: T, values: Partial<T> = {}): T;
 ```
 
-Adds a component to an entity and returns an instance of the component.
+Adds a component to an entity and returns a shallow copy of the component.
 The component is stored in "global" space, not within World instances.
 If the component is not registered the function will register it.
 
