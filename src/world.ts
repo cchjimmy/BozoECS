@@ -1,7 +1,7 @@
 import { ComponentManager } from "./component.ts";
 import { EntityManager, entityT } from "./entity.ts";
 
-export type queryT = Partial<Record<"and" | "or" | "not", object[]>>;
+export type queryT = Partial<Record<"and" | "not", object[]>>;
 
 export class World {
   private static indexMap: Map<object, Map<number, number>> = new Map();
@@ -130,16 +130,10 @@ export class World {
 
   query(query: queryT): entityT[] {
     let andMask = 0,
-      orMask = 0,
       notMask = 0;
     if (query.and) {
       for (let i = 0, l = query.and.length; i < l; i++) {
         andMask |= 1 << ComponentManager.getId(query.and[i]);
-      }
-    }
-    if (query.or) {
-      for (let i = 0, l = query.or.length; i < l; i++) {
-        orMask |= 1 << ComponentManager.getId(query.or[i]);
       }
     }
     if (query.not) {
@@ -157,16 +151,10 @@ export class World {
     ) {
       const a = archetypes[i];
       const set = World.getArchetype(a);
-      if (
-        set.size > 0 &&
-        (a & andMask) == andMask &&
-        (a | orMask) > 0 &&
-        (a & notMask) == 0
-      ) {
-        res.push(...this.localEntities.intersection(set));
-      }
+      if (set.size == 0) continue;
+      (a & andMask) == andMask && (a & notMask) == 0 && res.push(...set);
     }
-    return res;
+    return [...this.localEntities.intersection(new Set(res))];
   }
 
   entityCount(): number {

@@ -38,6 +38,7 @@ const Callback = { callback: new Function() };
 const Transform = { x: 0, y: 0, rad: 0, scaleX: 1, scaleY: 1 };
 const Velocity = { x: 0, y: 0 };
 const PlayerControl = {};
+const ComControl = {};
 const Camera = { zoom: 20, tilt: 0, isActive: false };
 const Rect = { width: 2, height: 2 };
 const Graphic = { src: "" };
@@ -65,7 +66,7 @@ const PathFinder = {
 };
 
 // singletons
-const Mouse = {
+const Pointer = {
   x: 0,
   y: 0,
   isDown: false,
@@ -85,35 +86,25 @@ function handleInput(world: World) {
     if (!c.isActive) return;
     camera = c;
     camTransform = World.getComponent(e, Transform);
-    if (Keys["q"]) {
-      camera.tilt += (1 * world.dtMilli) / 1000;
-    }
-    if (Keys["e"]) {
-      camera.tilt -= (1 * world.dtMilli) / 1000;
-    }
   });
   world.query({ and: [PathFinder, PlayerControl] }).forEach((e) => {
     if (!camera || !camTransform) return;
     const pf = World.getComponent(e, PathFinder);
-    if (Mouse.justPressed) {
-      const worldPos = screenToWorld(
-        { x: Mouse.x, y: Mouse.y },
-        camTransform,
-        camera.tilt,
-        camera.zoom,
-      );
-      pf.targetX = worldPos.x;
-      pf.targetY = worldPos.y;
-    }
+    if (!Pointer.justPressed) return;
+    const worldPos = screenToWorld(
+      Pointer.pressPos,
+      camTransform,
+      camera.tilt,
+      camera.zoom,
+    );
+    pf.targetX = worldPos.x;
+    pf.targetY = worldPos.y;
   });
 }
 
 function handlePathfind(world: World) {
   world
-    .query({
-      and: [PathFinder, Transform, Velocity, Stats],
-      or: [PIDController],
-    })
+    .query({ and: [PathFinder, Transform, Velocity, Stats] })
     .forEach((e) => {
       const pf = World.getComponent(e, PathFinder);
       const p = World.getComponent(e, Transform);
@@ -125,32 +116,19 @@ function handlePathfind(world: World) {
       const dMag = (dx * dx + dy * dy) ** 0.5;
       if (dMag == 0) return;
       const controlDistance = ((s.moveSpeed * world.dtMilli) / 1000) * 2;
-      let adjustedSpeed =
+      const adjustedSpeed =
         dMag > controlDistance
           ? s.moveSpeed
           : (s.moveSpeed * dMag) / controlDistance;
-      if (World.hasComponent(e, PIDController)) {
-        const pid = World.getComponent(e, PIDController);
-        const velocityMag = (v.x * v.x + v.y * v.y) ** 0.5;
-        if (dMag > controlDistance) {
-          pid.reset();
-          adjustedSpeed = s.moveSpeed;
-        } else {
-          adjustedSpeed =
-            velocityMag + pid.result(-velocityMag, world.dtMilli / 1000);
-        }
-      }
       v.x = (dx / dMag) * adjustedSpeed;
       v.y = (dy / dMag) * adjustedSpeed;
     });
 }
 
 function handleTimers(world: World) {
-  world.query({ and: [Timer], or: [Callback] }).forEach((e) => {
-    if (World.hasComponent(e, Callback)) {
-      const cb = World.getComponent(e, Callback);
-      cb.callback(e);
-    }
+  world.query({ and: [Timer] }).forEach((e) => {
+    World.hasComponent(e, Callback) &&
+      World.getComponent(e, Callback).callback(e);
     const t = World.getComponent(e, Timer);
     if (t.reset) t.timeMilli = 0;
     t.reset = false;
@@ -197,9 +175,9 @@ function drawRectangle(
   ctx.fillStyle = c.fill;
   ctx.strokeStyle = c.stroke;
   const rect = new Path2D(
-    `M ${p.x - r.width * 0.5} ${
-      p.y - r.height * 0.5
-    } h ${r.width} v ${r.height} h ${-r.width} Z`,
+    `M ${p.x - r.width * 0.5 * p.scaleX} ${
+      p.y - r.height * 0.5 * p.scaleY
+    } h ${r.width * p.scaleX} v ${r.height * p.scaleY} h ${-r.width * p.scaleX} Z`,
   );
   ctx.fill(rect);
   ctx.stroke(rect);
@@ -217,6 +195,17 @@ function drawRects(world: World) {
   });
 }
 
+function drawPathFindTargets(world: World) {
+  if (!ctx) return;
+  const old = ctx.fillStyle;
+  ctx.fillStyle = "red";
+  world.query({ and: [PathFinder] }).forEach((e) => {
+    const pf = World.getComponent(e, PathFinder);
+    ctx.fillRect(pf.targetX - 0.5, pf.targetY - 0.5, 1, 1);
+  });
+  ctx.fillStyle = old;
+}
+
 function drawBg(color: string = "#424242") {
   if (!ctx) return;
   const old = ctx.fillStyle;
@@ -230,19 +219,17 @@ function handleCamera(world: World) {
   world.query({ and: [Camera, Transform] }).forEach((e) => {
     const c = World.getComponent(e, Camera);
     if (!c.isActive) return;
+    resetTransform(ctx);
     const p = World.getComponent(e, Transform);
-    const sin = Math.sin(c.tilt);
-    const cos = Math.cos(c.tilt);
-    const translateX = -p.x * c.zoom;
-    const translateY = -p.y * c.zoom;
+    const sin = Math.sin(c.tilt) * c.zoom;
+    const cos = Math.cos(c.tilt) * c.zoom;
     ctx.transform(
-      cos * c.zoom,
-      -sin * c.zoom,
-      sin * c.zoom,
-      cos * c.zoom,
-      // inverse rotation
-      cos * translateX + sin * translateY + ctx.canvas.width * 0.5,
-      -sin * translateX + cos * translateY + ctx.canvas.height * 0.5,
+      cos,
+      sin,
+      -sin,
+      cos,
+      cos * -p.x - sin * -p.y + ctx.canvas.width * 0.5,
+      sin * -p.x + cos * -p.y + ctx.canvas.height * 0.5,
     );
   });
 }
@@ -254,17 +241,12 @@ function move(world: World) {
     const v = World.getComponent(e, Velocity);
     p.x += v.x * dt;
     p.y += v.y * dt;
-    // const v = World.getComponent(e, Velocity);
-    // const x = v.x;
-    // const y = v.y;
-    // v.x = cos * x - sin * y;
-    // v.y = sin * x + cos * y;
   });
 }
 
 function drawImg(world: World) {
   if (!ctx) return;
-  world.query({ and: [Graphic, Transform], or: [Rect] }).forEach((e) => {
+  world.query({ and: [Graphic, Transform] }).forEach((e) => {
     const g = World.getComponent(e, Graphic);
     const p = World.getComponent(e, Transform);
     const r = World.hasComponent(e, Rect) && World.getComponent(e, Rect);
@@ -291,17 +273,17 @@ function handleButtons(world: World) {
     const r = World.getComponent(e, Rect);
     const cb = World.getComponent(e, Callback);
     const pressedWithinButton =
-      (Mouse.pressPos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
-      (Mouse.pressPos.y - p.y) ** 2 < (r.height / 2) ** 2;
+      (Pointer.pressPos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
+      (Pointer.pressPos.y - p.y) ** 2 < (r.height / 2) ** 2;
     b.hovered =
-      (Mouse.x - p.x) ** 2 < (r.width / 2) ** 2 &&
-      (Mouse.y - p.y) ** 2 < (r.height / 2) ** 2;
-    b.pressed = b.hovered && Mouse.isDown && pressedWithinButton;
+      (Pointer.x - p.x) ** 2 < (r.width / 2) ** 2 &&
+      (Pointer.y - p.y) ** 2 < (r.height / 2) ** 2;
+    b.pressed = b.hovered && Pointer.isDown && pressedWithinButton;
     b.clicked =
-      Mouse.justReleased &&
+      Pointer.justReleased &&
       pressedWithinButton &&
-      (Mouse.releasePos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
-      (Mouse.releasePos.y - p.y) ** 2 < (r.height / 2) ** 2;
+      (Pointer.releasePos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
+      (Pointer.releasePos.y - p.y) ** 2 < (r.height / 2) ** 2;
     cb.callback(e);
   });
 }
@@ -309,48 +291,32 @@ function handleButtons(world: World) {
 // entities
 function addGraphic(world: World, src: string, x = 0, y = 0, w = 1, h = 1) {
   const e = world.addEntity();
-  const p = World.addComponent(e, Transform);
-  const g = World.addComponent(e, Graphic);
-  const r = World.addComponent(e, Rect);
-  p.x = x;
-  p.y = y;
-  g.src = src;
-  r.width = w;
-  r.height = h;
+  World.addComponent(e, Transform, { x, y });
+  World.addComponent(e, Graphic, { src });
+  World.addComponent(e, Rect, { width: w, height: h });
   return e;
 }
-
-function addRect(world: World, x: number = 0, y: number = 0) {
+function addRect(world: World, x = 0, y = 0, w = 1, h = 1) {
   const e = world.addEntity();
-  const p = World.addComponent(e, Transform);
-  World.addComponent(e, Rect);
-  const c = World.addComponent(e, Colour);
-  c.fill = "green";
-  //c.stroke = "transparent";
-  p.x = x;
-  p.y = y;
+  World.addComponent(e, Transform, { x, y });
+  World.addComponent(e, Rect, { width: w, height: h });
+  World.addComponent(e, Colour, { fill: "green" });
   return e;
 }
-
 function addButton(
   world: World,
   x = 0,
   y = 0,
   w = 10,
   h = 10,
-  cb: (e: entityT) => void = () => {},
+  cb = (_: entityT) => {},
 ) {
   const e = world.addEntity();
-  const p = World.addComponent(e, Transform);
-  const r = World.addComponent(e, Rect);
-  const b = World.addComponent(e, Button);
+  World.addComponent(e, Transform, { x, y });
+  World.addComponent(e, Rect, { width: w, height: h });
+  World.addComponent(e, Button);
   World.addComponent(e, Colour);
-  p.x = x;
-  p.y = y;
-  r.width = w;
-  r.height = h;
-  const c = World.addComponent(e, Callback);
-  c.callback = cb;
+  World.addComponent(e, Callback, { callback: cb });
   return e;
 }
 
@@ -361,23 +327,17 @@ function addTimerWithCallback(world: World, cb: (e: entityT) => void) {
   return e;
 }
 
-function addPlayer(world: World) {
-  const player = addRect(world, 0, 0);
-  const r = World.getComponent(player, Rect);
-  r.width = 1;
-  r.height = 1;
+function addPlayer(world: World, x = 0, y = 0) {
+  const player = addRect(world, x, y, 1, 1);
   World.addComponent(player, Velocity);
-  const s = World.addComponent(player, Stats);
-  s.moveSpeed = config.player.speed;
+  World.addComponent(player, Stats, { moveSpeed: config.player.speed });
   World.addComponent(player, PlayerControl);
-  World.addComponent(player, PathFinder);
-  const pid = World.addComponent(player, PIDController);
-  ((pid.kp = 0.5), (pid.ki = 0.001), (pid.kd = 0.0));
+  World.addComponent(player, PathFinder, { targetX: x, targetY: y });
   return player;
 }
 
 function addTurrent(world: World, x: number, y: number) {
-  const turrent = addRect(world, x, y);
+  const turrent = addRect(world, x, y, 3, 10);
   World.addComponent(turrent, Stats);
   return turrent;
 }
@@ -395,12 +355,31 @@ function screenToWorld(
   const res = { x: 0, y: 0 };
   const x = pointerPos.x - config.viewport.width / 2;
   const y = pointerPos.y - config.viewport.height / 2;
-  res.x = cos * x - sin * y;
-  res.y = sin * x + cos * y;
+  res.x = cos * x + sin * y;
+  res.y = -sin * x + cos * y;
   res.x /= cameraZoom;
   res.y /= cameraZoom;
   res.x += cameraPos.x;
   res.y += cameraPos.y;
+  return res;
+}
+function worldToScreen(
+  pos: vec2,
+  cameraPos: vec2,
+  cameraTilt: number,
+  cameraZoom: number,
+): vec2 {
+  const c = Math.cos(cameraTilt);
+  const s = Math.sin(cameraTilt);
+  const res = { x: 0, y: 0 };
+  let x = pos.x - cameraPos.x;
+  let y = pos.y - cameraPos.y;
+  x *= cameraZoom;
+  y *= cameraZoom;
+  res.x = c * x - s * y;
+  res.y = s * x + c * y;
+  res.x += config.viewport.width * 0.5;
+  res.y += config.viewport.height * 0.5;
   return res;
 }
 function resetTransform(ctx: CanvasRenderingContext2D) {
@@ -411,6 +390,19 @@ function detectDeviceType(): string {
   return /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)
     ? "Mobile"
     : "Desktop";
+}
+function getPointerPos(e: PointerEvent) {
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  Pointer.x = e.x - rect.left;
+  Pointer.y = e.y - rect.top;
+  if (innerWidth / innerHeight < canvas.width / canvas.height) {
+    Pointer.x *= canvas.width / innerWidth;
+    Pointer.y *= canvas.width / innerWidth;
+  } else {
+    Pointer.x *= canvas.height / innerHeight;
+    Pointer.y *= canvas.height / innerHeight;
+  }
 }
 
 const canvas = document.querySelector("canvas");
@@ -426,47 +418,39 @@ if (canvas && ctx) {
     Keys[e.key] = true;
   };
   document.onkeyup = (e) => {
-    delete Keys[e.key];
+    Keys[e.key] = false;
   };
-  document.onpointermove = (e) => {
-    const rect = canvas.getBoundingClientRect();
-    Mouse.x = e.x - rect.left;
-    Mouse.y = e.y - rect.top;
-    if (innerWidth / innerHeight < canvas.width / canvas.height) {
-      Mouse.x *= canvas.width / innerWidth;
-      Mouse.y *= canvas.width / innerWidth;
-    } else {
-      Mouse.x *= canvas.height / innerHeight;
-      Mouse.y *= canvas.height / innerHeight;
-    }
-  };
-
+  // document.onpointermove = getPointerPos;
   document.onpointerdown = (e) => {
     if (e.target != canvas) return;
-    Mouse.isDown = true;
-    Mouse.justPressed = true;
-    Object.assign(Mouse.pressPos, Mouse);
+    Pointer.isDown = true;
+    Pointer.justPressed = true;
+    getPointerPos(e);
+    Object.assign(Pointer.pressPos, Pointer);
   };
 
-  document.onpointerup = () => {
-    Mouse.isDown = false;
-    Mouse.justReleased = true;
-    Object.assign(Mouse.releasePos, Mouse);
+  document.onpointerup = (e) => {
+    Pointer.isDown = false;
+    Pointer.justReleased = true;
+    getPointerPos(e);
+    Object.assign(Pointer.releasePos, Pointer);
   };
 
   document.body.append(canvas);
 
   const game = new World();
 
-  const player = addPlayer(game);
+  const player = addPlayer(game, 10, 10);
+  const playerPos = World.getComponent(player, Transform);
 
   const turrent = addTurrent(game, 10, 0);
 
-  const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
+  // const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
 
-  const camera = World.addComponent(player, Camera);
-  camera.zoom = 30;
-  camera.isActive = true;
+  const cam = World.addComponent(player, Camera, {
+    zoom: 30,
+    isActive: true,
+  });
 
   // addTimerWithCallback(game, (e) => {
   //   const t = World.getComponent(e, Timer);
@@ -495,14 +479,14 @@ if (canvas && ctx) {
   );
 
   // minimap
-  addGraphic(
-    inGameUi,
-    "./assets/Map_of_MOBA.svg",
-    config.viewport.width * 0.1,
-    config.viewport.height * 0.2,
-    config.viewport.height * 0.3,
-    config.viewport.height * 0.3,
-  );
+  // addGraphic(
+  //   inGameUi,
+  //   "./assets/Map_of_MOBA.svg",
+  //   config.viewport.width * 0.1,
+  //   config.viewport.height * 0.2,
+  //   config.viewport.height * 0.3,
+  //   config.viewport.height * 0.3,
+  // );
 
   const debugTextEntity = inGameUi.addEntity();
   const debugText = World.addComponent(debugTextEntity, Text, {
@@ -521,12 +505,13 @@ if (canvas && ctx) {
       handleInput,
       drawImg,
       drawRects,
+      drawPathFindTargets,
       move,
     );
     resetTransform(ctx);
     inGameUi.update(drawImg, drawRects, drawTexts, handleButtons);
-    Mouse.justReleased = false;
-    Mouse.justPressed = false;
+    Pointer.justReleased = false;
+    Pointer.justPressed = false;
     requestAnimationFrame(update);
   })();
 }

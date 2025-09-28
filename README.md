@@ -99,10 +99,10 @@ fns are called in sequence, it measures the elapsed time and records it into Wor
 then the time is added to World.timeMilli.
 
 ```typescript
-query(q: Partial<Record<"and" | "or" | "not", object[]>>): entityT[];
+query(q: Partial<Record<"and" | "not", object[]>>): entityT[];
 ```
 
 Returns an array of entities matching the query.
+
 - "and": chooses entities with all the components.
-- "or": chooses entities with one or more of the listed components.
 - "not": chooses entities without the listed components.
