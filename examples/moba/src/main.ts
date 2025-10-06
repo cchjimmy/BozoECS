@@ -39,14 +39,15 @@ const Transform = { x: 0, y: 0, rad: 0, scaleX: 1, scaleY: 1 };
 const Velocity = { x: 0, y: 0 };
 const PlayerControl = {};
 const ComControl = {};
-const Camera = { zoom: 20, tilt: 0, isActive: false };
+const ParticleEmitter = {
+  spread: 0,
+  particleEntity: -1,
+  particleLifetimeSeconds: 1,
+};
+const Camera = { zoom: 20, tilt: 0, isActive: false, targetEntity: -1 };
 const Rect = { width: 2, height: 2 };
 const Graphic = { src: "" };
-const Button = {
-  hovered: false,
-  pressed: false,
-  clicked: false,
-};
+const Button = { hovered: false, pressed: false, clicked: false };
 const Colour = { fill: "white", stroke: "black" };
 const Text = {
   content: "",
@@ -55,15 +56,8 @@ const Text = {
   color: "black",
   backgroundColor: "white",
 };
-const Timer = {
-  timeMilli: 0,
-  reset: false,
-  stop: false,
-};
-const PathFinder = {
-  targetX: 0,
-  targetY: 0,
-};
+const Timer = { timeMilli: 0, reset: false, stop: false };
+const PathFinder = { targetX: 0, targetY: 0 };
 
 // singletons
 const Pointer = {
@@ -221,6 +215,10 @@ function handleCamera(world: World) {
     if (!c.isActive) return;
     resetTransform(ctx);
     const p = World.getComponent(e, Transform);
+    if (c.targetEntity != -1) {
+      const targetPos = World.getComponent(c.targetEntity, Transform);
+      Object.assign(p, targetPos);
+    }
     const sin = Math.sin(c.tilt) * c.zoom;
     const cos = Math.cos(c.tilt) * c.zoom;
     ctx.transform(
@@ -319,14 +317,12 @@ function addButton(
   World.addComponent(e, Callback, { callback: cb });
   return e;
 }
-
 function addTimerWithCallback(world: World, cb: (e: entityT) => void) {
   const e = world.addEntity();
   World.addComponent(e, Timer);
   World.addComponent(e, Callback).callback = cb;
   return e;
 }
-
 function addPlayer(world: World, x = 0, y = 0) {
   const player = addRect(world, x, y, 1, 1);
   World.addComponent(player, Velocity);
@@ -335,11 +331,16 @@ function addPlayer(world: World, x = 0, y = 0) {
   World.addComponent(player, PathFinder, { targetX: x, targetY: y });
   return player;
 }
-
 function addTurrent(world: World, x: number, y: number) {
   const turrent = addRect(world, x, y, 3, 10);
   World.addComponent(turrent, Stats);
   return turrent;
+}
+function addCamera(world: World, x: number, y: number) {
+  const cam = world.addEntity();
+  World.addComponent(cam, Camera, { zoom: 30 });
+  World.addComponent(cam, Transform, { x, y });
+  return cam;
 }
 
 //utils
@@ -440,17 +441,16 @@ if (canvas && ctx) {
 
   const game = new World();
 
-  const player = addPlayer(game, 10, 10);
-  const playerPos = World.getComponent(player, Transform);
+  const player = addPlayer(game, 0, 0);
 
   const turrent = addTurrent(game, 10, 0);
 
-  // const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
+  const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
 
-  const cam = World.addComponent(player, Camera, {
-    zoom: 30,
-    isActive: true,
-  });
+  const cam = addCamera(game, 0, 0);
+  const camComponent = World.getComponent(cam, Camera);
+  camComponent.targetEntity = player;
+  camComponent.isActive = true;
 
   // addTimerWithCallback(game, (e) => {
   //   const t = World.getComponent(e, Timer);

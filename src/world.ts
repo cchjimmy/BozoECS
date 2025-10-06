@@ -24,6 +24,21 @@ export class World {
     return entity;
   }
 
+  static copyEntity(entity: entityT): entityT {
+    const copy = EntityManager.add();
+    const compTypes = ComponentManager.types();
+    const mask = this.maskMap.get(entity) as number;
+    for (let i = 0, l = compTypes.length; i < l; i++) {
+      if (!(mask & (1 << i))) continue;
+      World.addComponent(
+        copy,
+        compTypes[i],
+        World.getComponent(entity, compTypes[i]),
+      );
+    }
+    return copy;
+  }
+
   private static getArchetype(mask: number): Set<entityT> {
     const a = World.archetypeMap.get(mask) ?? new Set();
     World.archetypeMap.set(mask, a);

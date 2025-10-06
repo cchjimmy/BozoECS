@@ -46,6 +46,14 @@ Creates an entity in "global" space,
 which can be added or removed from World instances.
 
 ```typescript
+static copyEntity(entity: entityT): entityT;
+```
+
+Copies an entity in "global" space and returns a new entity containing copied components,
+which can be added or removed from World instances.
+This can be used for instantiating prefab entities.
+
+```typescript
 static registerComponent<T extends object>(component: T): typeof World;
 ```
 
