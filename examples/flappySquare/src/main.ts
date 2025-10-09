@@ -62,38 +62,45 @@ function handleDrawing(world: World) {
     const r = World.getComponent(e, Rect);
     const o = World.getComponent(e, Obstacle);
     const height = (r.height - o.gapHeight) * 0.5;
-    drawRect(ctx, {
-      x: t.x,
-      y: t.y + (o.gapHeight + height) * 0.5,
-      scaleX: 1,
-      scaleY: 1,
-      rad: 0,
-    }, {
-      width: r.width,
-      height,
-    });
-    drawRect(ctx, {
-      x: t.x,
-      y: t.y - (o.gapHeight + height) * 0.5,
-      scaleX: 1,
-      scaleY: 1,
-      rad: 0,
-    }, {
-      width: r.width,
-      height,
-    });
+    drawRect(
+      ctx,
+      {
+        x: t.x,
+        y: t.y + (o.gapHeight + height) * 0.5,
+        scaleX: 1,
+        scaleY: 1,
+        rad: 0,
+      },
+      {
+        width: r.width,
+        height,
+      },
+    );
+    drawRect(
+      ctx,
+      {
+        x: t.x,
+        y: t.y - (o.gapHeight + height) * 0.5,
+        scaleX: 1,
+        scaleY: 1,
+        rad: 0,
+      },
+      {
+        width: r.width,
+        height,
+      },
+    );
   });
 
   ctx.fillText(
-    "Score: " + GameState.currentScore +
-      "; Best: " + GameState.bestScore,
+    "Score: " + GameState.currentScore + "; Best: " + GameState.bestScore,
     0,
     10,
   );
 }
 
 function handleMovement(world: World) {
-  const dt = world.dtMilli / 1000;
+  const dt = dtMilli / 1000;
   world.query({ and: [Transform, Acceleration, Velocity] }).forEach((e) => {
     const t = World.getComponent(e, Transform);
     const v = World.getComponent(e, Velocity);
@@ -112,7 +119,7 @@ function handleInput(world: World) {
     const a = World.getComponent(e, Acceleration);
     const v = World.getComponent(e, Velocity);
     a.y = config.grav;
-    if ((Keys.justPressed[" "]) || Pointer.justPressed) {
+    if (Keys.justPressed[" "] || Pointer.justPressed) {
       a.y = -config.grav * 2e1;
       v.x = v.y = 0;
     }
@@ -122,9 +129,10 @@ function handleInput(world: World) {
 function resetGame(world: World) {
   GameState.bestScore = parseInt(localStorage.getItem("best") || "0");
 
-  GameState.bestScore = GameState.currentScore > GameState.bestScore
-    ? GameState.currentScore
-    : GameState.bestScore;
+  GameState.bestScore =
+    GameState.currentScore > GameState.bestScore
+      ? GameState.currentScore
+      : GameState.bestScore;
   GameState.currentScore = 0;
 
   localStorage.setItem("best", GameState.bestScore.toString());
@@ -140,35 +148,33 @@ function resetGame(world: World) {
 }
 
 function handleCollision(world: World) {
-  world.query({ and: [PlayerControl, Rect, Transform] }).forEach(
-    (e) => {
-      const t = World.getComponent(e, Transform);
-      const r = World.getComponent(e, Rect);
+  world.query({ and: [PlayerControl, Rect, Transform] }).forEach((e) => {
+    const t = World.getComponent(e, Transform);
+    const r = World.getComponent(e, Rect);
 
-      if (t.y > canvas.height - r.height * 0.5) {
+    if (t.y > canvas.height - r.height * 0.5) {
+      resetGame(world);
+    }
+
+    world.query({ and: [Transform, Rect, Obstacle] }).forEach((other) => {
+      const ot = World.getComponent(other, Transform);
+      const or = World.getComponent(other, Rect);
+      const oo = World.getComponent(other, Obstacle);
+
+      if (
+        (t.x - ot.x) ** 2 < ((r.width + or.width) * 0.5) ** 2 &&
+        (t.y - ot.y) ** 2 > ((oo.gapHeight - r.height) * 0.5) ** 2
+      ) {
         resetGame(world);
       }
 
-      world.query({ and: [Transform, Rect, Obstacle] }).forEach((other) => {
-        const ot = World.getComponent(other, Transform);
-        const or = World.getComponent(other, Rect);
-        const oo = World.getComponent(other, Obstacle);
-
-        if (
-          (t.x - ot.x) ** 2 < ((r.width + or.width) * 0.5) ** 2 &&
-          (t.y - ot.y) ** 2 > ((oo.gapHeight - r.height) * 0.5) ** 2
-        ) {
-          resetGame(world);
-        }
-
-        // loop back
-        if (ot.x + or.width * 0.5 < 0) {
-          resetObstacle(other);
-          GameState.currentScore++;
-        }
-      });
-    },
-  );
+      // loop back
+      if (ot.x + or.width * 0.5 < 0) {
+        resetObstacle(other);
+        GameState.currentScore++;
+      }
+    });
+  });
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D, color: string = "") {
@@ -215,11 +221,7 @@ function resetPlayer(player: entityT) {
   const a = World.getComponent(player, Acceleration);
   t.x = canvas.width * 0.15;
   t.y = canvas.height * 0.5;
-  v.x =
-    v.y =
-    a.x =
-    a.y =
-      0;
+  v.x = v.y = a.x = a.y = 0;
 }
 
 function resetObstacle(obstacle: entityT) {
@@ -263,18 +265,15 @@ document.onpointerup = () => {
 
 // initialization
 const game = new World();
+let dtMilli = 0;
+let timeMilli = 0;
 addPlayer(game);
 addObstacle(game);
 resetGame(game);
 
 (function loop() {
   requestAnimationFrame(loop);
-  game.update(
-    handleDrawing,
-    handleInput,
-    handleCollision,
-    handleMovement,
-  );
+  game.update(handleDrawing, handleInput, handleCollision, handleMovement);
   Pointer.justReleased = false;
   Pointer.justPressed = false;
   for (const key in Keys.justPressed) {
@@ -283,4 +282,6 @@ resetGame(game);
   for (const key in Keys.justReleased) {
     Keys.justReleased[key] = false;
   }
+  dtMilli = performance.now() - timeMilli;
+  timeMilli += dtMilli;
 })();

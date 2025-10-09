@@ -69,10 +69,10 @@ The component is stored in "global" space, not within World instances.
 If the component is not registered the function will register it.
 
 ```typescript
-static removeComponent<T extends object>(entity: entityT, component: T): T;
+static removeComponent<T extends object>(entity: entityT, component: T): boolean;
 ```
 
-Removes a component from an entity and returns it,
+Removes a component from an entity and returns true if it is removed and false otherwise,
 the removed component is stored in an object pool in "global" space.
 
 ```typescript

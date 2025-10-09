@@ -72,7 +72,7 @@ function handlePlayerControl(world: World) {
         v.y += 1;
       }
     }
-    v.y = v.y / Math.abs(v.y || 1) * config.paddle.speed;
+    v.y = (v.y / Math.abs(v.y || 1)) * config.paddle.speed;
   });
 }
 
@@ -82,7 +82,7 @@ function drawBackgound() {
 }
 
 function move(world: World) {
-  const dt = world.dtMilli / 1000;
+  const dt = dtMilli / 1000;
   world.query({ and: [Position, Velocity] }).forEach((e) => {
     const p = World.getComponent(e, Position);
     const v = World.getComponent(e, Velocity);
@@ -167,11 +167,7 @@ function checkGoal() {
 }
 
 // entity
-function addPlayerPaddle(
-  x: number,
-  y: number,
-  isLeft: boolean,
-): entityT {
+function addPlayerPaddle(x: number, y: number, isLeft: boolean): entityT {
   const e = addRect(x, y, config.paddle.width, config.paddle.height);
   const pc = World.addComponent(e, PlayerControl);
   pc.isLeft = isLeft;
@@ -237,10 +233,10 @@ globalThis.window.ontouchmove = globalThis.window.ontouchstart = (e) => {
   if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
   for (let i = 0, l = e.changedTouches.length; i < l; i++) {
-    const p = touches[e.changedTouches[i].identifier] = {
+    const p = (touches[e.changedTouches[i].identifier] = {
       x: e.changedTouches[i].clientX,
       y: e.changedTouches[i].clientY,
-    };
+    });
     p.x -= rect.left;
     p.y -= rect.top;
     if (innerWidth / innerHeight < canvas.width / canvas.height) {
@@ -298,7 +294,7 @@ function reset() {
   ballP.y = config.playArea.height * 0.5;
   ballV.x = config.ball.speed;
   ballV.y = 0;
-  let rad = Math.random() * 40 / 180 * Math.PI;
+  let rad = ((Math.random() * 40) / 180) * Math.PI;
   rad *= Math.random() > 0.5 ? 1 : -1;
   rad += Math.random() > 0.5 ? Math.PI : 0;
   rotate(ballV, rad);
@@ -332,13 +328,15 @@ function onCollision(e: entityT, other: entityT) {
   const v1 = World.getComponent(other, Velocity);
 
   const vMag = (v.x ** 2 + v.y ** 2) ** 0.5;
-  const vNx = v.x / vMag, vNy = v.y / vMag;
+  const vNx = v.x / vMag,
+    vNy = v.y / vMag;
   //p.x+vNx*t=someX,t=(someX-p.x)/vNx
   let t = 0;
   if (vNx != 0) {
     t = (p1.x - (r1.width + r.width) * 0.5 - p.x) / vNx;
     if (
-      p.x < p1.x && t < 0 &&
+      p.x < p1.x &&
+      t < 0 &&
       p.y + t * vNy < p1.y + (r1.height + r.height) * 0.5 &&
       p.y + t * vNy > p1.y - (r1.height + r.height) * 0.5
     ) {
@@ -349,7 +347,8 @@ function onCollision(e: entityT, other: entityT) {
     }
     t = (p1.x + (r1.width + r.width) * 0.5 - p.x) / vNx;
     if (
-      p.x > p1.x && t < 0 &&
+      p.x > p1.x &&
+      t < 0 &&
       p.y + t * vNy < p1.y + (r1.height + r.height) * 0.5 &&
       p.y + t * vNy > p1.y - (r1.height + r.height) * 0.5
     ) {
@@ -362,7 +361,8 @@ function onCollision(e: entityT, other: entityT) {
   if (vNy != 0) {
     t = (p1.y - (r1.height + r.height) * 0.5 - p.y) / vNy;
     if (
-      p.y < p1.y && t < 0 &&
+      p.y < p1.y &&
+      t < 0 &&
       p.x + t * vNx < p1.x + (r1.width + r.width) * 0.5 &&
       p.x + t * vNx > p1.x - (r1.width + r.width) * 0.5
     ) {
@@ -372,7 +372,8 @@ function onCollision(e: entityT, other: entityT) {
     }
     t = (p1.y + (r1.height + r.height) * 0.5 - p.y) / vNy;
     if (
-      p.y > p1.y && t < 0 &&
+      p.y > p1.y &&
+      t < 0 &&
       p.x + t * vNx < p1.x + (r1.width + r.width) * 0.5 &&
       p.x + t * vNx > p1.x - (r1.width + r.width) * 0.5
     ) {
@@ -390,6 +391,9 @@ const t = World.getComponent(goalTexts, Text);
 t.color = "white";
 t.fontSize = 40;
 
+let dtMilli = 0;
+let timeMilli = 0;
+
 reset();
 
 (function update() {
@@ -402,5 +406,7 @@ reset();
     checkCollision,
     checkGoal,
   );
+  dtMilli = performance.now() - timeMilli;
+  timeMilli += dtMilli;
   requestAnimationFrame(update);
 })();

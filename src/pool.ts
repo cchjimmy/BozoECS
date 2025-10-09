@@ -1,5 +1,6 @@
-export class ObjectPool<T> {
+export class ObjectPoolMap<T> {
   private storage: T[] = [];
+  private indices: Map<unknown, number> = new Map();
   private objectFactory: () => T;
   private size = 0;
 
@@ -11,7 +12,7 @@ export class ObjectPool<T> {
     return this.size;
   }
 
-  addObj(): T {
+  addObj(key: unknown): T {
     let obj;
     if (this.size < this.storage.length) {
       obj = this.storage[this.size];
@@ -19,25 +20,30 @@ export class ObjectPool<T> {
       obj = this.objectFactory();
       this.storage.push(obj);
     }
+    this.indices.set(key, this.size);
     this.size++;
     return obj;
   }
 
-  findIndex(object: T): number {
-    return this.storage.findIndex((v) => v == object);
-  }
-
-  removeObj(index: number): T {
-    if (index < 0 || index >= this.size) throw new Error("Index out of range.");
+  removeObj(key: unknown): boolean {
+    const index = this.indices.get(key) ?? -1;
+    if (index < 0 || index >= this.size) return false;
     const removed = this.storage[index];
     // swap with last to maintain packed
-    this.storage[index] = this.storage[this.storage.length - 1];
-    this.storage[this.storage.length - 1] = removed;
+    this.storage[index] = this.storage[this.size - 1];
+    this.storage[this.size - 1] = removed;
+    for (const [k, v] of this.indices) {
+      if (v != this.size - 1) continue;
+      this.indices.set(k, index);
+      break;
+    }
+    this.indices.delete(key);
     this.size--;
-    return removed;
+    return true;
   }
 
-  getObj(index: number): T {
+  getObj(key: unknown): T {
+    const index = this.indices.get(key) ?? -1;
     if (index < 0 || index >= this.size) throw new Error("Index out of range.");
     return this.storage[index];
   }

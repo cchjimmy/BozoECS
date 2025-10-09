@@ -20,8 +20,7 @@ function random(min: number, max: number): number {
   const Circle = { radius: 10, color: "green", graphics: new Graphics() };
 
   // not necessary
-  World
-    .registerComponent(Position)
+  World.registerComponent(Position)
     .registerComponent(Velocity)
     .registerComponent(Circle);
 
@@ -37,7 +36,7 @@ function random(min: number, max: number): number {
     });
   }
   function move(world: World) {
-    const dt = world.dtMilli / 1000;
+    const dt = app.ticker.deltaMS / 1000;
     world.query({ and: [Position, Velocity] }).forEach((e) => {
       const p = World.getComponent(e, Position);
       const v = World.getComponent(e, Velocity);
@@ -96,11 +95,7 @@ function random(min: number, max: number): number {
   app.stage.addChild(text);
 
   app.ticker.add(() => {
-    w.update(
-      render,
-      move,
-      bounce,
-    );
-    text.text = `FPS: ${(1000 / w.dtMilli).toFixed(0)}`;
+    w.update(render, move, bounce);
+    text.text = `FPS: ${(1000 / app.ticker.deltaMS).toFixed(0)}`;
   });
 })();

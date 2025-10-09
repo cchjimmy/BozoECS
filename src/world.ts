@@ -1,39 +1,38 @@
 import { ComponentManager } from "./component.ts";
-import { EntityManager, entityT } from "./entity.ts";
+import { entityT } from "./entity.ts";
 
 export type queryT = Partial<Record<"and" | "not", object[]>>;
 
 export class World {
-  private static indexMap: Map<object, Map<number, number>> = new Map();
   private static maskMap: Map<number, number> = new Map();
   private static archetypeMap: Map<number, Set<entityT>> = new Map();
   private static worlds: World[] = [];
+  private static entitiesToDelete: entityT[] = [];
 
   private localEntities: Set<entityT> = new Set();
-  timeMilli = 0;
-  dtMilli = 0;
 
   constructor() {
     World.worlds.push(this);
   }
 
   static createEntity(): entityT {
-    const entity = EntityManager.add();
+    const entity = Math.random();
     World.maskMap.set(entity, 0);
     World.getArchetype(0).add(entity);
     return entity;
   }
 
   static copyEntity(entity: entityT): entityT {
-    const copy = EntityManager.add();
+    const copy = Math.random();
     const compTypes = ComponentManager.types();
-    const mask = this.maskMap.get(entity) as number;
+    const mask = this.maskMap.get(entity) ?? 0;
+    World.maskMap.set(copy, mask);
+    World.getArchetype(mask).add(copy);
     for (let i = 0, l = compTypes.length; i < l; i++) {
       if (!(mask & (1 << i))) continue;
-      World.addComponent(
-        copy,
-        compTypes[i],
-        World.getComponent(entity, compTypes[i]),
+      Object.assign(
+        ComponentManager.add(copy, compTypes[i]),
+        ComponentManager.get(entity, compTypes[i]),
       );
     }
     return copy;
@@ -46,16 +45,7 @@ export class World {
   }
 
   static deleteEntity(entity: entityT) {
-    for (let i = 0, l = World.worlds.length; i < l; i++) {
-      World.worlds[i].removeEntity(entity);
-    }
-    const types = ComponentManager.types();
-    const mask = World.maskMap.get(entity) as number;
-    for (let i = 0, l = types.length; i < l; i++) {
-      if (!(mask & (1 << i))) continue;
-      World.removeComponent(entity, types[i]);
-    }
-    EntityManager.delete(EntityManager.findIndex(entity));
+    World.entitiesToDelete.push(entity);
   }
 
   addEntity(entity: entityT = World.createEntity()): entityT {
@@ -67,14 +57,8 @@ export class World {
     this.localEntities.delete(entity);
   }
 
-  entityExists(entity: entityT): boolean {
-    return this.localEntities.has(entity);
-  }
-
   static registerComponent<T extends object>(component: T): typeof World {
-    if (World.indexMap.has(component)) return World;
     ComponentManager.register(component);
-    World.indexMap.set(component, new Map());
     return World;
   }
 
@@ -82,65 +66,65 @@ export class World {
     entity: entityT,
     component: T,
   ): boolean {
-    return !!(
-      (World.maskMap.get(entity) as number) &
-      (1 << ComponentManager.getId(component))
+    return (
+      ((World.maskMap.get(entity) ?? 0) &
+        (1 << ComponentManager.getId(component))) >
+      0
     );
   }
 
   static addComponent<T extends object>(
     entity: entityT,
     component: T,
-    values: Partial<T> = {},
+    values: Partial<T> = component,
   ): T {
     World.registerComponent(component);
-    let mask = World.maskMap.get(entity) as number;
+    let mask = World.maskMap.get(entity) ?? 0;
     const compId = ComponentManager.getId(component);
     if ((mask & (1 << compId)) != 0) {
-      throw new Error(`Entity ${entity} already had that component.`);
+      return Object.assign(ComponentManager.get(entity, component), values);
     }
     World.getArchetype(mask).delete(entity);
     mask |= 1 << compId;
     World.maskMap.set(entity, mask);
     World.getArchetype(mask).add(entity);
-    const idx = ComponentManager.len(component);
-    (World.indexMap.get(component) as Map<number, number>).set(entity, idx);
-    return Object.assign(ComponentManager.add(component), values);
+    return Object.assign(ComponentManager.add(entity, component), values);
   }
 
-  static removeComponent<T extends object>(entity: entityT, component: T): T {
+  static removeComponent<T extends object>(
+    entity: entityT,
+    component: T,
+  ): boolean {
     World.registerComponent(component);
-    let mask = World.maskMap.get(entity) as number;
+    let mask = World.maskMap.get(entity) ?? 0;
     const compId = ComponentManager.getId(component);
-    if ((mask & (1 << compId)) == 0) {
-      throw new Error(`Entity ${entity} does not have that component.`);
-    }
+    if ((mask & (1 << compId)) == 0) return false;
     World.getArchetype(mask).delete(entity);
     mask &= ~(1 << compId);
     World.maskMap.set(entity, mask);
     World.getArchetype(mask).add(entity);
-    const indices = World.indexMap.get(component) as Map<number, number>;
-    const entityIdx = indices.get(entity) as number;
-    const removed = ComponentManager.delete(component, entityIdx);
-    const backEntity = indices.keys().toArray().at(-1) ?? -1;
-    indices.set(backEntity, entityIdx);
-    indices.delete(entity);
-    return removed;
+    return ComponentManager.delete(entity, component);
   }
 
   static getComponent<T extends object>(entity: entityT, component: T): T {
-    return ComponentManager.get(
-      component,
-      (World.indexMap.get(component) as Map<number, number>).get(
-        entity,
-      ) as number,
-    );
+    return ComponentManager.get(entity, component);
   }
 
   update(...fns: ((world: World) => void)[]) {
     for (let i = 0, l = fns.length; i < l; i++) fns[i](this);
-    this.dtMilli = performance.now() - this.timeMilli;
-    this.timeMilli += this.dtMilli;
+    while (World.entitiesToDelete.length) {
+      const entity = World.entitiesToDelete.pop() as entityT;
+      for (let i = 0, l = World.worlds.length; i < l; i++) {
+        World.worlds[i].localEntities.delete(entity);
+      }
+      const types = ComponentManager.types();
+      const mask = World.maskMap.get(entity) ?? 0;
+      World.getArchetype(mask).delete(entity);
+      for (let i = 0, l = types.length; i < l; i++) {
+        if (!(mask & (1 << i))) continue;
+        ComponentManager.delete(entity, types[i]);
+      }
+    }
   }
 
   query(query: queryT): entityT[] {

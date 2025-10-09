@@ -43,6 +43,8 @@ const ParticleEmitter = {
   spread: 0,
   particleEntity: -1,
   particleLifetimeSeconds: 1,
+  speed: 1,
+  emit: false,
 };
 const Camera = { zoom: 20, tilt: 0, isActive: false, targetEntity: -1 };
 const Rect = { width: 2, height: 2 };
@@ -60,18 +62,135 @@ const Timer = { timeMilli: 0, reset: false, stop: false };
 const PathFinder = { targetX: 0, targetY: 0 };
 
 // singletons
-const Pointer = {
-  x: 0,
-  y: 0,
-  isDown: false,
-  pressPos: { x: 0, y: 0 },
-  justPressed: false,
-  justReleased: false,
-  releasePos: { x: 0, y: 0 },
-};
-const Keys: Record<KeyboardEvent["key"], boolean> = {};
+const Ctx2D = setUpCanvas2D();
+const Pointer = setUpPointer();
+const Keys = setUpKeyboard();
+const Time = setUpTime();
+
+function setUpCanvas2D(): {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+} {
+  const canvas =
+    document.querySelector("canvas") ?? document.createElement("canvas");
+  if (!canvas) throw new Error("Cannot create canvas element.");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Cannot initialize context 2d.");
+
+  document.body.appendChild(canvas);
+
+  globalThis.onresize = globalThis.onload = () => {
+    if (innerWidth / innerHeight < canvas.width / canvas.height) {
+      canvas.style.width = "100%";
+      canvas.style.height = "";
+    } else {
+      canvas.style.width = "";
+      canvas.style.height = "100%";
+    }
+  };
+
+  return { canvas, ctx };
+}
+function setUpKeyboard(): Record<
+  "isDown" | "justPressed" | "justReleased",
+  Record<string, boolean>
+> {
+  const keys: ReturnType<typeof setUpKeyboard> = {
+    isDown: {},
+    justPressed: {},
+    justReleased: {},
+  };
+
+  globalThis.onkeydown = (e) => {
+    !keys.isDown[e.key] && (keys.justPressed[e.key] = true);
+    keys.isDown[e.key] = true;
+  };
+  globalThis.onkeyup = (e) => {
+    keys.isDown[e.key] = false;
+    keys.justReleased[e.key] = true;
+  };
+
+  return keys;
+}
+function keyboardUpdate(
+  keys: Record<
+    "isDown" | "justPressed" | "justReleased",
+    Record<string, boolean>
+  >,
+) {
+  for (const key in keys.justPressed) keys.justPressed[key] = false;
+  for (const key in keys.justReleased) keys.justReleased[key] = false;
+}
+function setUpPointer() {
+  const pointer = {
+    x: 0,
+    y: 0,
+    isDown: false,
+    justPressed: false,
+    justReleased: false,
+    pressPos: { x: 0, y: 0 },
+    releasePos: { x: 0, y: 0 },
+  };
+
+  globalThis.onpointerdown = (e) => {
+    ((pointer.x = e.x), (pointer.y = e.y));
+    Object.assign(pointer.pressPos, pointer);
+    pointer.isDown = pointer.justPressed = true;
+  };
+
+  globalThis.onpointerup = (e) => {
+    ((pointer.x = e.x), (pointer.y = e.y));
+    Object.assign(pointer.releasePos, pointer);
+    ((pointer.isDown = false), (pointer.justReleased = true));
+  };
+
+  globalThis.onpointermove = (e) => {
+    ((pointer.x = e.x), (pointer.y = e.y));
+  };
+
+  return pointer;
+}
+function pointerUpdate(
+  pointer: Record<"isDown" | "justPressed" | "justReleased", boolean>,
+) {
+  pointer.justPressed = false;
+  pointer.justReleased = false;
+}
+function setUpTime() {
+  return { dtMilli: 0, timeMilli: 0 };
+}
+function timeUpdate(time: { dtMilli: number; timeMilli: number }) {
+  time.dtMilli = performance.now() - time.timeMilli;
+  time.timeMilli += time.dtMilli;
+}
 
 // systems
+function handleParticleEmitters(world: World) {
+  world.query({ and: [ParticleEmitter, Transform] }).forEach((e) => {
+    const emitter = World.getComponent(e, ParticleEmitter);
+    if (!emitter.emit || !World.hasComponent(emitter.particleEntity, Transform))
+      return;
+    emitter.emit = false;
+    const t = World.getComponent(e, Transform);
+    const particle = World.copyEntity(emitter.particleEntity);
+    const particleTransform = World.getComponent(particle, Transform);
+    Object.assign(particleTransform, t);
+    world.addEntity(particle);
+    const timer = World.addComponent(particle, Timer);
+    const rand = Math.random() > 0.5;
+    const radian =
+      t.rad + Math.random() * emitter.spread * Math.PI * (-1 * +rand + +!rand);
+    particleTransform.rad = radian;
+    World.addComponent(particle, Velocity, {
+      x: Math.cos(radian) * emitter.speed,
+      y: Math.sin(radian) * emitter.speed,
+    });
+    World.addComponent(particle, Callback).callback = () => {
+      if (timer.timeMilli < emitter.particleLifetimeSeconds * 1000) return;
+      World.deleteEntity(particle);
+    };
+  });
+}
 function handleInput(world: World) {
   let camera: typeof Camera | null;
   let camTransform: typeof Transform | null;
@@ -81,12 +200,13 @@ function handleInput(world: World) {
     camera = c;
     camTransform = World.getComponent(e, Transform);
   });
+  const pressPos = pointerToScreen(Pointer.pressPos, Ctx2D.canvas);
   world.query({ and: [PathFinder, PlayerControl] }).forEach((e) => {
     if (!camera || !camTransform) return;
     const pf = World.getComponent(e, PathFinder);
     if (!Pointer.justPressed) return;
     const worldPos = screenToWorld(
-      Pointer.pressPos,
+      pressPos,
       camTransform,
       camera.tilt,
       camera.zoom,
@@ -109,7 +229,7 @@ function handlePathfind(world: World) {
       const dy = pf.targetY - p.y;
       const dMag = (dx * dx + dy * dy) ** 0.5;
       if (dMag == 0) return;
-      const controlDistance = ((s.moveSpeed * world.dtMilli) / 1000) * 2;
+      const controlDistance = ((s.moveSpeed * Time.dtMilli) / 1000) * 2;
       const adjustedSpeed =
         dMag > controlDistance
           ? s.moveSpeed
@@ -126,35 +246,34 @@ function handleTimers(world: World) {
     const t = World.getComponent(e, Timer);
     if (t.reset) t.timeMilli = 0;
     t.reset = false;
-    if (!t.stop) t.timeMilli += world.dtMilli;
+    if (!t.stop) t.timeMilli += Time.dtMilli;
   });
 }
 
 function drawTexts(world: World) {
-  if (!ctx) return;
   world.query({ and: [Text, Transform] }).forEach((e) => {
     const t = World.getComponent(e, Text);
     const p = World.getComponent(e, Transform);
-    ctx.font = `${t.fontSize}px serif`;
-    const old = ctx.fillStyle;
+    Ctx2D.ctx.font = `${t.fontSize}px serif`;
+    const old = Ctx2D.ctx.fillStyle;
     const lines = t.content.split("\n");
     for (let i = 0, l = lines.length; i < l; i++) {
-      const txtMetric = ctx.measureText(lines[i]);
-      ctx.fillStyle = t.backgroundColor;
-      ctx.fillRect(
+      const txtMetric = Ctx2D.ctx.measureText(lines[i]);
+      Ctx2D.ctx.fillStyle = t.backgroundColor;
+      Ctx2D.ctx.fillRect(
         p.x,
         p.y + i * (2 * t.padding) + i * txtMetric.fontBoundingBoxAscent,
         t.padding * 2 + txtMetric.width,
         t.padding * 2 + txtMetric.fontBoundingBoxAscent,
       );
-      ctx.fillStyle = t.color;
-      ctx.fillText(
+      Ctx2D.ctx.fillStyle = t.color;
+      Ctx2D.ctx.fillText(
         lines[i],
         p.x + t.padding,
         p.y + i * (2 * t.padding) + (i + 1) * txtMetric.fontBoundingBoxAscent,
       );
     }
-    ctx.fillStyle = old;
+    Ctx2D.ctx.fillStyle = old;
   });
 }
 
@@ -168,72 +287,77 @@ function drawRectangle(
   const oldS = ctx.strokeStyle;
   ctx.fillStyle = c.fill;
   ctx.strokeStyle = c.stroke;
+  const cos = Math.cos(p.rad);
+  const sin = Math.sin(p.rad);
+  ctx.transform(cos, sin, -sin, cos, p.x, p.y);
   const rect = new Path2D(
-    `M ${p.x - r.width * 0.5 * p.scaleX} ${
-      p.y - r.height * 0.5 * p.scaleY
-    } h ${r.width * p.scaleX} v ${r.height * p.scaleY} h ${-r.width * p.scaleX} Z`,
+    `M ${-r.width * 0.5 * p.scaleX} ${-r.height * 0.5 * p.scaleY} h ${r.width * p.scaleX} v ${r.height * p.scaleY} h ${-r.width * p.scaleX} Z`,
   );
   ctx.fill(rect);
   ctx.stroke(rect);
+  ctx.transform(
+    cos,
+    -sin,
+    sin,
+    cos,
+    cos * -p.x + sin * -p.y,
+    -sin * -p.x + cos * -p.y,
+  );
   ctx.fillStyle = oldF;
   ctx.strokeStyle = oldS;
 }
 
 function drawRects(world: World) {
-  if (!ctx) return;
   world.query({ and: [Transform, Rect, Colour] }).forEach((e) => {
     const p = World.getComponent(e, Transform);
     const r = World.getComponent(e, Rect);
     const c = World.getComponent(e, Colour);
-    drawRectangle(ctx, p, r, c);
+    drawRectangle(Ctx2D.ctx, p, r, c);
   });
 }
 
 function drawPathFindTargets(world: World) {
-  if (!ctx) return;
-  const old = ctx.fillStyle;
-  ctx.fillStyle = "red";
+  const old = Ctx2D.ctx.fillStyle;
+  Ctx2D.ctx.fillStyle = "red";
   world.query({ and: [PathFinder] }).forEach((e) => {
     const pf = World.getComponent(e, PathFinder);
-    ctx.fillRect(pf.targetX - 0.5, pf.targetY - 0.5, 1, 1);
+    Ctx2D.ctx.fillRect(pf.targetX - 0.5, pf.targetY - 0.5, 1, 1);
   });
-  ctx.fillStyle = old;
+  Ctx2D.ctx.fillStyle = old;
 }
 
 function drawBg(color: string = "#424242") {
-  if (!ctx) return;
-  const old = ctx.fillStyle;
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.fillStyle = old;
+  const old = Ctx2D.ctx.fillStyle;
+  Ctx2D.ctx.fillStyle = color;
+  Ctx2D.ctx.fillRect(0, 0, Ctx2D.canvas.width, Ctx2D.canvas.height);
+  Ctx2D.ctx.fillStyle = old;
 }
 
 function handleCamera(world: World) {
-  if (!ctx) return;
   world.query({ and: [Camera, Transform] }).forEach((e) => {
     const c = World.getComponent(e, Camera);
     if (!c.isActive) return;
-    resetTransform(ctx);
+    resetTransform(Ctx2D.ctx);
     const p = World.getComponent(e, Transform);
-    if (c.targetEntity != -1) {
+    if (c.targetEntity != -1 && World.hasComponent(c.targetEntity, Transform)) {
       const targetPos = World.getComponent(c.targetEntity, Transform);
       Object.assign(p, targetPos);
     }
     const sin = Math.sin(c.tilt) * c.zoom;
     const cos = Math.cos(c.tilt) * c.zoom;
-    ctx.transform(
+    Ctx2D.ctx.transform(
       cos,
       sin,
       -sin,
       cos,
-      cos * -p.x - sin * -p.y + ctx.canvas.width * 0.5,
-      sin * -p.x + cos * -p.y + ctx.canvas.height * 0.5,
+      cos * -p.x - sin * -p.y + Ctx2D.ctx.canvas.width * 0.5,
+      sin * -p.x + cos * -p.y + Ctx2D.ctx.canvas.height * 0.5,
     );
   });
 }
 
 function move(world: World) {
-  const dt = world.dtMilli / 1000;
+  const dt = Time.dtMilli / 1000;
   world.query({ and: [Transform, Velocity] }).forEach((e) => {
     const p = World.getComponent(e, Transform);
     const v = World.getComponent(e, Velocity);
@@ -243,7 +367,6 @@ function move(world: World) {
 }
 
 function drawImg(world: World) {
-  if (!ctx) return;
   world.query({ and: [Graphic, Transform] }).forEach((e) => {
     const g = World.getComponent(e, Graphic);
     const p = World.getComponent(e, Transform);
@@ -254,25 +377,27 @@ function drawImg(world: World) {
     const imgHeight = r ? r.height : img.height;
     const scaleX = imgWidth / img.width;
     const scaleY = imgHeight / img.height;
-    ctx.transform(scaleX, 0, 0, scaleY, 0, 0);
-    ctx.drawImage(
+    Ctx2D.ctx.transform(scaleX, 0, 0, scaleY, 0, 0);
+    Ctx2D.ctx.drawImage(
       img,
       (p.x - imgWidth / 2) / scaleX,
       (p.y - imgHeight / 2) / scaleY,
     );
-    ctx.transform(1 / scaleX, 0, 0, 1 / scaleY, 0, 0);
+    Ctx2D.ctx.transform(1 / scaleX, 0, 0, 1 / scaleY, 0, 0);
   });
 }
 
 function handleButtons(world: World) {
+  const pressPos = pointerToScreen(Pointer.pressPos, Ctx2D.canvas);
+  const releasePos = pointerToScreen(Pointer.releasePos, Ctx2D.canvas);
   world.query({ and: [Button, Transform, Rect, Callback] }).forEach((e) => {
     const p = World.getComponent(e, Transform);
     const b = World.getComponent(e, Button);
     const r = World.getComponent(e, Rect);
     const cb = World.getComponent(e, Callback);
     const pressedWithinButton =
-      (Pointer.pressPos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
-      (Pointer.pressPos.y - p.y) ** 2 < (r.height / 2) ** 2;
+      (pressPos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
+      (pressPos.y - p.y) ** 2 < (r.height / 2) ** 2;
     b.hovered =
       (Pointer.x - p.x) ** 2 < (r.width / 2) ** 2 &&
       (Pointer.y - p.y) ** 2 < (r.height / 2) ** 2;
@@ -280,8 +405,8 @@ function handleButtons(world: World) {
     b.clicked =
       Pointer.justReleased &&
       pressedWithinButton &&
-      (Pointer.releasePos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
-      (Pointer.releasePos.y - p.y) ** 2 < (r.height / 2) ** 2;
+      (releasePos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
+      (releasePos.y - p.y) ** 2 < (r.height / 2) ** 2;
     cb.callback(e);
   });
 }
@@ -384,7 +509,7 @@ function worldToScreen(
   return res;
 }
 function resetTransform(ctx: CanvasRenderingContext2D) {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.resetTransform();
 }
 // credit: https://www.30secondsofcode.org/js/s/detect-device-type/
 function detectDeviceType(): string {
@@ -392,126 +517,113 @@ function detectDeviceType(): string {
     ? "Mobile"
     : "Desktop";
 }
-function getPointerPos(e: PointerEvent) {
-  if (!canvas) return;
+function pointerToScreen(pointer: vec2, canvas: HTMLCanvasElement): vec2 {
+  const out = { x: 0, y: 0 };
   const rect = canvas.getBoundingClientRect();
-  Pointer.x = e.x - rect.left;
-  Pointer.y = e.y - rect.top;
+  out.x = pointer.x - rect.left;
+  out.y = pointer.y - rect.top;
   if (innerWidth / innerHeight < canvas.width / canvas.height) {
-    Pointer.x *= canvas.width / innerWidth;
-    Pointer.y *= canvas.width / innerWidth;
+    out.x *= canvas.width / innerWidth;
+    out.y *= canvas.width / innerWidth;
   } else {
-    Pointer.x *= canvas.height / innerHeight;
-    Pointer.y *= canvas.height / innerHeight;
+    out.x *= canvas.height / innerHeight;
+    out.y *= canvas.height / innerHeight;
   }
+  return out;
 }
 
-const canvas = document.querySelector("canvas");
-const ctx = canvas?.getContext("2d");
+Ctx2D.canvas.width = config.viewport.width;
+Ctx2D.canvas.height = config.viewport.height;
+Ctx2D.canvas.style.imageRendering = "pixelated";
+Ctx2D.ctx.lineWidth = 0.1;
 
-if (canvas && ctx) {
-  canvas.width = config.viewport.width;
-  canvas.height = config.viewport.height;
-  canvas.style.imageRendering = "pixelated";
-  ctx.lineWidth = 0.1;
+const game = new World();
 
-  document.onkeydown = (e) => {
-    Keys[e.key] = true;
-  };
-  document.onkeyup = (e) => {
-    Keys[e.key] = false;
-  };
-  // document.onpointermove = getPointerPos;
-  document.onpointerdown = (e) => {
-    if (e.target != canvas) return;
-    Pointer.isDown = true;
-    Pointer.justPressed = true;
-    getPointerPos(e);
-    Object.assign(Pointer.pressPos, Pointer);
-  };
+const player = addPlayer(game, 0, 0);
 
-  document.onpointerup = (e) => {
-    Pointer.isDown = false;
-    Pointer.justReleased = true;
-    getPointerPos(e);
-    Object.assign(Pointer.releasePos, Pointer);
-  };
+const turrent = addTurrent(game, 10, 0);
 
-  document.body.append(canvas);
+const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
 
-  const game = new World();
+const cam = addCamera(game, 0, 0);
+const camComponent = World.getComponent(cam, Camera);
+camComponent.targetEntity = player;
+camComponent.isActive = true;
 
-  const player = addPlayer(game, 0, 0);
+World.addComponent(player, ParticleEmitter, {
+  particleEntity: turrent,
+  speed: 2,
+  particleLifetimeSeconds: 3,
+  spread: 0.2,
+});
 
-  const turrent = addTurrent(game, 10, 0);
+addTimerWithCallback(game, (e) => {
+  const timer = World.getComponent(e, Timer);
+  if (timer.timeMilli < 500) return;
+  timer.reset = true;
+  if (!World.hasComponent(player, ParticleEmitter)) {
+    World.deleteEntity(e);
+    return;
+  }
+  World.getComponent(player, ParticleEmitter).emit = true;
+});
 
-  const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
+// addTimerWithCallback(game, (e) => {
+//   const timer = World.getComponent(e, Timer);
+//   if (timer.timeMilli < 1000) return;
+//   World.deleteEntity(player);
+//   World.deleteEntity(e);
+// });
 
-  const cam = addCamera(game, 0, 0);
-  const camComponent = World.getComponent(cam, Camera);
-  camComponent.targetEntity = player;
-  camComponent.isActive = true;
+const inGameUi = new World();
 
-  // addTimerWithCallback(game, (e) => {
-  //   const t = World.getComponent(e, Timer);
-  //   if (t.timeMilli < 1000 / config.minions.spawnRate) return;
-  //   t.reset = true;
-  //   const minion = addRect(game, 0, 0);
-  //   const v = World.addComponent(minion, Velocity);
-  //   const c = Math.cos(-Math.PI / 4);
-  //   const s = Math.sin(-Math.PI / 4);
-  //   v.x = c * config.minions.speed;
-  //   v.y = s * config.minions.speed;
-  // });
+addButton(
+  inGameUi,
+  config.viewport.width * 0.9,
+  config.viewport.height * 0.8,
+  config.viewport.height * 0.3,
+  config.viewport.height * 0.3,
+  (e) => {
+    const b = World.getComponent(e, Button);
+    b.clicked && console.log("clicked");
+  },
+);
 
-  const inGameUi = new World();
+// minimap
+// addGraphic(
+//   inGameUi,
+//   "./assets/Map_of_MOBA.svg",
+//   config.viewport.width * 0.1,
+//   config.viewport.height * 0.2,
+//   config.viewport.height * 0.3,
+//   config.viewport.height * 0.3,
+// );
 
-  addButton(
-    inGameUi,
-    config.viewport.width * 0.9,
-    config.viewport.height * 0.8,
-    config.viewport.height * 0.3,
-    config.viewport.height * 0.3,
-    (e) => {
-      const b = World.getComponent(e, Button);
-      b.clicked && console.log("clicked");
-    },
+const debugTextEntity = inGameUi.addEntity();
+const debugText = World.addComponent(debugTextEntity, Text, {
+  content: "test string",
+  backgroundColor: "white",
+});
+World.addComponent(debugTextEntity, Transform);
+
+(function update() {
+  debugText.content = `FPS: ${Math.ceil(1000 / Time.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}`;
+  drawBg();
+  game.update(
+    handleTimers,
+    handleCamera,
+    handlePathfind,
+    handleInput,
+    handleParticleEmitters,
+    drawImg,
+    drawRects,
+    drawPathFindTargets,
+    move,
   );
-
-  // minimap
-  // addGraphic(
-  //   inGameUi,
-  //   "./assets/Map_of_MOBA.svg",
-  //   config.viewport.width * 0.1,
-  //   config.viewport.height * 0.2,
-  //   config.viewport.height * 0.3,
-  //   config.viewport.height * 0.3,
-  // );
-
-  const debugTextEntity = inGameUi.addEntity();
-  const debugText = World.addComponent(debugTextEntity, Text, {
-    content: "test string",
-    backgroundColor: "white",
-  });
-  World.addComponent(debugTextEntity, Transform);
-
-  (function update() {
-    drawBg();
-    debugText.content = `FPS: ${Math.ceil(1000 / game.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}`;
-    game.update(
-      handleTimers,
-      handleCamera,
-      handlePathfind,
-      handleInput,
-      drawImg,
-      drawRects,
-      drawPathFindTargets,
-      move,
-    );
-    resetTransform(ctx);
-    inGameUi.update(drawImg, drawRects, drawTexts, handleButtons);
-    Pointer.justReleased = false;
-    Pointer.justPressed = false;
-    requestAnimationFrame(update);
-  })();
-}
+  resetTransform(Ctx2D.ctx);
+  inGameUi.update(drawImg, drawRects, drawTexts, handleButtons);
+  pointerUpdate(Pointer);
+  keyboardUpdate(Keys);
+  timeUpdate(Time);
+  requestAnimationFrame(update);
+})();
