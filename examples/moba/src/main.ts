@@ -549,17 +549,18 @@ const cam = addCamera(game, 0, 0);
 const camComponent = World.getComponent(cam, Camera);
 camComponent.targetEntity = player;
 camComponent.isActive = true;
+camComponent.zoom = 20;
 
 World.addComponent(player, ParticleEmitter, {
   particleEntity: turrent,
-  speed: 2,
-  particleLifetimeSeconds: 3,
+  speed: 20,
+  particleLifetimeSeconds: 1,
   spread: 0.2,
 });
 
 addTimerWithCallback(game, (e) => {
   const timer = World.getComponent(e, Timer);
-  if (timer.timeMilli < 500) return;
+  if (timer.timeMilli < 100) return;
   timer.reset = true;
   if (!World.hasComponent(player, ParticleEmitter)) {
     World.deleteEntity(e);
@@ -570,7 +571,7 @@ addTimerWithCallback(game, (e) => {
 
 // addTimerWithCallback(game, (e) => {
 //   const timer = World.getComponent(e, Timer);
-//   if (timer.timeMilli < 1000) return;
+//   if (timer.timeMilli < 2000) return;
 //   World.deleteEntity(player);
 //   World.deleteEntity(e);
 // });
@@ -607,6 +608,7 @@ const debugText = World.addComponent(debugTextEntity, Text, {
 World.addComponent(debugTextEntity, Transform);
 
 (function update() {
+  World.getComponent(player, Transform).rad += (1 * Time.dtMilli) / 1000;
   debugText.content = `FPS: ${Math.ceil(1000 / Time.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}`;
   drawBg();
   game.update(

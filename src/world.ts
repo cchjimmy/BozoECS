@@ -119,6 +119,7 @@ export class World {
       }
       const types = ComponentManager.types();
       const mask = World.maskMap.get(entity) ?? 0;
+      World.maskMap.delete(entity);
       World.getArchetype(mask).delete(entity);
       for (let i = 0, l = types.length; i < l; i++) {
         if (!(mask & (1 << i))) continue;
