@@ -1,12 +1,12 @@
 {
   "tasks": {
     "start": "deno run -WRN --unstable-bundle main.ts",
-    "dev-watch": "deno run -WRN --unstable-bundle --watch='examples' --watch-exclude='examples/*/build/*' main.ts debug",
     "dev": "deno run -WRN --unstable-bundle main.ts debug"
   },
   "imports": {
     "@std/http": "jsr:@std/http@^1.0.20",
-    "pixi.js": "npm:pixi.js@^8.9.2"
+    "pixi.js": "npm:pixi.js@^8.9.2",
+    "bozoecs": "./src/index.ts"
   },
   "compilerOptions": {
     "lib": ["dom", "esnext", "deno.ns", "deno.unstable"]

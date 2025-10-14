@@ -2,7 +2,7 @@
  * By Original PNG version by Raizin, SVG rework by Sameboat. - file:Map of MOBA.png (CC 3.0), CC BY-SA 3.0, https://commons.wikimedia.org/w/index.php?curid=29443207
  */
 
-import { entityT, World } from "../../../src/index.ts";
+import { entityT, World } from "bozoecs";
 import { default as config } from "./config.json" with { type: "json" };
 
 // components
@@ -12,42 +12,40 @@ const PIDController = {
   kd: 0,
   prevErr: 0,
   accumErr: 0,
-  result: function (currentErr: number, dt: number): number {
-    if (dt == 0) return 0;
-    this.accumErr += currentErr;
-    const out =
-      this.kp * currentErr +
-      this.ki * this.accumErr +
-      (this.kd * (currentErr - this.prevErr)) / dt;
-    this.prevErr = currentErr;
-    return out;
-  },
-  reset: function (): void {
-    this.prevErr = this.accumErr = 0;
-  },
+  currentErr: 0,
+  result: 0,
+  reset: false,
 };
 const Stats = {
-  healthPoint: 0,
   attackPoint: 0,
   defencePoint: 0,
   abilityPower: 0,
   moveSpeed: 0,
   attackSpeed: 0,
 };
+const Health = { current: 0, max: 0 };
 const Callback = { callback: new Function() };
 const Transform = { x: 0, y: 0, rad: 0, scaleX: 1, scaleY: 1 };
 const Velocity = { x: 0, y: 0 };
 const PlayerControl = {};
 const ComControl = {};
+const OnScreen = {};
 const ParticleEmitter = {
   spread: 0,
   particleEntity: -1,
   particleLifetimeSeconds: 1,
   speed: 1,
   emit: false,
+  particleTransition: function (
+    particleEntity: entityT,
+    percentageLifeTime: number,
+  ) {
+    const t = World.getComponent(particleEntity, Transform);
+    t.scaleX = t.scaleY = -(percentageLifeTime ** 2) + 1;
+  },
 };
 const Camera = { zoom: 20, tilt: 0, isActive: false, targetEntity: -1 };
-const Rect = { width: 2, height: 2 };
+const Rect = { width: 1, height: 1, offsetX: 0.5, offsetY: 0.5 };
 const Graphic = { src: "" };
 const Button = { hovered: false, pressed: false, clicked: false };
 const Colour = { fill: "white", stroke: "black" };
@@ -133,6 +131,7 @@ function setUpPointer() {
   };
 
   globalThis.onpointerdown = (e) => {
+    if (!(e.target instanceof HTMLCanvasElement)) return;
     ((pointer.x = e.x), (pointer.y = e.y));
     Object.assign(pointer.pressPos, pointer);
     pointer.isDown = pointer.justPressed = true;
@@ -165,6 +164,40 @@ function timeUpdate(time: { dtMilli: number; timeMilli: number }) {
 }
 
 // systems
+function checkOnScreenEntities(world: World) {
+  const camEntity = world
+    .query({ and: [Camera, Transform] })
+    .find((e) => World.getComponent(e, Camera).isActive);
+  if (!camEntity) return;
+  const cam = World.getComponent(camEntity, Camera);
+  const camTransform = World.getComponent(camEntity, Transform);
+  world.query({ and: [Rect, Transform] }).forEach((e) => {
+    World.removeComponent(e, OnScreen);
+    const r = World.getComponent(e, Rect);
+    const t = World.getComponent(e, Transform);
+    rectsOverlap(
+      camTransform.x,
+      camTransform.y,
+      Ctx2D.canvas.width / cam.zoom,
+      Ctx2D.canvas.height / cam.zoom,
+      t.x + r.offsetX + r.width / 2,
+      t.y + r.offsetY + r.height / 2,
+      r.width,
+      r.height,
+    ) && World.addComponent(e, OnScreen);
+  });
+}
+function handlePIDControllers(world: World) {
+  world.query({ and: [PIDController] }).forEach((e) => {
+    const pid = World.getComponent(e, PIDController);
+    pid.result =
+      pid.kp * pid.currentErr +
+      pid.ki * pid.accumErr +
+      (pid.kd * (pid.currentErr - pid.prevErr) * 1000) / Time.dtMilli;
+    pid.prevErr = pid.currentErr * +!pid.reset;
+    pid.accumErr = (pid.accumErr + pid.currentErr) * +!pid.reset;
+  });
+}
 function handleParticleEmitters(world: World) {
   world.query({ and: [ParticleEmitter, Transform] }).forEach((e) => {
     const emitter = World.getComponent(e, ParticleEmitter);
@@ -186,23 +219,26 @@ function handleParticleEmitters(world: World) {
       y: Math.sin(radian) * emitter.speed,
     });
     World.addComponent(particle, Callback).callback = () => {
-      if (timer.timeMilli < emitter.particleLifetimeSeconds * 1000) return;
+      if (timer.timeMilli < emitter.particleLifetimeSeconds * 1000) {
+        emitter.particleTransition(
+          particle,
+          timer.timeMilli / 1000 / emitter.particleLifetimeSeconds,
+        );
+        return;
+      }
       World.deleteEntity(particle);
     };
   });
 }
 function handleInput(world: World) {
-  let camera: typeof Camera | null;
-  let camTransform: typeof Transform | null;
-  world.query({ and: [Camera, Transform] }).forEach((e) => {
-    const c = World.getComponent(e, Camera);
-    if (!c.isActive) return;
-    camera = c;
-    camTransform = World.getComponent(e, Transform);
-  });
+  const camEntity = world
+    .query({ and: [Camera, Transform] })
+    .find((e) => World.getComponent(e, Camera).isActive);
+  if (camEntity == undefined) return;
+  const camera = World.getComponent(camEntity, Camera);
+  const camTransform = World.getComponent(camEntity, Transform);
   const pressPos = pointerToScreen(Pointer.pressPos, Ctx2D.canvas);
   world.query({ and: [PathFinder, PlayerControl] }).forEach((e) => {
-    if (!camera || !camTransform) return;
     const pf = World.getComponent(e, PathFinder);
     if (!Pointer.justPressed) return;
     const worldPos = screenToWorld(
@@ -215,7 +251,6 @@ function handleInput(world: World) {
     pf.targetY = worldPos.y;
   });
 }
-
 function handlePathfind(world: World) {
   world
     .query({ and: [PathFinder, Transform, Velocity, Stats] })
@@ -238,18 +273,17 @@ function handlePathfind(world: World) {
       v.y = (dy / dMag) * adjustedSpeed;
     });
 }
-
 function handleTimers(world: World) {
+  world
+    .query({ and: [Timer, Callback] })
+    .forEach((e) => World.getComponent(e, Callback).callback(e));
   world.query({ and: [Timer] }).forEach((e) => {
-    World.hasComponent(e, Callback) &&
-      World.getComponent(e, Callback).callback(e);
     const t = World.getComponent(e, Timer);
     if (t.reset) t.timeMilli = 0;
     t.reset = false;
     if (!t.stop) t.timeMilli += Time.dtMilli;
   });
 }
-
 function drawTexts(world: World) {
   world.query({ and: [Text, Transform] }).forEach((e) => {
     const t = World.getComponent(e, Text);
@@ -276,46 +310,42 @@ function drawTexts(world: World) {
     Ctx2D.ctx.fillStyle = old;
   });
 }
-
-function drawRectangle(
-  ctx: CanvasRenderingContext2D,
-  p: typeof Transform,
-  r: typeof Rect,
-  c: typeof Colour,
-) {
-  const oldF = ctx.fillStyle;
-  const oldS = ctx.strokeStyle;
-  ctx.fillStyle = c.fill;
-  ctx.strokeStyle = c.stroke;
-  const cos = Math.cos(p.rad);
-  const sin = Math.sin(p.rad);
-  ctx.transform(cos, sin, -sin, cos, p.x, p.y);
-  const rect = new Path2D(
-    `M ${-r.width * 0.5 * p.scaleX} ${-r.height * 0.5 * p.scaleY} h ${r.width * p.scaleX} v ${r.height * p.scaleY} h ${-r.width * p.scaleX} Z`,
-  );
-  ctx.fill(rect);
-  ctx.stroke(rect);
-  ctx.transform(
-    cos,
-    -sin,
-    sin,
-    cos,
-    cos * -p.x + sin * -p.y,
-    -sin * -p.x + cos * -p.y,
-  );
-  ctx.fillStyle = oldF;
-  ctx.strokeStyle = oldS;
-}
-
 function drawRects(world: World) {
-  world.query({ and: [Transform, Rect, Colour] }).forEach((e) => {
+  world.query({ and: [Transform, Rect, Colour, OnScreen] }).forEach((e) => {
     const p = World.getComponent(e, Transform);
     const r = World.getComponent(e, Rect);
     const c = World.getComponent(e, Colour);
-    drawRectangle(Ctx2D.ctx, p, r, c);
+    const oldF = Ctx2D.ctx.fillStyle;
+    const oldS = Ctx2D.ctx.strokeStyle;
+    Ctx2D.ctx.fillStyle = c.fill;
+    Ctx2D.ctx.strokeStyle = c.stroke;
+    const cos = Math.cos(p.rad);
+    const sin = Math.sin(p.rad);
+    Ctx2D.ctx.transform(cos, sin, -sin, cos, p.x, p.y);
+    Ctx2D.ctx.fillRect(
+      r.offsetX * p.scaleX,
+      r.offsetY * p.scaleY,
+      r.width * p.scaleX,
+      r.height * p.scaleY,
+    );
+    Ctx2D.ctx.strokeRect(
+      r.offsetX * p.scaleX,
+      r.offsetY * p.scaleY,
+      r.width * p.scaleX,
+      r.height * p.scaleY,
+    );
+    Ctx2D.ctx.transform(
+      cos,
+      -sin,
+      sin,
+      cos,
+      cos * -p.x + sin * -p.y,
+      -sin * -p.x + cos * -p.y,
+    );
+    Ctx2D.ctx.fillStyle = oldF;
+    Ctx2D.ctx.strokeStyle = oldS;
   });
 }
-
 function drawPathFindTargets(world: World) {
   const old = Ctx2D.ctx.fillStyle;
   Ctx2D.ctx.fillStyle = "red";
@@ -325,37 +355,29 @@ function drawPathFindTargets(world: World) {
   });
   Ctx2D.ctx.fillStyle = old;
 }
-
-function drawBg(color: string = "#424242") {
-  const old = Ctx2D.ctx.fillStyle;
-  Ctx2D.ctx.fillStyle = color;
-  Ctx2D.ctx.fillRect(0, 0, Ctx2D.canvas.width, Ctx2D.canvas.height);
-  Ctx2D.ctx.fillStyle = old;
-}
-
 function handleCamera(world: World) {
-  world.query({ and: [Camera, Transform] }).forEach((e) => {
-    const c = World.getComponent(e, Camera);
-    if (!c.isActive) return;
-    resetTransform(Ctx2D.ctx);
-    const p = World.getComponent(e, Transform);
-    if (c.targetEntity != -1 && World.hasComponent(c.targetEntity, Transform)) {
-      const targetPos = World.getComponent(c.targetEntity, Transform);
-      Object.assign(p, targetPos);
-    }
-    const sin = Math.sin(c.tilt) * c.zoom;
-    const cos = Math.cos(c.tilt) * c.zoom;
-    Ctx2D.ctx.transform(
-      cos,
-      sin,
-      -sin,
-      cos,
-      cos * -p.x - sin * -p.y + Ctx2D.ctx.canvas.width * 0.5,
-      sin * -p.x + cos * -p.y + Ctx2D.ctx.canvas.height * 0.5,
-    );
-  });
+  const camEntity = world
+    .query({ and: [Camera, Transform] })
+    .find((e) => World.getComponent(e, Camera).isActive);
+  if (!camEntity) return;
+  Ctx2D.ctx.resetTransform();
+  const c = World.getComponent(camEntity, Camera);
+  const p = World.getComponent(camEntity, Transform);
+  if (c.targetEntity != -1 && World.hasComponent(c.targetEntity, Transform)) {
+    const targetPos = World.getComponent(c.targetEntity, Transform);
+    Object.assign(p, targetPos);
+  }
+  const sin = Math.sin(c.tilt) * c.zoom;
+  const cos = Math.cos(c.tilt) * c.zoom;
+  Ctx2D.ctx.transform(
+    cos,
+    sin,
+    -sin,
+    cos,
+    cos * -p.x - sin * -p.y + Ctx2D.ctx.canvas.width * 0.5,
+    sin * -p.x + cos * -p.y + Ctx2D.ctx.canvas.height * 0.5,
+  );
 }
-
 function move(world: World) {
   const dt = Time.dtMilli / 1000;
   world.query({ and: [Transform, Velocity] }).forEach((e) => {
@@ -365,7 +387,6 @@ function move(world: World) {
     p.y += v.y * dt;
   });
 }
-
 function drawImg(world: World) {
   world.query({ and: [Graphic, Transform] }).forEach((e) => {
     const g = World.getComponent(e, Graphic);
@@ -386,7 +407,6 @@ function drawImg(world: World) {
     Ctx2D.ctx.transform(1 / scaleX, 0, 0, 1 / scaleY, 0, 0);
   });
 }
-
 function handleButtons(world: World) {
   const pressPos = pointerToScreen(Pointer.pressPos, Ctx2D.canvas);
   const releasePos = pointerToScreen(Pointer.releasePos, Ctx2D.canvas);
@@ -410,6 +430,42 @@ function handleButtons(world: World) {
     cb.callback(e);
   });
 }
+function drawHealthBars(world: World) {
+  world.query({ and: [OnScreen, Health, Transform, Rect] }).forEach((e) => {
+    const t = World.getComponent(e, Transform);
+    const r = World.getComponent(e, Rect);
+    const h = World.getComponent(e, Health);
+    const oldStroke = Ctx2D.ctx.strokeStyle;
+    const oldFill = Ctx2D.ctx.fillStyle;
+    const oldLineWidth = Ctx2D.ctx.lineWidth;
+    Ctx2D.ctx.fillStyle = "black";
+    const width = r.width * 1.5;
+    Ctx2D.ctx.fillRect(
+      t.x - width / 2,
+      t.y + r.offsetY * t.scaleY - 1,
+      width,
+      0.3,
+    );
+    Ctx2D.ctx.fillStyle = "green";
+    Ctx2D.ctx.fillRect(
+      t.x - width / 2,
+      t.y + r.offsetY * t.scaleY - 1,
+      width * (h.current / h.max),
+      0.3,
+    );
+    Ctx2D.ctx.strokeStyle = "black";
+    Ctx2D.ctx.lineWidth = 0.1;
+    Ctx2D.ctx.strokeRect(
+      t.x - width / 2,
+      t.y + r.offsetY * t.scaleY - 1,
+      width,
+      0.3,
+    );
+    Ctx2D.ctx.strokeStyle = oldStroke;
+    Ctx2D.ctx.fillStyle = oldFill;
+    Ctx2D.ctx.lineWidth = oldLineWidth;
+  });
+}
 
 // entities
 function addGraphic(world: World, src: string, x = 0, y = 0, w = 1, h = 1) {
@@ -419,11 +475,20 @@ function addGraphic(world: World, src: string, x = 0, y = 0, w = 1, h = 1) {
   World.addComponent(e, Rect, { width: w, height: h });
   return e;
 }
-function addRect(world: World, x = 0, y = 0, w = 1, h = 1) {
+function addRect(
+  world: World,
+  x = 0,
+  y = 0,
+  w = 1,
+  h = 1,
+  offsetX = -w / 2,
+  offsetY = -h / 2,
+) {
   const e = world.addEntity();
   World.addComponent(e, Transform, { x, y });
-  World.addComponent(e, Rect, { width: w, height: h });
-  World.addComponent(e, Colour, { fill: "green" });
+  World.addComponent(e, Rect, { width: w, height: h, offsetX, offsetY });
+  World.addComponent(e, Colour);
+  World.addComponent(e, OnScreen);
   return e;
 }
 function addButton(
@@ -434,9 +499,7 @@ function addButton(
   h = 10,
   cb = (_: entityT) => {},
 ) {
-  const e = world.addEntity();
-  World.addComponent(e, Transform, { x, y });
-  World.addComponent(e, Rect, { width: w, height: h });
+  const e = addRect(world, x, y, w, h);
   World.addComponent(e, Button);
   World.addComponent(e, Colour);
   World.addComponent(e, Callback, { callback: cb });
@@ -451,14 +514,24 @@ function addTimerWithCallback(world: World, cb: (e: entityT) => void) {
 function addPlayer(world: World, x = 0, y = 0) {
   const player = addRect(world, x, y, 1, 1);
   World.addComponent(player, Velocity);
-  World.addComponent(player, Stats, { moveSpeed: config.player.speed });
+  World.addComponent(player, Stats, {
+    ...config.entities.player,
+  });
+  World.addComponent(player, Health, {
+    max: config.entities.player.healthPoint,
+    current: config.entities.player.healthPoint,
+  });
   World.addComponent(player, PlayerControl);
   World.addComponent(player, PathFinder, { targetX: x, targetY: y });
   return player;
 }
 function addTurrent(world: World, x: number, y: number) {
-  const turrent = addRect(world, x, y, 3, 10);
-  World.addComponent(turrent, Stats);
+  const turrent = addRect(world, x, y, 3, 10, -1.5, -10);
+  World.addComponent(turrent, Stats, { ...config.entities.turrent });
+  World.addComponent(turrent, Health, {
+    max: config.entities.turrent.healthPoint,
+    current: config.entities.turrent.healthPoint,
+  });
   return turrent;
 }
 function addCamera(world: World, x: number, y: number) {
@@ -469,6 +542,27 @@ function addCamera(world: World, x: number, y: number) {
 }
 
 //utils
+function drawBg(color: string = "#424242") {
+  const old = Ctx2D.ctx.fillStyle;
+  Ctx2D.ctx.fillStyle = color;
+  Ctx2D.ctx.fillRect(0, 0, Ctx2D.canvas.width, Ctx2D.canvas.height);
+  Ctx2D.ctx.fillStyle = old;
+}
+function rectsOverlap(
+  cx1: number,
+  cy1: number,
+  w1: number,
+  h1: number,
+  cx2: number,
+  cy2: number,
+  w2: number,
+  h2: number,
+): boolean {
+  return (
+    (cx1 - cx2) ** 2 < ((w1 + w2) / 2) ** 2 &&
+    (cy1 - cy2) ** 2 < ((h1 + h2) / 2) ** 2
+  );
+}
 type vec2 = { x: number; y: number };
 function screenToWorld(
   pointerPos: vec2,
@@ -508,9 +602,6 @@ function worldToScreen(
   res.y += config.viewport.height * 0.5;
   return res;
 }
-function resetTransform(ctx: CanvasRenderingContext2D) {
-  ctx.resetTransform();
-}
 // credit: https://www.30secondsofcode.org/js/s/detect-device-type/
 function detectDeviceType(): string {
   return /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)
@@ -532,6 +623,7 @@ function pointerToScreen(pointer: vec2, canvas: HTMLCanvasElement): vec2 {
   return out;
 }
 
+// initialization
 Ctx2D.canvas.width = config.viewport.width;
 Ctx2D.canvas.height = config.viewport.height;
 Ctx2D.canvas.style.imageRendering = "pixelated";
@@ -539,9 +631,22 @@ Ctx2D.ctx.lineWidth = 0.1;
 
 const game = new World();
 
-const player = addPlayer(game, 0, 0);
-
 const turrent = addTurrent(game, 10, 0);
+World.addComponent(turrent, ParticleEmitter, {
+  particleEntity: turrent,
+  speed: 20,
+  spread: 0.2,
+});
+World.addComponent(turrent, Timer);
+World.addComponent(turrent, Callback).callback = () => {
+  const t = World.getComponent(turrent, Timer);
+  if (t.timeMilli < 100) return;
+  t.reset = true;
+  World.getComponent(turrent, ParticleEmitter).emit = true;
+};
+
+const player = addPlayer(game, 0, 0);
+World.getComponent(player, Health).current *= 0.6;
 
 const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
 
@@ -549,32 +654,7 @@ const cam = addCamera(game, 0, 0);
 const camComponent = World.getComponent(cam, Camera);
 camComponent.targetEntity = player;
 camComponent.isActive = true;
-camComponent.zoom = 20;
-
-World.addComponent(player, ParticleEmitter, {
-  particleEntity: turrent,
-  speed: 20,
-  particleLifetimeSeconds: 1,
-  spread: 0.2,
-});
-
-addTimerWithCallback(game, (e) => {
-  const timer = World.getComponent(e, Timer);
-  if (timer.timeMilli < 100) return;
-  timer.reset = true;
-  if (!World.hasComponent(player, ParticleEmitter)) {
-    World.deleteEntity(e);
-    return;
-  }
-  World.getComponent(player, ParticleEmitter).emit = true;
-});
-
-// addTimerWithCallback(game, (e) => {
-//   const timer = World.getComponent(e, Timer);
-//   if (timer.timeMilli < 2000) return;
-//   World.deleteEntity(player);
-//   World.deleteEntity(e);
-// });
+camComponent.zoom = 15;
 
 const inGameUi = new World();
 
@@ -590,16 +670,6 @@ addButton(
   },
 );
 
-// minimap
-// addGraphic(
-//   inGameUi,
-//   "./assets/Map_of_MOBA.svg",
-//   config.viewport.width * 0.1,
-//   config.viewport.height * 0.2,
-//   config.viewport.height * 0.3,
-//   config.viewport.height * 0.3,
-// );
-
 const debugTextEntity = inGameUi.addEntity();
 const debugText = World.addComponent(debugTextEntity, Text, {
   content: "test string",
@@ -608,22 +678,31 @@ const debugText = World.addComponent(debugTextEntity, Text, {
 World.addComponent(debugTextEntity, Transform);
 
 (function update() {
-  World.getComponent(player, Transform).rad += (1 * Time.dtMilli) / 1000;
   debugText.content = `FPS: ${Math.ceil(1000 / Time.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}`;
+
+  // drawing
   drawBg();
   game.update(
-    handleTimers,
     handleCamera,
-    handlePathfind,
-    handleInput,
-    handleParticleEmitters,
+    checkOnScreenEntities,
     drawImg,
     drawRects,
     drawPathFindTargets,
+    drawHealthBars,
+  );
+  Ctx2D.ctx.resetTransform();
+  inGameUi.update(drawImg, drawRects, drawTexts);
+
+  // processing
+  inGameUi.update(handleButtons);
+  game.update(
+    handleTimers,
+    handlePathfind,
+    handleInput,
+    handleParticleEmitters,
     move,
   );
-  resetTransform(Ctx2D.ctx);
-  inGameUi.update(drawImg, drawRects, drawTexts, handleButtons);
+
   pointerUpdate(Pointer);
   keyboardUpdate(Keys);
   timeUpdate(Time);

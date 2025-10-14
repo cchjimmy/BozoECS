@@ -1,5 +1,5 @@
 import { ComponentManager } from "./component.ts";
-import { entityT } from "./entity.ts";
+import type { entityT } from "./entity.ts";
 
 export type queryT = Partial<Record<"and" | "not", object[]>>;
 

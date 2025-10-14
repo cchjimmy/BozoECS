@@ -3,11 +3,18 @@
     "width": 800,
     "height": 400
   },
-  "player": {
-    "speed": 20
-  },
-  "minions": {
-    "speed": 20,
-    "spawnRate": 2
+  "entities": {
+    "player": {
+      "healthPoint": 10,
+      "moveSpeed": 20
+    },
+    "minion": {
+      "healthPoint": 15,
+      "spawnRate": 2
+    },
+    "turrent": {
+      "healthPoint": 100,
+      "abilityPower": 100
+    }
   }
 }

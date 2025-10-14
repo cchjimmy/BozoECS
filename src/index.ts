@@ -1,2 +1,2 @@
 export * from "./world.ts";
-export { type entityT } from "./entity.ts";
+export type { entityT } from "./entity.ts";
