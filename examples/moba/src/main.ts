@@ -687,7 +687,7 @@ World.addComponent(debugTextEntity, Transform);
     checkOnScreenEntities,
     drawImg,
     drawRects,
-    drawPathFindTargets,
+    //drawPathFindTargets,
     drawHealthBars,
   );
   Ctx2D.ctx.resetTransform();

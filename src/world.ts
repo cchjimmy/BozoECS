@@ -1,5 +1,5 @@
 import { ComponentManager } from "./component.ts";
-import type { entityT } from "./entity.ts";
+import { newEntity, type entityT } from "./entity.ts";
 
 export type queryT = Partial<Record<"and" | "not", object[]>>;
 
@@ -16,25 +16,17 @@ export class World {
   }
 
   static createEntity(): entityT {
-    const entity = Math.random();
+    const entity = newEntity();
     World.maskMap.set(entity, 0);
     World.getArchetype(0).add(entity);
     return entity;
   }
 
   static copyEntity(entity: entityT): entityT {
-    const copy = Math.random();
-    const compTypes = ComponentManager.types();
+    const copy = ComponentManager.copy(entity);
     const mask = this.maskMap.get(entity) ?? 0;
-    World.maskMap.set(copy, mask);
-    World.getArchetype(mask).add(copy);
-    for (let i = 0, l = compTypes.length; i < l; i++) {
-      if (!(mask & (1 << i))) continue;
-      Object.assign(
-        ComponentManager.add(copy, compTypes[i]),
-        ComponentManager.get(entity, compTypes[i]),
-      );
-    }
+    this.maskMap.set(copy, mask);
+    this.getArchetype(mask).add(copy);
     return copy;
   }
 
@@ -103,7 +95,7 @@ export class World {
     mask &= ~(1 << compId);
     World.maskMap.set(entity, mask);
     World.getArchetype(mask).add(entity);
-    return ComponentManager.delete(entity, component);
+    return ComponentManager.remove(entity, component);
   }
 
   static getComponent<T extends object>(entity: entityT, component: T): T {
@@ -117,14 +109,10 @@ export class World {
       for (let i = 0, l = World.worlds.length; i < l; i++) {
         World.worlds[i].localEntities.delete(entity);
       }
-      const types = ComponentManager.types();
+      ComponentManager.delete(entity);
       const mask = World.maskMap.get(entity) ?? 0;
       World.maskMap.delete(entity);
       World.getArchetype(mask).delete(entity);
-      for (let i = 0, l = types.length; i < l; i++) {
-        if (!(mask & (1 << i))) continue;
-        ComponentManager.delete(entity, types[i]);
-      }
     }
   }
 

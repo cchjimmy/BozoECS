@@ -1,10 +1,10 @@
-export class ObjectPoolMap<T> {
-  private storage: T[] = [];
-  private indices: Map<unknown, number> = new Map();
-  private objectFactory: () => T;
+export class ObjectPoolMap<K, V> {
+  private storage: V[] = [];
+  private indices: Map<K, number> = new Map();
+  private objectFactory: () => V;
   private size = 0;
 
-  constructor(objectFactory: () => T) {
+  constructor(objectFactory: () => V) {
     this.objectFactory = objectFactory;
   }
 
@@ -12,20 +12,17 @@ export class ObjectPoolMap<T> {
     return this.size;
   }
 
-  addObj(key: unknown): T {
-    let obj;
-    if (this.size < this.storage.length) {
-      obj = this.storage[this.size];
-    } else {
-      obj = this.objectFactory();
-      this.storage.push(obj);
-    }
+  add(key: K): V {
+    const index = this.indices.get(key);
+    if (index != undefined) return this.storage[index];
+    if (this.size >= this.storage.length)
+      this.storage.push(this.objectFactory());
     this.indices.set(key, this.size);
     this.size++;
-    return obj;
+    return this.storage[this.size - 1];
   }
 
-  removeObj(key: unknown): boolean {
+  remove(key: K): boolean {
     const index = this.indices.get(key) ?? -1;
     if (index < 0 || index >= this.size) return false;
     const removed = this.storage[index];
@@ -42,9 +39,13 @@ export class ObjectPoolMap<T> {
     return true;
   }
 
-  getObj(key: unknown): T {
+  get(key: K): V {
     const index = this.indices.get(key) ?? -1;
     if (index < 0 || index >= this.size) throw new Error("Index out of range.");
     return this.storage[index];
+  }
+
+  has(key: K): boolean {
+    return this.indices.has(key);
   }
 }
