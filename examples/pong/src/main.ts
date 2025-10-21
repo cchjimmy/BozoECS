@@ -181,10 +181,10 @@ function addRect(
   height: number,
   color: string = "white",
 ): entityT {
-  const e = w.createEntity();
+  const e = w.addEntity();
   const p = w.addComponent(e, Position);
-  const _v = w.addComponent(e, Velocity);
   const r = w.addComponent(e, Rect);
+  w.addComponent(e, Velocity);
   p.x = x;
   p.y = y;
   r.width = width;
@@ -201,7 +201,7 @@ function addText(
   fontSize: number = 20,
   backgroundColor: string = "rgba(0,0,0,0)",
 ): entityT {
-  const e = w.createEntity();
+  const e = w.addEntity();
   const t = w.addComponent(e, Text);
   const p = w.addComponent(e, Position);
   t.content = txt;

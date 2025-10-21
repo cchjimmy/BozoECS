@@ -1,4 +1,4 @@
-import { World } from "../../../src/index.ts";
+import { World } from "bozoecs";
 
 // components
 const Transform = { x: 0, y: 0, rad: 0, scaleX: 0, scaleY: 0 };
@@ -124,8 +124,8 @@ function handleDrawing(world: World) {
   Ctx2D.ctx.fillStyle = "white";
   Ctx2D.ctx.beginPath();
   world.query({ and: [Transform, Rect] }).forEach((e) => {
-    const t = World.getComponent(e, Transform);
-    const r = World.getComponent(e, Rect);
+    const t = world.getComponent(e, Transform);
+    const r = world.getComponent(e, Rect);
     Ctx2D.ctx.rect(
       t.x - r.width * 0.5,
       t.y - r.height * 0.5,
@@ -144,7 +144,7 @@ function handleDrawing(world: World) {
 
 function handleInput(world: World) {
   world.query({ and: [Velocity, PlayerControl] }).forEach((e) => {
-    const v = World.getComponent(e, Velocity);
+    const v = world.getComponent(e, Velocity);
     v.x = +!!Keys.isDown["d"] - +!!Keys.isDown["a"];
     v.y = +!!Keys.isDown["w"] - +!!Keys.isDown["s"];
     const speed = 100;
@@ -156,8 +156,8 @@ function handleInput(world: World) {
 
 function handleMovement(world: World) {
   world.query({ and: [Transform, Velocity] }).forEach((e) => {
-    const t = World.getComponent(e, Transform);
-    const v = World.getComponent(e, Velocity);
+    const t = world.getComponent(e, Transform);
+    const v = world.getComponent(e, Velocity);
     t.x += (v.x * Time.dtMilli) / 1000;
     t.y += (v.y * Time.dtMilli) / 1000;
   });
@@ -165,8 +165,8 @@ function handleMovement(world: World) {
 
 function handleCamera(world: World) {
   world.query({ and: [Transform, Camera] }).forEach((e) => {
-    const t = World.getComponent(e, Transform);
-    const c = World.getComponent(e, Camera);
+    const t = world.getComponent(e, Transform);
+    const c = world.getComponent(e, Camera);
     Ctx2D.ctx.setTransform(
       c.zoom,
       0,
@@ -188,19 +188,19 @@ function addRect(
   h = Rect.height,
 ) {
   const e = world.addEntity();
-  const t = World.addComponent(e, Transform);
+  const t = world.addComponent(e, Transform);
   ((t.x = x), (t.y = y), (t.rad = rad));
-  const r = World.addComponent(e, Rect);
+  const r = world.addComponent(e, Rect);
   ((r.width = w), (r.height = h));
   return e;
 }
 
 function addPlayer(world: World) {
   const player = world.addEntity();
-  World.addComponent(player, Transform);
-  World.addComponent(player, Velocity);
-  World.addComponent(player, PlayerControl);
-  World.addComponent(player, Camera);
+  world.addComponent(player, Transform);
+  world.addComponent(player, Velocity);
+  world.addComponent(player, PlayerControl);
+  world.addComponent(player, Camera);
   return player;
 }
 

@@ -485,7 +485,7 @@ function addRect(
   offsetX = -w / 2,
   offsetY = -h / 2,
 ) {
-  const e = world.createEntity();
+  const e = world.addEntity();
   world.addComponent(e, Transform, { x, y });
   world.addComponent(e, Rect, { width: w, height: h, offsetX, offsetY });
   world.addComponent(e, Colour);
@@ -507,7 +507,7 @@ function addButton(
   return e;
 }
 function addTimerWithCallback(world: World, cb: (e: entityT) => void) {
-  const e = world.createEntity();
+  const e = world.addEntity();
   world.addComponent(e, Timer);
   world.addComponent(e, Callback).callback = cb;
   return e;
@@ -536,7 +536,7 @@ function addTurrent(world: World, x: number, y: number) {
   return turrent;
 }
 function addCamera(world: World, x: number, y: number) {
-  const cam = world.createEntity();
+  const cam = world.addEntity();
   world.addComponent(cam, Camera, { zoom: 30 });
   world.addComponent(cam, Transform, { x, y });
   return cam;
@@ -675,7 +675,7 @@ addButton(
   },
 );
 
-const debugTextEntity = inGameUi.createEntity();
+const debugTextEntity = inGameUi.addEntity();
 const debugText = inGameUi.addComponent(debugTextEntity, Text, {
   content: "test string",
   backgroundColor: "white",

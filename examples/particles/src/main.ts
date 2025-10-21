@@ -64,7 +64,7 @@ function random(min: number, max: number): number {
   const circles = new Container();
   app.stage.addChild(circles);
   function createEntity() {
-    const e = w.createEntity();
+    const e = w.addEntity();
     w.addComponent(e, Position, {
       x: random(0, innerWidth),
       y: random(0, innerHeight),

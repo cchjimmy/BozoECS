@@ -187,7 +187,7 @@ function drawBackground(ctx: CanvasRenderingContext2D, color: string = "") {
 
 // entity
 function addRect(world: World, x = 0, y = 0, rad = 0, w = 10, h = 10): entityT {
-  const e = world.createEntity();
+  const e = world.addEntity();
   const t = world.addComponent(e, Transform);
   t.x = x;
   t.y = y;

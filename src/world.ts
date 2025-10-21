@@ -121,14 +121,14 @@ export class World {
         notMask |= 1 << this.compManager.getId(query.not[i]);
       }
     }
-    const res = [];
-    for (const archetype of this.archetypeMap.keys()) {
-      const set = this.getArchetype(archetype);
+    const res: entityT[] = [];
+    this.archetypeMap.forEach((_v, k) => {
+      const set = this.getArchetype(k);
       set.size > 0 &&
-        (archetype & andMask) == andMask &&
-        (archetype & notMask) == 0 &&
+        (k & andMask) == andMask &&
+        (k & notMask) == 0 &&
         res.push(...set);
-    }
+    });
     return [...new Set(res)];
   }
 
