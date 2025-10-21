@@ -1,4 +1,4 @@
-import { entityT, World } from "../../../src/index.ts";
+import { entityT, World } from "bozoecs";
 import { default as config } from "../config.json" with { type: "json" };
 
 // singletons
@@ -53,14 +53,14 @@ function handleDrawing(world: World) {
   if (!ctx) return;
   drawBackground(ctx, "green");
   world.query({ and: [Transform, Rect], not: [Obstacle] }).forEach((e) => {
-    const t = World.getComponent(e, Transform);
-    const r = World.getComponent(e, Rect);
+    const t = world.getComponent(e, Transform);
+    const r = world.getComponent(e, Rect);
     drawRect(ctx, t, r);
   });
   world.query({ and: [Transform, Rect, Obstacle] }).forEach((e) => {
-    const t = World.getComponent(e, Transform);
-    const r = World.getComponent(e, Rect);
-    const o = World.getComponent(e, Obstacle);
+    const t = world.getComponent(e, Transform);
+    const r = world.getComponent(e, Rect);
+    const o = world.getComponent(e, Obstacle);
     const height = (r.height - o.gapHeight) * 0.5;
     drawRect(
       ctx,
@@ -102,9 +102,9 @@ function handleDrawing(world: World) {
 function handleMovement(world: World) {
   const dt = dtMilli / 1000;
   world.query({ and: [Transform, Acceleration, Velocity] }).forEach((e) => {
-    const t = World.getComponent(e, Transform);
-    const v = World.getComponent(e, Velocity);
-    const a = World.getComponent(e, Acceleration);
+    const t = world.getComponent(e, Transform);
+    const v = world.getComponent(e, Velocity);
+    const a = world.getComponent(e, Acceleration);
     v.x += a.x * dt;
     v.x *= config.hSpeedMult;
     v.y += a.y * dt;
@@ -116,8 +116,8 @@ function handleMovement(world: World) {
 function handleInput(world: World) {
   world.query({ and: [PlayerControl, Acceleration, Velocity] }).forEach((e) => {
     // movement control
-    const a = World.getComponent(e, Acceleration);
-    const v = World.getComponent(e, Velocity);
+    const a = world.getComponent(e, Acceleration);
+    const v = world.getComponent(e, Velocity);
     a.y = config.grav;
     if (Keys.justPressed[" "] || Pointer.justPressed) {
       a.y = -config.grav * 2e1;
@@ -141,7 +141,7 @@ function resetGame(world: World) {
     resetPlayer(e);
   });
   world.query({ and: [Obstacle] }).forEach((e) => {
-    const v = World.getComponent(e, Velocity);
+    const v = world.getComponent(e, Velocity);
     v.x = -config.pipe.baseSpeed;
     resetObstacle(e);
   });
@@ -149,17 +149,17 @@ function resetGame(world: World) {
 
 function handleCollision(world: World) {
   world.query({ and: [PlayerControl, Rect, Transform] }).forEach((e) => {
-    const t = World.getComponent(e, Transform);
-    const r = World.getComponent(e, Rect);
+    const t = world.getComponent(e, Transform);
+    const r = world.getComponent(e, Rect);
 
     if (t.y > canvas.height - r.height * 0.5) {
       resetGame(world);
     }
 
     world.query({ and: [Transform, Rect, Obstacle] }).forEach((other) => {
-      const ot = World.getComponent(other, Transform);
-      const or = World.getComponent(other, Rect);
-      const oo = World.getComponent(other, Obstacle);
+      const ot = world.getComponent(other, Transform);
+      const or = world.getComponent(other, Rect);
+      const oo = world.getComponent(other, Obstacle);
 
       if (
         (t.x - ot.x) ** 2 < ((r.width + or.width) * 0.5) ** 2 &&
@@ -187,47 +187,47 @@ function drawBackground(ctx: CanvasRenderingContext2D, color: string = "") {
 
 // entity
 function addRect(world: World, x = 0, y = 0, rad = 0, w = 10, h = 10): entityT {
-  const e = world.addEntity();
-  const t = World.addComponent(e, Transform);
+  const e = world.createEntity();
+  const t = world.addComponent(e, Transform);
   t.x = x;
   t.y = y;
   t.rad = rad;
-  const r = World.addComponent(e, Rect);
+  const r = world.addComponent(e, Rect);
   r.width = w;
   r.height = h;
-  World.addComponent(e, Velocity);
-  World.addComponent(e, Acceleration);
+  world.addComponent(e, Velocity);
+  world.addComponent(e, Acceleration);
   return e;
 }
 
 function addPlayer(world: World): entityT {
   const player = addRect(world);
-  World.addComponent(player, PlayerControl);
+  world.addComponent(player, PlayerControl);
   return player;
 }
 
 function addObstacle(world: World): entityT {
   const e = addRect(world);
-  const r = World.getComponent(e, Rect);
-  World.addComponent(e, Obstacle);
+  const r = world.getComponent(e, Rect);
+  world.addComponent(e, Obstacle);
   r.width = config.pipe.width;
   r.height = config.pipe.height;
   return e;
 }
 
 function resetPlayer(player: entityT) {
-  const t = World.getComponent(player, Transform);
-  const v = World.getComponent(player, Velocity);
-  const a = World.getComponent(player, Acceleration);
+  const t = game.getComponent(player, Transform);
+  const v = game.getComponent(player, Velocity);
+  const a = game.getComponent(player, Acceleration);
   t.x = canvas.width * 0.15;
   t.y = canvas.height * 0.5;
   v.x = v.y = a.x = a.y = 0;
 }
 
 function resetObstacle(obstacle: entityT) {
-  const t = World.getComponent(obstacle, Transform);
-  const r = World.getComponent(obstacle, Rect);
-  const o = World.getComponent(obstacle, Obstacle);
+  const t = game.getComponent(obstacle, Transform);
+  const r = game.getComponent(obstacle, Rect);
+  const o = game.getComponent(obstacle, Obstacle);
   const gapHeight = o.gapHeight;
   t.y = Math.random() * (canvas.height - gapHeight) + gapHeight * 0.5;
   t.x = canvas.width + r.width * 0.5;

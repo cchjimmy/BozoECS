@@ -10,9 +10,9 @@
 
 ### Entity
 
-Entities are numbers which can be created by "World.createEntity",
-or by using the "addEntity" method on a World instance.
-Entities created using "createEntity" must be manually added to a World instance using the "addEntity" method.
+Entities are created using "addEntity" on a World instance,
+they are unique to different instances,
+meaning the same entity can be added to multiple worlds without collision.
 
 ```typescript
 typedef entityT = number;
@@ -20,91 +20,85 @@ typedef entityT = number;
 
 ### Component
 
-Components are plain objects and are stored in separate [ObjectPool](./src/pool.ts)s,
-they must be registered by "World.registerComponent" or by "World.addComponent".
+Components are plain objects and are stored in separate [ObjectPoolMaps](./src/pool.ts)s,
+they must be registered using "World.registerComponent" or "World.addComponent".
 Components are instantiated via the spread operator.
 
 ### System
 
 There is no definite way to define a system,
-but World has a method called "update" which accepts an array of functions,
-which will be called when the method is invoked.
+but a World instance has a method called "update" which accepts an array of functions,
+which will be called in sequence when the method is invoked.
 
 ### World
 
-The [World](./src/world.ts) class is the core of this ECS.
-It stores all entities and components in a "global" space,
-which can be added to World instances.
-World instances each have a local set of entities,
+The [World](./src/world.ts) class is the core of this ECS,
+it stores entities and components in its instances,
 which can be accessed by the "query" method on the instance.
+Below are methods defined in the World class.
 
 ```typescript
-static createEntity(): entityT;
+constructor(cleanUpMinutes = 5): World;
 ```
 
-Creates an entity in "global" space,
-which can be added or removed from World instances.
+The World constructor accepts "cleanUpMinutes" input,
+which specifies the time interval to clean the object pools.
 
 ```typescript
-static copyEntity(entity: entityT): entityT;
+addEntity(entity: entityT = newEntity()): entityT;
 ```
 
-Copies an entity in "global" space and returns a new entity containing copied components,
-which can be added or removed from World instances.
+This creates a new entity or add an existing entity to World instances.
+
+```typescript
+copyEntity(src: entityT, dest: entityT = newEntity()): entityT;
+```
+
+Copies an entity in a World instance and returns a new entity containing copied components,
+which is added into the World instance.
 This can be used for instantiating prefab entities.
 
 ```typescript
-static registerComponent<T extends object>(component: T): typeof World;
+registerComponent<T extends object>(component: T): World;
 ```
 
-This internally adds an object pool, index map for the input component.
-Index map maps an entity to an index into an object pool.
+This internally adds an object pool for the input component and is added into an id map for identification.
 
 ```typescript
-static addComponent<T extends object>(entity: entityT, component: T, values: Partial<T> = {}): T;
+addComponent<T extends object>(entity: entityT, component: T, values: Partial<T> = {}): T;
 ```
 
-Adds a component to an entity and returns a shallow copy of the component.
-The component is stored in "global" space, not within World instances.
+Adds a component to an entity and returns a shallow copy of the component,
+and it is stored in World instances.
 If the component is not registered the function will register it.
 
 ```typescript
-static removeComponent<T extends object>(entity: entityT, component: T): boolean;
+removeComponent<T extends object>(entity: entityT, component: T): boolean;
 ```
 
 Removes a component from an entity and returns true if it is removed and false otherwise,
-the removed component is stored in an object pool in "global" space.
+the removed component is returned to its object pool.
 
 ```typescript
-static getComponent<T extends object>(entity: entityT, component: T): T;
+getComponent<T extends object>(entity: entityT, component: T): T;
 ```
 
-Returns the attached component, will throw an error if entity doesn't have the component.
-
-```typescript
-addEntity(entity?: entityT): entityT;
-```
-
-Adds an entity to a World instance's entity set.
-
-```typescript
-removeEntity(entity: entityT): void;
-```
-
-Removes an entity from a World instance's entity set.
+Returns the attached component to entity,
+will throw an error if entity doesn't have the component.
 
 ```typescript
 deleteEntity(entity: entityT): void;
 ```
 
-Removes an entity from the "global" space along with all its components.
+Deletes an entity from a World instance along with all its components.
+The entity is first stored in an array,
+and removal is commited at the end of the "update" function.
 
 ```typescript
 update(...fns: ((world: World) => void)[]): void;
 ```
 
-fns are called in sequence, it measures the elapsed time and records it into World.dtMilli,
-then the time is added to World.timeMilli.
+"fns" are called in sequence then entity removal then cleaning the object pools.
 
 ```typescript
 query(q: Partial<Record<"and" | "not", object[]>>): entityT[];

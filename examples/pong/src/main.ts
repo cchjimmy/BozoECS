@@ -1,4 +1,4 @@
-import { entityT, World } from "../../../src/index.ts";
+import { entityT, World } from "bozoecs";
 import { default as config } from "./config.json" with { type: "json" };
 
 const canvas = document.querySelector("canvas");
@@ -35,8 +35,8 @@ const w = new World();
 // systems
 function handlePlayerControl(world: World) {
   world.query({ and: [Velocity, PlayerControl] }).forEach((e) => {
-    const v = World.getComponent(e, Velocity);
-    const pc = World.getComponent(e, PlayerControl);
+    const v = world.getComponent(e, Velocity);
+    const pc = world.getComponent(e, PlayerControl);
     v.y = 0;
     if (pc.isLeft) {
       if (keys["w"]) {
@@ -84,8 +84,8 @@ function drawBackgound() {
 function move(world: World) {
   const dt = dtMilli / 1000;
   world.query({ and: [Position, Velocity] }).forEach((e) => {
-    const p = World.getComponent(e, Position);
-    const v = World.getComponent(e, Velocity);
+    const p = world.getComponent(e, Position);
+    const v = world.getComponent(e, Velocity);
     p.x += v.x * dt;
     p.y += v.y * dt;
   });
@@ -94,8 +94,8 @@ function move(world: World) {
 function drawRects(world: World) {
   if (!ctx) return;
   world.query({ and: [Rect, Position] }).forEach((e) => {
-    const p = World.getComponent(e, Position);
-    const r = World.getComponent(e, Rect);
+    const p = world.getComponent(e, Position);
+    const r = world.getComponent(e, Rect);
     const old = ctx.fillStyle;
     ctx.fillStyle = r.color;
     ctx.fillRect(
@@ -111,8 +111,8 @@ function drawRects(world: World) {
 function drawTexts(world: World) {
   if (!ctx) return;
   world.query({ and: [Text, Position] }).forEach((e) => {
-    const t = World.getComponent(e, Text);
-    const p = World.getComponent(e, Position);
+    const t = world.getComponent(e, Text);
+    const p = world.getComponent(e, Position);
 
     ctx.font = `${t.fontSize}px serif`;
     const txtMetric = ctx.measureText(t.content);
@@ -137,12 +137,12 @@ function drawTexts(world: World) {
 function checkCollision(world: World) {
   const rects = world.query({ and: [Position, Rect] });
   rects.forEach((e) => {
-    const p = World.getComponent(e, Position);
-    const r = World.getComponent(e, Rect);
+    const p = world.getComponent(e, Position);
+    const r = world.getComponent(e, Rect);
     rects.forEach((other) => {
       if (other == e) return;
-      const p1 = World.getComponent(other, Position);
-      const r1 = World.getComponent(other, Rect);
+      const p1 = world.getComponent(other, Position);
+      const r1 = world.getComponent(other, Rect);
       if (
         (p.x - p1.x) ** 2 < ((r.width + r1.width) * 0.5) ** 2 &&
         (p.y - p1.y) ** 2 < ((r.height + r1.height) * 0.5) ** 2
@@ -153,9 +153,9 @@ function checkCollision(world: World) {
   });
 }
 
-function checkGoal() {
-  const p = World.getComponent(ball, Position);
-  const r = World.getComponent(ball, Rect);
+function checkGoal(world: World) {
+  const p = world.getComponent(ball, Position);
+  const r = world.getComponent(ball, Rect);
   if (p.x - r.width > config.playArea.width) {
     scores.left++;
     onGoal();
@@ -169,9 +169,9 @@ function checkGoal() {
 // entity
 function addPlayerPaddle(x: number, y: number, isLeft: boolean): entityT {
   const e = addRect(x, y, config.paddle.width, config.paddle.height);
-  const pc = World.addComponent(e, PlayerControl);
+  const pc = w.addComponent(e, PlayerControl);
   pc.isLeft = isLeft;
-  return w.addEntity(e);
+  return e;
 }
 
 function addRect(
@@ -180,17 +180,17 @@ function addRect(
   width: number,
   height: number,
   color: string = "white",
-) {
-  const e = World.createEntity();
-  const p = World.addComponent(e, Position);
-  const v = World.addComponent(e, Velocity);
-  const r = World.addComponent(e, Rect);
+): entityT {
+  const e = w.createEntity();
+  const p = w.addComponent(e, Position);
+  const _v = w.addComponent(e, Velocity);
+  const r = w.addComponent(e, Rect);
   p.x = x;
   p.y = y;
   r.width = width;
   r.height = height;
   r.color = color;
-  return w.addEntity(e);
+  return e;
 }
 
 function addText(
@@ -201,16 +201,16 @@ function addText(
   fontSize: number = 20,
   backgroundColor: string = "rgba(0,0,0,0)",
 ): entityT {
-  const e = World.createEntity();
-  const t = World.addComponent(e, Text);
-  const p = World.addComponent(e, Position);
+  const e = w.createEntity();
+  const t = w.addComponent(e, Text);
+  const p = w.addComponent(e, Position);
   t.content = txt;
   t.color = txtColor;
   t.fontSize = fontSize;
   t.backgroundColor = backgroundColor;
   p.x = x;
   p.y = y;
-  return w.addEntity(e);
+  return e;
 }
 
 if (canvas) {
@@ -288,8 +288,8 @@ const playerRight = addPlayerPaddle(
 );
 
 function reset() {
-  const ballV = World.getComponent(ball, Velocity);
-  const ballP = World.getComponent(ball, Position);
+  const ballV = w.getComponent(ball, Velocity);
+  const ballP = w.getComponent(ball, Position);
   ballP.x = config.playArea.width * 0.5;
   ballP.y = config.playArea.height * 0.5;
   ballV.x = config.ball.speed;
@@ -298,8 +298,8 @@ function reset() {
   rad *= Math.random() > 0.5 ? 1 : -1;
   rad += Math.random() > 0.5 ? Math.PI : 0;
   rotate(ballV, rad);
-  const pLP = World.getComponent(playerLeft, Position);
-  const pRP = World.getComponent(playerRight, Position);
+  const pLP = w.getComponent(playerLeft, Position);
+  const pRP = w.getComponent(playerRight, Position);
   pLP.y = config.playArea.height * 0.5;
   pRP.y = config.playArea.height * 0.5;
 }
@@ -314,18 +314,18 @@ function rotate(vec2: { x: number; y: number }, rad: number) {
 }
 
 function onGoal() {
-  const t = World.getComponent(goalTexts, Text);
+  const t = w.getComponent(goalTexts, Text);
   t.content = `${scores.left} : ${scores.right}`;
   reset();
 }
 
 function onCollision(e: entityT, other: entityT) {
-  const p = World.getComponent(e, Position);
-  const p1 = World.getComponent(other, Position);
-  const r = World.getComponent(e, Rect);
-  const r1 = World.getComponent(other, Rect);
-  const v = World.getComponent(e, Velocity);
-  const v1 = World.getComponent(other, Velocity);
+  const p = w.getComponent(e, Position);
+  const p1 = w.getComponent(other, Position);
+  const r = w.getComponent(e, Rect);
+  const r1 = w.getComponent(other, Rect);
+  const v = w.getComponent(e, Velocity);
+  const v1 = w.getComponent(other, Velocity);
 
   const vMag = (v.x ** 2 + v.y ** 2) ** 0.5;
   const vNx = v.x / vMag,
@@ -387,7 +387,7 @@ function onCollision(e: entityT, other: entityT) {
 const scores = { left: 0, right: 0 };
 
 const goalTexts = addText(`${scores.left} : ${scores.right}`);
-const t = World.getComponent(goalTexts, Text);
+const t = w.getComponent(goalTexts, Text);
 t.color = "white";
 t.fontSize = 40;
 

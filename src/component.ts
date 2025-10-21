@@ -2,62 +2,62 @@ import { ObjectPoolMap } from "./pool.ts";
 import { entityT, newEntity } from "./entity.ts";
 
 export class ComponentManager {
-  private static pools: Map<object, unknown> = new Map();
-  private static idMap: Map<object, number> = new Map();
+  private pools: Map<object, unknown> = new Map();
+  private idMap: Map<object, number> = new Map();
 
-  static register<T extends object>(component: T) {
-    if (ComponentManager.pools.has(component)) return;
-    ComponentManager.idMap.set(component, ComponentManager.idMap.size);
-    ComponentManager.pools.set(
+  register<T extends object>(component: T) {
+    if (this.pools.has(component)) return;
+    this.idMap.set(component, this.idMap.size);
+    this.pools.set(
       component,
       new ObjectPoolMap<entityT, T>(() => ({ ...component })),
     );
   }
 
-  static getId<T extends object>(component: T): number {
-    return ComponentManager.idMap.get(component) ?? -1;
+  getId<T extends object>(component: T): number {
+    return this.idMap.get(component) ?? -1;
   }
 
-  static add<T extends object>(entity: entityT, component: T): T {
+  add<T extends object>(entity: entityT, component: T): T {
     return Object.assign(
-      (ComponentManager.pools.get(component) as ObjectPoolMap<entityT, T>).add(
-        entity,
-      ),
+      (this.pools.get(component) as ObjectPoolMap<entityT, T>).add(entity),
       component,
     );
   }
 
-  static remove<T extends object>(entity: entityT, component: T): boolean {
-    return (
-      ComponentManager.pools.get(component) as ObjectPoolMap<entityT, T>
-    ).remove(entity);
+  remove<T extends object>(entity: entityT, component: T): boolean {
+    return (this.pools.get(component) as ObjectPoolMap<entityT, T>).remove(
+      entity,
+    );
   }
 
-  static get<T extends object>(entity: entityT, component: T): T {
-    return (
-      ComponentManager.pools.get(component) as ObjectPoolMap<entityT, T>
-    ).get(entity);
+  get<T extends object>(entity: entityT, component: T): T {
+    return (this.pools.get(component) as ObjectPoolMap<entityT, T>).get(entity);
   }
 
-  static len<T extends object>(component: T): number {
-    return (
-      ComponentManager.pools.get(component) as ObjectPoolMap<entityT, T>
-    ).len();
+  len<T extends object>(component: T): number {
+    return (this.pools.get(component) as ObjectPoolMap<entityT, T>).len();
   }
 
-  static delete(entity: entityT) {
-    for (const entry of this.pools) {
-      const p = entry[1] as ObjectPoolMap<entityT, object>;
-      p.has(entity) && p.remove(entity);
+  delete(entity: entityT) {
+    for (const p of this.pools.values()) {
+      const pool = p as ObjectPoolMap<entityT, object>;
+      pool.remove(entity);
     }
   }
 
-  static copy(entity: entityT): entityT {
-    const copied = newEntity();
-    for (const entry of this.pools) {
-      const p = entry[1] as ObjectPoolMap<entityT, object>;
-      p.has(entity) && Object.assign(p.add(copied), p.get(entity));
+  copy(srcEntity: entityT, destEntity: entityT) {
+    for (const p of this.pools.values()) {
+      const pool = p as ObjectPoolMap<entityT, object>;
+      pool.has(srcEntity) &&
+        Object.assign(pool.add(destEntity), pool.get(srcEntity));
     }
-    return copied;
+  }
+
+  clean() {
+    for (const p of this.pools.values()) {
+      const pool = p as ObjectPoolMap<entityT, object>;
+      pool.clean();
+    }
   }
 }

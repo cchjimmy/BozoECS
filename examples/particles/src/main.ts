@@ -1,5 +1,5 @@
-import { World } from "../../../src/index.ts";
-import { Application, Container, Graphics, Text } from "npm:pixi.js";
+import { World } from "bozoecs";
+import { Application, Container, Graphics, Text } from "pixi.js";
 
 function random(min: number, max: number): number {
   return Math.random() * (max - min) + min;
@@ -20,15 +20,15 @@ function random(min: number, max: number): number {
   const Circle = { radius: 10, color: "green", graphics: new Graphics() };
 
   // not necessary
-  World.registerComponent(Position)
+  w.registerComponent(Position)
     .registerComponent(Velocity)
     .registerComponent(Circle);
 
   // systems
   function render(world: World) {
     world.query({ and: [Position, Circle] }).forEach((e) => {
-      const p = World.getComponent(e, Position);
-      const c = World.getComponent(e, Circle);
+      const p = world.getComponent(e, Position);
+      const c = world.getComponent(e, Circle);
       c.graphics.x = p.x;
       c.graphics.y = p.y;
       c.graphics.scale = c.radius;
@@ -38,17 +38,17 @@ function random(min: number, max: number): number {
   function move(world: World) {
     const dt = app.ticker.deltaMS / 1000;
     world.query({ and: [Position, Velocity] }).forEach((e) => {
-      const p = World.getComponent(e, Position);
-      const v = World.getComponent(e, Velocity);
+      const p = world.getComponent(e, Position);
+      const v = world.getComponent(e, Velocity);
       p.x += v.x * dt;
       p.y += v.y * dt;
     });
   }
   function bounce(world: World) {
     world.query({ and: [Position, Velocity, Circle] }).forEach((e) => {
-      const p = World.getComponent(e, Position);
-      const v = World.getComponent(e, Velocity);
-      const c = World.getComponent(e, Circle);
+      const p = world.getComponent(e, Position);
+      const v = world.getComponent(e, Velocity);
+      const c = world.getComponent(e, Circle);
       if (p.x - c.radius < 0 || p.x + c.radius > innerWidth) {
         v.x *= -1;
         p.x = p.x < innerWidth * 0.5 ? c.radius : innerWidth - c.radius;
@@ -64,17 +64,17 @@ function random(min: number, max: number): number {
   const circles = new Container();
   app.stage.addChild(circles);
   function createEntity() {
-    const e = w.addEntity();
-    World.addComponent(e, Position, {
+    const e = w.createEntity();
+    w.addComponent(e, Position, {
       x: random(0, innerWidth),
       y: random(0, innerHeight),
     });
     const maxSpeed = 100;
-    World.addComponent(e, Velocity, {
+    w.addComponent(e, Velocity, {
       x: random(-maxSpeed, maxSpeed),
       y: random(-maxSpeed, maxSpeed),
     });
-    const c = World.addComponent(e, Circle, {
+    const c = w.addComponent(e, Circle, {
       radius: random(10, 30),
       color: `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`,
       graphics: new Graphics().circle(0, 0, 1).stroke({

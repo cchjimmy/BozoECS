@@ -37,10 +37,11 @@ const ParticleEmitter = {
   speed: 1,
   emit: false,
   particleTransition: function (
+    world: World,
     particleEntity: entityT,
     percentageLifeTime: number,
   ) {
-    const t = World.getComponent(particleEntity, Transform);
+    const t = world.getComponent(particleEntity, Transform);
     t.scaleX = t.scaleY = -(percentageLifeTime ** 2) + 1;
   },
 };
@@ -167,14 +168,14 @@ function timeUpdate(time: { dtMilli: number; timeMilli: number }) {
 function checkOnScreenEntities(world: World) {
   const camEntity = world
     .query({ and: [Camera, Transform] })
-    .find((e) => World.getComponent(e, Camera).isActive);
+    .find((e) => world.getComponent(e, Camera).isActive);
   if (!camEntity) return;
-  const cam = World.getComponent(camEntity, Camera);
-  const camTransform = World.getComponent(camEntity, Transform);
+  const cam = world.getComponent(camEntity, Camera);
+  const camTransform = world.getComponent(camEntity, Transform);
   world.query({ and: [Rect, Transform] }).forEach((e) => {
-    World.removeComponent(e, OnScreen);
-    const r = World.getComponent(e, Rect);
-    const t = World.getComponent(e, Transform);
+    world.removeComponent(e, OnScreen);
+    const r = world.getComponent(e, Rect);
+    const t = world.getComponent(e, Transform);
     rectsOverlap(
       camTransform.x,
       camTransform.y,
@@ -184,12 +185,12 @@ function checkOnScreenEntities(world: World) {
       t.y + r.offsetY + r.height / 2,
       r.width,
       r.height,
-    ) && World.addComponent(e, OnScreen);
+    ) && world.addComponent(e, OnScreen);
   });
 }
 function handlePIDControllers(world: World) {
   world.query({ and: [PIDController] }).forEach((e) => {
-    const pid = World.getComponent(e, PIDController);
+    const pid = world.getComponent(e, PIDController);
     pid.result =
       pid.kp * pid.currentErr +
       pid.ki * pid.accumErr +
@@ -200,46 +201,46 @@ function handlePIDControllers(world: World) {
 }
 function handleParticleEmitters(world: World) {
   world.query({ and: [ParticleEmitter, Transform] }).forEach((e) => {
-    const emitter = World.getComponent(e, ParticleEmitter);
-    if (!emitter.emit || !World.hasComponent(emitter.particleEntity, Transform))
+    const emitter = world.getComponent(e, ParticleEmitter);
+    if (!emitter.emit || !world.hasComponent(emitter.particleEntity, Transform))
       return;
     emitter.emit = false;
-    const t = World.getComponent(e, Transform);
-    const particle = World.copyEntity(emitter.particleEntity);
-    const particleTransform = World.getComponent(particle, Transform);
+    const t = world.getComponent(e, Transform);
+    const particle = world.copyEntity(emitter.particleEntity);
+    const particleTransform = world.getComponent(particle, Transform);
     Object.assign(particleTransform, t);
-    world.addEntity(particle);
-    const timer = World.addComponent(particle, Timer);
+    const timer = world.addComponent(particle, Timer);
     const rand = Math.random() > 0.5;
     const radian =
       t.rad + Math.random() * emitter.spread * Math.PI * (-1 * +rand + +!rand);
     particleTransform.rad = radian;
-    World.addComponent(particle, Velocity, {
+    world.addComponent(particle, Velocity, {
       x: Math.cos(radian) * emitter.speed,
       y: Math.sin(radian) * emitter.speed,
     });
-    World.addComponent(particle, Callback).callback = () => {
+    world.addComponent(particle, Callback).callback = () => {
       if (timer.timeMilli < emitter.particleLifetimeSeconds * 1000) {
         emitter.particleTransition(
+          world,
           particle,
           timer.timeMilli / 1000 / emitter.particleLifetimeSeconds,
         );
         return;
       }
-      World.deleteEntity(particle);
+      world.deleteEntity(particle);
     };
   });
 }
 function handleInput(world: World) {
   const camEntity = world
     .query({ and: [Camera, Transform] })
-    .find((e) => World.getComponent(e, Camera).isActive);
+    .find((e) => world.getComponent(e, Camera).isActive);
   if (camEntity == undefined) return;
-  const camera = World.getComponent(camEntity, Camera);
-  const camTransform = World.getComponent(camEntity, Transform);
+  const camera = world.getComponent(camEntity, Camera);
+  const camTransform = world.getComponent(camEntity, Transform);
   const pressPos = pointerToScreen(Pointer.pressPos, Ctx2D.canvas);
   world.query({ and: [PathFinder, PlayerControl] }).forEach((e) => {
-    const pf = World.getComponent(e, PathFinder);
+    const pf = world.getComponent(e, PathFinder);
     if (!Pointer.justPressed) return;
     const worldPos = screenToWorld(
       pressPos,
@@ -255,10 +256,10 @@ function handlePathfind(world: World) {
   world
     .query({ and: [PathFinder, Transform, Velocity, Stats] })
     .forEach((e) => {
-      const pf = World.getComponent(e, PathFinder);
-      const p = World.getComponent(e, Transform);
-      const v = World.getComponent(e, Velocity);
-      const s = World.getComponent(e, Stats);
+      const pf = world.getComponent(e, PathFinder);
+      const p = world.getComponent(e, Transform);
+      const v = world.getComponent(e, Velocity);
+      const s = world.getComponent(e, Stats);
 
       const dx = pf.targetX - p.x;
       const dy = pf.targetY - p.y;
@@ -276,9 +277,9 @@ function handlePathfind(world: World) {
 function handleTimers(world: World) {
   world
     .query({ and: [Timer, Callback] })
-    .forEach((e) => World.getComponent(e, Callback).callback(e));
+    .forEach((e) => world.getComponent(e, Callback).callback(e));
   world.query({ and: [Timer] }).forEach((e) => {
-    const t = World.getComponent(e, Timer);
+    const t = world.getComponent(e, Timer);
     if (t.reset) t.timeMilli = 0;
     t.reset = false;
     if (!t.stop) t.timeMilli += Time.dtMilli;
@@ -286,8 +287,8 @@ function handleTimers(world: World) {
 }
 function drawTexts(world: World) {
   world.query({ and: [Text, Transform] }).forEach((e) => {
-    const t = World.getComponent(e, Text);
-    const p = World.getComponent(e, Transform);
+    const t = world.getComponent(e, Text);
+    const p = world.getComponent(e, Transform);
     Ctx2D.ctx.font = `${t.fontSize}px serif`;
     const old = Ctx2D.ctx.fillStyle;
     const lines = t.content.split("\n");
@@ -312,9 +313,9 @@ function drawTexts(world: World) {
 }
 function drawRects(world: World) {
   world.query({ and: [Transform, Rect, Colour, OnScreen] }).forEach((e) => {
-    const p = World.getComponent(e, Transform);
-    const r = World.getComponent(e, Rect);
-    const c = World.getComponent(e, Colour);
+    const p = world.getComponent(e, Transform);
+    const r = world.getComponent(e, Rect);
+    const c = world.getComponent(e, Colour);
     const oldF = Ctx2D.ctx.fillStyle;
     const oldS = Ctx2D.ctx.strokeStyle;
     Ctx2D.ctx.fillStyle = c.fill;
@@ -350,7 +351,7 @@ function drawPathFindTargets(world: World) {
   const old = Ctx2D.ctx.fillStyle;
   Ctx2D.ctx.fillStyle = "red";
   world.query({ and: [PathFinder] }).forEach((e) => {
-    const pf = World.getComponent(e, PathFinder);
+    const pf = world.getComponent(e, PathFinder);
     Ctx2D.ctx.fillRect(pf.targetX - 0.5, pf.targetY - 0.5, 1, 1);
   });
   Ctx2D.ctx.fillStyle = old;
@@ -358,13 +359,13 @@ function drawPathFindTargets(world: World) {
 function handleCamera(world: World) {
   const camEntity = world
     .query({ and: [Camera, Transform] })
-    .find((e) => World.getComponent(e, Camera).isActive);
+    .find((e) => world.getComponent(e, Camera).isActive);
   if (!camEntity) return;
   Ctx2D.ctx.resetTransform();
-  const c = World.getComponent(camEntity, Camera);
-  const p = World.getComponent(camEntity, Transform);
-  if (c.targetEntity != -1 && World.hasComponent(c.targetEntity, Transform)) {
-    const targetPos = World.getComponent(c.targetEntity, Transform);
+  const c = world.getComponent(camEntity, Camera);
+  const p = world.getComponent(camEntity, Transform);
+  if (c.targetEntity != -1 && world.hasComponent(c.targetEntity, Transform)) {
+    const targetPos = world.getComponent(c.targetEntity, Transform);
     Object.assign(p, targetPos);
   }
   const sin = Math.sin(c.tilt) * c.zoom;
@@ -381,17 +382,17 @@ function handleCamera(world: World) {
 function move(world: World) {
   const dt = Time.dtMilli / 1000;
   world.query({ and: [Transform, Velocity] }).forEach((e) => {
-    const p = World.getComponent(e, Transform);
-    const v = World.getComponent(e, Velocity);
+    const p = world.getComponent(e, Transform);
+    const v = world.getComponent(e, Velocity);
     p.x += v.x * dt;
     p.y += v.y * dt;
   });
 }
 function drawImg(world: World) {
   world.query({ and: [Graphic, Transform] }).forEach((e) => {
-    const g = World.getComponent(e, Graphic);
-    const p = World.getComponent(e, Transform);
-    const r = World.hasComponent(e, Rect) && World.getComponent(e, Rect);
+    const g = world.getComponent(e, Graphic);
+    const p = world.getComponent(e, Transform);
+    const r = world.hasComponent(e, Rect) && world.getComponent(e, Rect);
     const img = new Image();
     img.src = g.src;
     const imgWidth = r ? r.width : img.width;
@@ -411,10 +412,10 @@ function handleButtons(world: World) {
   const pressPos = pointerToScreen(Pointer.pressPos, Ctx2D.canvas);
   const releasePos = pointerToScreen(Pointer.releasePos, Ctx2D.canvas);
   world.query({ and: [Button, Transform, Rect, Callback] }).forEach((e) => {
-    const p = World.getComponent(e, Transform);
-    const b = World.getComponent(e, Button);
-    const r = World.getComponent(e, Rect);
-    const cb = World.getComponent(e, Callback);
+    const p = world.getComponent(e, Transform);
+    const b = world.getComponent(e, Button);
+    const r = world.getComponent(e, Rect);
+    const cb = world.getComponent(e, Callback);
     const pressedWithinButton =
       (pressPos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
       (pressPos.y - p.y) ** 2 < (r.height / 2) ** 2;
@@ -432,9 +433,9 @@ function handleButtons(world: World) {
 }
 function drawHealthBars(world: World) {
   world.query({ and: [OnScreen, Health, Transform, Rect] }).forEach((e) => {
-    const t = World.getComponent(e, Transform);
-    const r = World.getComponent(e, Rect);
-    const h = World.getComponent(e, Health);
+    const t = world.getComponent(e, Transform);
+    const r = world.getComponent(e, Rect);
+    const h = world.getComponent(e, Health);
     const oldStroke = Ctx2D.ctx.strokeStyle;
     const oldFill = Ctx2D.ctx.fillStyle;
     const oldLineWidth = Ctx2D.ctx.lineWidth;
@@ -470,9 +471,9 @@ function drawHealthBars(world: World) {
 // entities
 function addGraphic(world: World, src: string, x = 0, y = 0, w = 1, h = 1) {
   const e = world.addEntity();
-  World.addComponent(e, Transform, { x, y });
-  World.addComponent(e, Graphic, { src });
-  World.addComponent(e, Rect, { width: w, height: h });
+  world.addComponent(e, Transform, { x, y });
+  world.addComponent(e, Graphic, { src });
+  world.addComponent(e, Rect, { width: w, height: h });
   return e;
 }
 function addRect(
@@ -484,11 +485,11 @@ function addRect(
   offsetX = -w / 2,
   offsetY = -h / 2,
 ) {
-  const e = world.addEntity();
-  World.addComponent(e, Transform, { x, y });
-  World.addComponent(e, Rect, { width: w, height: h, offsetX, offsetY });
-  World.addComponent(e, Colour);
-  World.addComponent(e, OnScreen);
+  const e = world.createEntity();
+  world.addComponent(e, Transform, { x, y });
+  world.addComponent(e, Rect, { width: w, height: h, offsetX, offsetY });
+  world.addComponent(e, Colour);
+  world.addComponent(e, OnScreen);
   return e;
 }
 function addButton(
@@ -500,44 +501,44 @@ function addButton(
   cb = (_: entityT) => {},
 ) {
   const e = addRect(world, x, y, w, h);
-  World.addComponent(e, Button);
-  World.addComponent(e, Colour);
-  World.addComponent(e, Callback, { callback: cb });
+  world.addComponent(e, Button);
+  world.addComponent(e, Colour);
+  world.addComponent(e, Callback, { callback: cb });
   return e;
 }
 function addTimerWithCallback(world: World, cb: (e: entityT) => void) {
-  const e = world.addEntity();
-  World.addComponent(e, Timer);
-  World.addComponent(e, Callback).callback = cb;
+  const e = world.createEntity();
+  world.addComponent(e, Timer);
+  world.addComponent(e, Callback).callback = cb;
   return e;
 }
 function addPlayer(world: World, x = 0, y = 0) {
   const player = addRect(world, x, y, 1, 1);
-  World.addComponent(player, Velocity);
-  World.addComponent(player, Stats, {
+  world.addComponent(player, Velocity);
+  world.addComponent(player, Stats, {
     ...config.entities.player,
   });
-  World.addComponent(player, Health, {
+  world.addComponent(player, Health, {
     max: config.entities.player.healthPoint,
     current: config.entities.player.healthPoint,
   });
-  World.addComponent(player, PlayerControl);
-  World.addComponent(player, PathFinder, { targetX: x, targetY: y });
+  world.addComponent(player, PlayerControl);
+  world.addComponent(player, PathFinder, { targetX: x, targetY: y });
   return player;
 }
 function addTurrent(world: World, x: number, y: number) {
   const turrent = addRect(world, x, y, 3, 10, -1.5, -10);
-  World.addComponent(turrent, Stats, { ...config.entities.turrent });
-  World.addComponent(turrent, Health, {
+  world.addComponent(turrent, Stats, { ...config.entities.turrent });
+  world.addComponent(turrent, Health, {
     max: config.entities.turrent.healthPoint,
     current: config.entities.turrent.healthPoint,
   });
   return turrent;
 }
 function addCamera(world: World, x: number, y: number) {
-  const cam = world.addEntity();
-  World.addComponent(cam, Camera, { zoom: 30 });
-  World.addComponent(cam, Transform, { x, y });
+  const cam = world.createEntity();
+  world.addComponent(cam, Camera, { zoom: 30 });
+  world.addComponent(cam, Transform, { x, y });
   return cam;
 }
 
@@ -632,31 +633,35 @@ Ctx2D.ctx.lineWidth = 0.1;
 const game = new World();
 
 const turrent = addTurrent(game, 10, 0);
-World.addComponent(turrent, ParticleEmitter, {
+game.addComponent(turrent, ParticleEmitter, {
   particleEntity: turrent,
   speed: 20,
   spread: 0.2,
 });
-World.addComponent(turrent, Timer);
-World.addComponent(turrent, Callback).callback = () => {
-  const t = World.getComponent(turrent, Timer);
-  if (t.timeMilli < 100) return;
+game.addComponent(turrent, Timer);
+game.addComponent(turrent, Callback).callback = (e: entityT) => {
+  const t = game.getComponent(e, Timer);
+  if (t.timeMilli < 50) return;
   t.reset = true;
-  World.getComponent(turrent, ParticleEmitter).emit = true;
+  game.getComponent(e, ParticleEmitter).emit = true;
 };
 
+for (let i = 0; i < 2; i++) {
+  game.getComponent(game.copyEntity(turrent), Transform).y += 15 * (i + 1);
+}
+
 const player = addPlayer(game, 0, 0);
-World.getComponent(player, Health).current *= 0.6;
+game.getComponent(player, Health).current *= 0.6;
 
 const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
 
 const cam = addCamera(game, 0, 0);
-const camComponent = World.getComponent(cam, Camera);
+const camComponent = game.getComponent(cam, Camera);
 camComponent.targetEntity = player;
 camComponent.isActive = true;
 camComponent.zoom = 15;
 
-const inGameUi = new World();
+const inGameUi = new World(1 / 60);
 
 addButton(
   inGameUi,
@@ -665,17 +670,17 @@ addButton(
   config.viewport.height * 0.3,
   config.viewport.height * 0.3,
   (e) => {
-    const b = World.getComponent(e, Button);
+    const b = inGameUi.getComponent(e, Button);
     b.clicked && console.log("clicked");
   },
 );
 
-const debugTextEntity = inGameUi.addEntity();
-const debugText = World.addComponent(debugTextEntity, Text, {
+const debugTextEntity = inGameUi.createEntity();
+const debugText = inGameUi.addComponent(debugTextEntity, Text, {
   content: "test string",
   backgroundColor: "white",
 });
-World.addComponent(debugTextEntity, Transform);
+inGameUi.addComponent(debugTextEntity, Transform);
 
 (function update() {
   debugText.content = `FPS: ${Math.ceil(1000 / Time.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}`;
