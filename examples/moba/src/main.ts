@@ -31,7 +31,7 @@ const PlayerControl = {};
 const ComControl = {};
 const OnScreen = {};
 const ParticleEmitter = {
-  spread: 0,
+  spreadRadians: 0,
   particleEntity: -1,
   particleLifetimeSeconds: 1,
   speed: 1,
@@ -65,6 +65,7 @@ const Ctx2D = setUpCanvas2D();
 const Pointer = setUpPointer();
 const Keys = setUpKeyboard();
 const Time = setUpTime();
+let canPlayerMove = true;
 
 function setUpCanvas2D(): {
   canvas: HTMLCanvasElement;
@@ -111,7 +112,7 @@ function setUpKeyboard(): Record<
 
   return keys;
 }
-function keyboardUpdate(
+function updateKeyboard(
   keys: Record<
     "isDown" | "justPressed" | "justReleased",
     Record<string, boolean>
@@ -150,7 +151,7 @@ function setUpPointer() {
 
   return pointer;
 }
-function pointerUpdate(
+function updatePointer(
   pointer: Record<"isDown" | "justPressed" | "justReleased", boolean>,
 ) {
   pointer.justPressed = false;
@@ -159,7 +160,7 @@ function pointerUpdate(
 function setUpTime() {
   return { dtMilli: 0, timeMilli: 0 };
 }
-function timeUpdate(time: { dtMilli: number; timeMilli: number }) {
+function updateTime(time: { dtMilli: number; timeMilli: number }) {
   time.dtMilli = performance.now() - time.timeMilli;
   time.timeMilli += time.dtMilli;
 }
@@ -210,9 +211,8 @@ function handleParticleEmitters(world: World) {
     const particleTransform = world.getComponent(particle, Transform);
     Object.assign(particleTransform, t);
     const timer = world.addComponent(particle, Timer);
-    const rand = Math.random() > 0.5;
     const radian =
-      t.rad + Math.random() * emitter.spread * Math.PI * (-1 * +rand + +!rand);
+      t.rad + (Math.random() * 2 - 1) * emitter.spreadRadians * 0.5;
     particleTransform.rad = radian;
     world.addComponent(particle, Velocity, {
       x: Math.cos(radian) * emitter.speed,
@@ -240,8 +240,8 @@ function handleInput(world: World) {
   const camTransform = world.getComponent(camEntity, Transform);
   const pressPos = pointerToScreen(Pointer.pressPos, Ctx2D.canvas);
   world.query({ and: [PathFinder, PlayerControl] }).forEach((e) => {
+    if (!Pointer.justPressed || !canPlayerMove) return;
     const pf = world.getComponent(e, PathFinder);
-    if (!Pointer.justPressed) return;
     const worldPos = screenToWorld(
       pressPos,
       camTransform,
@@ -411,6 +411,10 @@ function drawImg(world: World) {
 function handleButtons(world: World) {
   const pressPos = pointerToScreen(Pointer.pressPos, Ctx2D.canvas);
   const releasePos = pointerToScreen(Pointer.releasePos, Ctx2D.canvas);
+  const pointerPos = pointerToScreen(
+    { x: Pointer.x, y: Pointer.y },
+    Ctx2D.canvas,
+  );
   world.query({ and: [Button, Transform, Rect, Callback] }).forEach((e) => {
     const p = world.getComponent(e, Transform);
     const b = world.getComponent(e, Button);
@@ -420,14 +424,15 @@ function handleButtons(world: World) {
       (pressPos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
       (pressPos.y - p.y) ** 2 < (r.height / 2) ** 2;
     b.hovered =
-      (Pointer.x - p.x) ** 2 < (r.width / 2) ** 2 &&
-      (Pointer.y - p.y) ** 2 < (r.height / 2) ** 2;
+      (pointerPos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
+      (pointerPos.y - p.y) ** 2 < (r.height / 2) ** 2;
     b.pressed = b.hovered && Pointer.isDown && pressedWithinButton;
     b.clicked =
       Pointer.justReleased &&
       pressedWithinButton &&
       (releasePos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
       (releasePos.y - p.y) ** 2 < (r.height / 2) ** 2;
+    b.hovered && (canPlayerMove = false);
     cb.callback(e);
   });
 }
@@ -436,29 +441,33 @@ function drawHealthBars(world: World) {
     const t = world.getComponent(e, Transform);
     const r = world.getComponent(e, Rect);
     const h = world.getComponent(e, Health);
+    const cos = Math.cos(t.rad);
+    const sin = Math.sin(t.rad);
     const oldStroke = Ctx2D.ctx.strokeStyle;
     const oldFill = Ctx2D.ctx.fillStyle;
     const oldLineWidth = Ctx2D.ctx.lineWidth;
     Ctx2D.ctx.fillStyle = "black";
     const width = r.width * 1.5;
+    const x = -width / 2;
+    const y = r.offsetY * t.scaleY - 1;
     Ctx2D.ctx.fillRect(
-      t.x - width / 2,
-      t.y + r.offsetY * t.scaleY - 1,
+      t.x + cos * x - sin * y,
+      t.y + sin * x + cos * y,
       width,
       0.3,
     );
     Ctx2D.ctx.fillStyle = "green";
     Ctx2D.ctx.fillRect(
-      t.x - width / 2,
-      t.y + r.offsetY * t.scaleY - 1,
+      t.x + cos * x - sin * y,
+      t.y + sin * x + cos * y,
       width * (h.current / h.max),
       0.3,
     );
     Ctx2D.ctx.strokeStyle = "black";
     Ctx2D.ctx.lineWidth = 0.1;
     Ctx2D.ctx.strokeRect(
-      t.x - width / 2,
-      t.y + r.offsetY * t.scaleY - 1,
+      t.x + cos * x - sin * y,
+      t.y + sin * x + cos * y,
       width,
       0.3,
     );
@@ -636,7 +645,7 @@ const turrent = addTurrent(game, 10, 0);
 game.addComponent(turrent, ParticleEmitter, {
   particleEntity: turrent,
   speed: 20,
-  spread: 0.2,
+  spreadRadians: Math.PI * 0.25,
 });
 game.addComponent(turrent, Timer);
 game.addComponent(turrent, Callback).callback = (e: entityT) => {
@@ -661,7 +670,7 @@ camComponent.targetEntity = player;
 camComponent.isActive = true;
 camComponent.zoom = 15;
 
-const inGameUi = new World(1 / 60);
+const inGameUi = new World();
 
 addButton(
   inGameUi,
@@ -672,6 +681,7 @@ addButton(
   (e) => {
     const b = inGameUi.getComponent(e, Button);
     b.clicked && console.log("clicked");
+    b.hovered && console.log("hovered");
   },
 );
 
@@ -683,6 +693,8 @@ const debugText = inGameUi.addComponent(debugTextEntity, Text, {
 inGameUi.addComponent(debugTextEntity, Transform);
 
 (function update() {
+  requestAnimationFrame(update);
+
   debugText.content = `FPS: ${Math.ceil(1000 / Time.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}`;
 
   // drawing
@@ -708,8 +720,8 @@ inGameUi.addComponent(debugTextEntity, Transform);
     move,
   );
 
-  pointerUpdate(Pointer);
-  keyboardUpdate(Keys);
-  timeUpdate(Time);
-  requestAnimationFrame(update);
+  updatePointer(Pointer);
+  updateKeyboard(Keys);
+  updateTime(Time);
+  canPlayerMove = true;
 })();
