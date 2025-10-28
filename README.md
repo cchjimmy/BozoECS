@@ -38,13 +38,6 @@ which can be accessed by the "query" method on the instance.
 Below are methods defined in the World class.
 
 ```typescript
-constructor(cleanUpMinutes = 5): World;
-```
-
-The World constructor accepts "cleanUpMinutes" input,
-which specifies the time interval to clean the object pools.
-
-```typescript
 addEntity(entity: entityT = newEntity()): entityT;
 ```
 
@@ -108,3 +101,10 @@ Returns an array of entities matching the query.
 
 - "and": chooses entities with all the components.
 - "not": chooses entities without the listed components.
+
+```typescript
+cleanObjectPools(): void;
+```
+
+This functions clean object pools in the world when called.
+This prevents accumulating too many unused objects.

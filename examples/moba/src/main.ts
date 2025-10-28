@@ -4,6 +4,7 @@
 
 import { entityT, World } from "bozoecs";
 import { default as config } from "./config.json" with { type: "json" };
+import { Quadtree } from "./quadtree.ts";
 
 // components
 const PIDController = {
@@ -432,7 +433,6 @@ function handleButtons(world: World) {
       pressedWithinButton &&
       (releasePos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
       (releasePos.y - p.y) ** 2 < (r.height / 2) ** 2;
-    b.hovered && (canPlayerMove = false);
     cb.callback(e);
   });
 }
@@ -507,12 +507,31 @@ function addButton(
   y = 0,
   w = 10,
   h = 10,
-  cb = (_: entityT) => {},
+  cb = (e: entityT) => {
+    const b = inGameUi.getComponent(e, Button);
+    const c = inGameUi.getComponent(e, Colour);
+    c.fill = "grey";
+    if (b.hovered) {
+      canPlayerMove = false;
+      c.fill = "lightgrey";
+    }
+    if (b.pressed) {
+      c.fill = "red";
+    }
+    if (b.clicked) {
+      c.fill = "green";
+    }
+  },
 ) {
   const e = addRect(world, x, y, w, h);
   world.addComponent(e, Button);
   world.addComponent(e, Colour);
   world.addComponent(e, Callback, { callback: cb });
+  world.addComponent(e, Text, {
+    content: "Button",
+    backgroundColor: "transparent",
+    color: "white",
+  });
   return e;
 }
 function addTimerWithCallback(world: World, cb: (e: entityT) => void) {
@@ -670,6 +689,8 @@ camComponent.targetEntity = player;
 camComponent.isActive = true;
 camComponent.zoom = 15;
 
+const qt = new Quadtree({ cx: 0, cy: 0, width: 1e10, height: 1e10 });
+
 const inGameUi = new World();
 
 addButton(
@@ -678,11 +699,6 @@ addButton(
   config.viewport.height * 0.8,
   config.viewport.height * 0.3,
   config.viewport.height * 0.3,
-  (e) => {
-    const b = inGameUi.getComponent(e, Button);
-    b.clicked && console.log("clicked");
-    b.hovered && console.log("hovered");
-  },
 );
 
 const debugTextEntity = inGameUi.addEntity();

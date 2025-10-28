@@ -1,44 +1,57 @@
 type Rect = { width: number; height: number; cx: number; cy: number };
-type Vec2 = { x: number; y: number };
 enum Quads {
   Root,
-  NW,
   NE,
-  SW,
+  NW,
   SE,
+  SW,
 }
 export class Quadtree {
-  private storage: Record<string, Rect[]> = {};
+  private storage: Record<string, Set<Rect>> = {};
   private changed: Rect[] = [];
   private bounds: Record<string, Rect> = {};
   private maxDepth: number = 10;
   constructor(boundary: Rect, maxDepth: number = 10) {
     this.bounds[Quads.Root] = boundary;
     this.maxDepth = maxDepth;
-    this.storage[Quads.Root] = [];
+    this.storage[Quads.Root] = new Set();
   }
   index(rect: Rect, index = Quads.Root.toString()): string {
-    if (
-      this.intersect(this.bounds[index], rect) &&
-      index.length < this.maxDepth
-    ) {
-      const parentBound = this.bounds[index];
-      this.bounds[index + Quads.NE.toString()] = {
-        cx: parentBound.cx + parentBound.width / 4,
-        cy: parentBound.cy + parentBound.height / 4,
+    if (index.length >= this.maxDepth) return index;
+    const parentBound = this.bounds[index];
+    // i as enum values of Quads
+    for (let i = 0; i < 4; i++) {
+      this.bounds[index + i.toString()] ??= {
+        cx: parentBound.cx + (parentBound.width / 4) * (i % 2 == 0 ? 1 : -1),
+        cy: parentBound.cy + (parentBound.height / 4) * (i < 1 ? 1 : -1),
         width: parentBound.width / 2,
         height: parentBound.height / 2,
       };
+      if (this.contain(this.bounds[index + i.toString()], rect))
+        return this.index(rect, index + i.toString());
     }
     return index;
   }
-  insert(rect: Rect): boolean {
-    return false;
+  insert(rect: Rect) {
+    const index = this.index(rect);
+    this.storage[index] ??= new Set();
+    this.storage[index].add(rect);
   }
   queryRange(rect: Rect): Rect[] {
-    return [];
+    return [...this.storage[this.index(rect)]];
   }
-  update() {}
+  update() {
+    for (const index in this.storage) {
+      for (const rect of this.storage[index].values()) {
+        if (!this.contain(this.bounds[index], rect)) this.changed.push(rect);
+      }
+    }
+    while (this.changed.length) {
+      const rect = this.changed.pop();
+      if (!rect) continue;
+      this.insert(rect);
+    }
+  }
   contain(r1: Rect, r2: Rect): boolean {
     return (
       (r1.cx - r2.cx) ** 2 < ((r1.width - r2.width) / 2) ** 2 &&

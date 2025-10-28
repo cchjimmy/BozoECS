@@ -8,12 +8,6 @@ export class World {
   private archetypeMap: Map<number, Set<entityT>> = new Map();
   private entitiesToDelete: entityT[] = [];
   private compManager = new ComponentManager();
-  private frameCount = 0;
-  cleanUpMinutes = 5;
-
-  constructor(cleanUpMinutes = 5) {
-    this.cleanUpMinutes = cleanUpMinutes;
-  }
 
   addEntity(entity: entityT = newEntity()): entityT {
     this.maskMap.set(entity, 0);
@@ -89,9 +83,6 @@ export class World {
   update(...fns: ((world: World) => void)[]) {
     for (let i = 0, l = fns.length; i < l; i++) fns[i](this);
     this.commitEntityDeletion();
-    this.frameCount % (this.cleanUpMinutes * 60 * 60) == 0 &&
-      this.cleanObjectPools();
-    this.frameCount++;
   }
 
   commitEntityDeletion() {
@@ -122,8 +113,8 @@ export class World {
       }
     }
     const res: entityT[] = [];
-    this.archetypeMap.forEach((_v, k) => {
-      const set = this.getArchetype(k);
+    this.archetypeMap.forEach((v, k) => {
+      const set = v;
       set.size > 0 &&
         (k & andMask) == andMask &&
         (k & notMask) == 0 &&
