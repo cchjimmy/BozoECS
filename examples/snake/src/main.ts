@@ -5,7 +5,13 @@ const Ctx2D = setUpCanvas2D();
 const Time = setUpTime();
 const Keys = setUpKeyboard();
 const Pointer = setUpPointer();
-const Game = { snakeWidth: 10, foodRadius: 15, startLength: 5 };
+const Game = {
+  snakeWidth: 10,
+  foodRadius: 15,
+  startLength: 5,
+  foodColor: "#F0A0A0",
+  snakeColor: "#F0D0D0",
+};
 
 function setUpCanvas2D(): {
   canvas: HTMLCanvasElement;
@@ -126,7 +132,7 @@ function handleMovement(world: World) {
 function handleDrawing(world: World) {
   Ctx2D.ctx.fillStyle = "#202020";
   Ctx2D.ctx.fillRect(0, 0, Ctx2D.canvas.width, Ctx2D.canvas.height);
-  Ctx2D.ctx.fillStyle = "#F0A0A0";
+  Ctx2D.ctx.fillStyle = Game.foodColor;
   Ctx2D.ctx.beginPath();
   world.query({ and: [Transform, isFood] }).forEach((e) => {
     const p = world.getComponent(e, Transform);
@@ -151,10 +157,127 @@ function handleDrawing(world: World) {
       Ctx2D.ctx.lineTo(childTransform.x, childTransform.y);
     }
   });
-  Ctx2D.ctx.strokeStyle = "#F0D0D0";
+  Ctx2D.ctx.strokeStyle = Game.snakeColor;
   Ctx2D.ctx.lineCap = "round";
   Ctx2D.ctx.lineWidth = Game.snakeWidth;
   Ctx2D.ctx.stroke();
+
+  const tail = world.query({ and: [Hierarchy] }).find((e) => {
+    return world.getComponent(e, Hierarchy).child == -1;
+  });
+  if (tail) {
+    const tailTransform = world.getComponent(tail, Transform);
+    const c = Math.cos(tailTransform.rad);
+    const s = Math.sin(tailTransform.rad);
+    Ctx2D.ctx.beginPath();
+    let x = 0;
+    let y = -Game.snakeWidth / 2;
+    Ctx2D.ctx.moveTo(
+      c * x - s * y + tailTransform.x,
+      s * x + c * y + tailTransform.y,
+    );
+    x = 0;
+    y = +Game.snakeWidth / 2;
+    Ctx2D.ctx.lineTo(
+      c * x - s * y + tailTransform.x,
+      s * x + c * y + tailTransform.y,
+    );
+    x = -Game.snakeWidth * 2;
+    y = 0;
+    Ctx2D.ctx.lineTo(
+      c * x - s * y + tailTransform.x,
+      s * x + c * y + tailTransform.y,
+    );
+    Ctx2D.ctx.fillStyle = Game.snakeColor;
+    Ctx2D.ctx.fill();
+  }
+
+  const head = world.query({ and: [Hierarchy] }).find((e) => {
+    return world.getComponent(e, Hierarchy).parent == -1;
+  });
+  if (head) {
+    Ctx2D.ctx.fillStyle = "white";
+    const headTransform = world.getComponent(head, Transform);
+    const c = Math.cos(headTransform.rad);
+    const s = Math.sin(headTransform.rad);
+    const offset = 5;
+    const eyeRadius = 4;
+    const pupilRadius = 2;
+    Ctx2D.ctx.beginPath();
+    let x = 0;
+    let y = -offset;
+    const leftEyeX = c * x - s * y + headTransform.x;
+    const leftEyeY = s * x + c * y + headTransform.y;
+    Ctx2D.ctx.ellipse(
+      leftEyeX,
+      leftEyeY,
+      eyeRadius,
+      eyeRadius,
+      headTransform.rad,
+      0,
+      Math.PI * 2,
+    );
+    x = 0;
+    y = offset;
+    const rightEyeX = c * x - s * y + headTransform.x;
+    const rightEyeY = s * x + c * y + headTransform.y;
+    Ctx2D.ctx.ellipse(
+      rightEyeX,
+      rightEyeY,
+      eyeRadius,
+      eyeRadius,
+      headTransform.rad,
+      0,
+      Math.PI * 2,
+    );
+    Ctx2D.ctx.fill();
+    Ctx2D.ctx.fillStyle = "black";
+    Ctx2D.ctx.beginPath();
+    let leftPupilX = leftEyeX;
+    let leftPupilY = leftEyeY;
+    const food = world.query({ and: [isFood, Transform] })[0];
+    if (food) {
+      const foodTransform = world.getComponent(food, Transform);
+      let dirX = foodTransform.x - leftPupilX;
+      let dirY = foodTransform.y - leftPupilY;
+      const mag = (dirX ** 2 + dirY ** 2) ** 0.5;
+      ((dirX /= mag), (dirY /= mag));
+      const eyePupilDiff = eyeRadius - pupilRadius;
+      leftPupilX += dirX * eyePupilDiff;
+      leftPupilY += dirY * eyePupilDiff;
+    }
+    Ctx2D.ctx.ellipse(
+      leftPupilX,
+      leftPupilY,
+      pupilRadius,
+      pupilRadius,
+      headTransform.rad,
+      0,
+      Math.PI * 2,
+    );
+    let rightPupilX = rightEyeX;
+    let rightPupilY = rightEyeY;
+    if (food) {
+      const foodTransform = world.getComponent(food, Transform);
+      let dirX = foodTransform.x - rightPupilX;
+      let dirY = foodTransform.y - rightPupilY;
+      const mag = (dirX ** 2 + dirY ** 2) ** 0.5;
+      ((dirX /= mag), (dirY /= mag));
+      const eyePupilDiff = eyeRadius - pupilRadius;
+      rightPupilX += dirX * eyePupilDiff;
+      rightPupilY += dirY * eyePupilDiff;
+    }
+    Ctx2D.ctx.ellipse(
+      rightPupilX,
+      rightPupilY,
+      pupilRadius,
+      pupilRadius,
+      headTransform.rad,
+      0,
+      Math.PI * 2,
+    );
+    Ctx2D.ctx.fill();
+  }
 
   Ctx2D.ctx.fillStyle = "white";
   Ctx2D.ctx.fillText(
@@ -170,14 +293,14 @@ function handleInput(world: World) {
     if (
       Keys.isDown["a"] ||
       Keys.isDown["ArrowLeft"] ||
-      (Pointer.isDown && Pointer.x < Ctx2D.canvas.width / 2)
+      (Pointer.isDown && Pointer.x < innerWidth / 2)
     ) {
       angularVel -= Math.PI;
     }
     if (
       Keys.isDown["d"] ||
       Keys.isDown["ArrowRight"] ||
-      (Pointer.isDown && Pointer.x > Ctx2D.canvas.width / 2)
+      (Pointer.isDown && Pointer.x > innerWidth / 2)
     ) {
       angularVel += Math.PI;
     }
