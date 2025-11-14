@@ -1,8 +1,8 @@
 import { ObjectPoolMap } from "./pool.ts";
-import { entityT, newEntity } from "./entity.ts";
+import { entityT } from "./entity.ts";
 
 export class ComponentManager {
-  private pools: Map<object, unknown> = new Map();
+  private pools: Map<object, ObjectPoolMap<entityT, object>> = new Map();
   private idMap: Map<object, number> = new Map();
 
   register<T extends object>(component: T) {
@@ -25,39 +25,33 @@ export class ComponentManager {
     );
   }
 
-  remove<T extends object>(entity: entityT, component: T): boolean {
-    return (this.pools.get(component) as ObjectPoolMap<entityT, T>).remove(
-      entity,
-    );
+  remove<T extends object>(entity: entityT, component: T) {
+    (this.pools.get(component) as ObjectPoolMap<entityT, T>).remove(entity);
   }
 
   get<T extends object>(entity: entityT, component: T): T {
     return (this.pools.get(component) as ObjectPoolMap<entityT, T>).get(entity);
   }
 
-  len<T extends object>(component: T): number {
-    return (this.pools.get(component) as ObjectPoolMap<entityT, T>).len();
+  size<T extends object>(component: T): number {
+    return (this.pools.get(component) as ObjectPoolMap<entityT, T>).size();
   }
 
   delete(entity: entityT) {
     for (const p of this.pools.values()) {
-      const pool = p as ObjectPoolMap<entityT, object>;
-      pool.remove(entity);
+      p.remove(entity);
     }
   }
 
   copy(srcEntity: entityT, destEntity: entityT) {
     for (const p of this.pools.values()) {
-      const pool = p as ObjectPoolMap<entityT, object>;
-      pool.has(srcEntity) &&
-        Object.assign(pool.add(destEntity), pool.get(srcEntity));
+      p.has(srcEntity) && Object.assign(p.add(destEntity), p.get(srcEntity));
     }
   }
 
   clean() {
     for (const p of this.pools.values()) {
-      const pool = p as ObjectPoolMap<entityT, object>;
-      pool.clean();
+      p.clean();
     }
   }
 }

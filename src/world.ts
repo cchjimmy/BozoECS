@@ -64,7 +64,7 @@ export class World {
     return Object.assign(this.compManager.add(entity, component), values);
   }
 
-  removeComponent<T extends object>(entity: entityT, component: T): boolean {
+  removeComponent<T extends object>(entity: entityT, component: T) {
     this.registerComponent(component);
     let mask = this.maskMap.get(entity) ?? 0;
     const compId = this.compManager.getId(component);
@@ -73,7 +73,7 @@ export class World {
     mask &= ~(1 << compId);
     this.maskMap.set(entity, mask);
     this.getArchetype(mask).add(entity);
-    return this.compManager.remove(entity, component);
+    this.compManager.remove(entity, component);
   }
 
   getComponent<T extends object>(entity: entityT, component: T): T {

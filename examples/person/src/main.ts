@@ -33,42 +33,52 @@ function updateTime(time: { dtMilli: number; timeMilli: number }) {
   time.dtMilli = performance.now() - time.timeMilli;
   time.timeMilli += time.dtMilli;
 }
+type pointerT = {
+  pos: Map<number, vec2>;
+  isDown: Map<number, boolean>;
+  justPressed: Map<number, boolean>;
+  justReleased: Map<number, boolean>;
+  pressPos: Map<number, vec2>;
+  releasePos: Map<number, vec2>;
+};
 function setUpPointer() {
-  const pointer = {
-    x: 0,
-    y: 0,
-    isDown: false,
-    justPressed: false,
-    justReleased: false,
-    pressPos: { x: 0, y: 0 },
-    releasePos: { x: 0, y: 0 },
+  const pointer: pointerT = {
+    pos: new Map(),
+    isDown: new Map(),
+    justPressed: new Map(),
+    justReleased: new Map(),
+    pressPos: new Map(),
+    releasePos: new Map(),
   };
 
   globalThis.onpointerdown = (e) => {
     if (!(e.target instanceof HTMLCanvasElement)) return;
-    ((pointer.x = e.x), (pointer.y = e.y));
-    Object.assign(pointer.pressPos, pointer);
-    pointer.isDown = pointer.justPressed = true;
+    pointer.pos.set(e.pointerId, { x: e.x, y: e.y });
+    pointer.pressPos.set(e.pointerId, { x: e.x, y: e.y });
+    pointer.isDown.set(e.pointerId, true);
+    pointer.justPressed.set(e.pointerId, true);
   };
 
   globalThis.onpointerup = (e) => {
-    ((pointer.x = e.x), (pointer.y = e.y));
-    Object.assign(pointer.releasePos, pointer);
-    ((pointer.isDown = false), (pointer.justReleased = true));
+    pointer.pos.delete(e.pointerId);
+    pointer.releasePos.set(e.pointerId, { x: e.x, y: e.y });
+    pointer.isDown.delete(e.pointerId);
+    pointer.justReleased.set(e.pointerId, true);
   };
 
   globalThis.onpointermove = (e) => {
-    ((pointer.x = e.x), (pointer.y = e.y));
+    pointer.pos.set(e.pointerId, { x: e.x, y: e.y });
   };
 
   return pointer;
 }
-function updatePointer(
-  pointer: Record<"justPressed" | "justReleased", boolean>,
-) {
-  pointer.justPressed = false;
-  pointer.justReleased = false;
+function updatePointer(pointer: pointerT) {
+  pointer.justReleased.clear();
+  pointer.justPressed.clear();
+  pointer.releasePos.clear();
+  pointer.pressPos.clear();
 }
+
 // components
 const Transform = { x: 0, y: 0, rad: 0 };
 const Hierarchy = { parent: -1 };
@@ -78,6 +88,7 @@ const Rect = { width: 1, height: 1, offsetX: -0.5, offsetY: -0.5 };
 const Material = { density: 0.1 };
 const Velocity = { x: 0, y: 0 };
 const Acceleration = { x: 0, y: 0 };
+const isPointer = {};
 
 // entities
 function addLimb(
@@ -119,11 +130,11 @@ function addEye(
   world.addComponent(eye, Eye, { eyeWhiteRadius, pupilRadius, lookAtEntity });
   return eye;
 }
-function addPerson(world: World, x = 0, y = 0) {
+function addPerson(world: World, x = 0, y = 0, lookAtEntity = -1) {
   const torso = addLimb(world, x, y, 1, 2);
   const head = addLimb(world, 0, -0.2, 1, 1, torso, -0.5, -1);
-  const leftEye = addEye(world, -0.4, -0.4, 0.3, 0.1, pointerRect, head);
-  const right = addEye(world, 0.4, -0.4, 0.3, 0.1, pointerRect, head);
+  const leftEye = addEye(world, -0.4, -0.4, 0.3, 0.1, lookAtEntity, head);
+  const right = addEye(world, 0.4, -0.4, 0.3, 0.1, lookAtEntity, head);
   const leftUpperArm = addLimb(world, -1, 0, 0.5, 1, torso);
   const leftLowerArm = addLimb(world, 0, 1, 0.5, 1, leftUpperArm);
   const rightUpperArm = addLimb(world, 1, 0, 0.5, 1, torso);
@@ -136,7 +147,7 @@ function addPerson(world: World, x = 0, y = 0) {
 }
 
 // systems
-function handleDrawing(world: World) {
+function handleDrawRects(world: World) {
   Ctx2D.ctx.beginPath();
   world.query({ and: [Transform, Rect], not: [Hierarchy] }).forEach((e) => {
     const t = world.getComponent(e, Transform);
@@ -177,7 +188,8 @@ function handleDrawing(world: World) {
   });
   Ctx2D.ctx.fillStyle = "white";
   Ctx2D.ctx.fill();
-
+}
+function handleDrawEyes(world: World) {
   world.query({ and: [Transform, Eye, Hierarchy] }).forEach((e) => {
     const t = world.getComponent(e, Transform);
     const eye = world.getComponent(e, Eye);
@@ -261,23 +273,88 @@ function handleCamera(world: World) {
 }
 function handleGravity(world: World) {
   world
-    .query({ and: [Transform, Rect, Material, Acceleration] })
+    .query({ and: [Rect, Material, Acceleration, Hierarchy] })
     .forEach((e) => {
       const r = world.getComponent(e, Rect);
       const m = world.getComponent(e, Material);
-      const t = world.getComponent(e, Transform);
+      const a = world.getComponent(e, Acceleration);
+      const h = world.getComponent(e, Hierarchy);
       const mass = r.width * r.height * m.density;
+      if (h.parent != -1) return;
+      a.y = 9.81;
     });
 }
 function handleMovement(world: World) {
-  world.query({ and: [Transform, Velocity, Acceleration] }).forEach((e) => {
-    const t = world.getComponent(e, Transform);
+  world.query({ and: [Velocity, Acceleration] }).forEach((e) => {
     const v = world.getComponent(e, Velocity);
     const a = world.getComponent(e, Acceleration);
     v.x += (a.x * Time.dtMilli) / 1000;
     v.y += (a.y * Time.dtMilli) / 1000;
+  });
+  world.query({ and: [Transform, Velocity] }).forEach((e) => {
+    const t = world.getComponent(e, Transform);
+    const v = world.getComponent(e, Velocity);
     t.x += (v.x * Time.dtMilli) / 1000;
     t.y += (v.y * Time.dtMilli) / 1000;
+  });
+}
+function handlePointer(world: World) {
+  world.query({ and: [isPointer] }).forEach((e) => world.deleteEntity(e));
+  const cam = world
+    .query({ and: [Camera, Transform] })
+    .find((e) => world.getComponent(e, Camera).isActive);
+  if (!cam) return;
+  const camComp = world.getComponent(cam, Camera);
+  const camPos = world.getComponent(cam, Transform);
+  Pointer.isDown.forEach((_, k) => {
+    const pointerEntity = world.addEntity();
+    const pos = Pointer.pos.get(k);
+    if (!pos) return;
+    Object.assign(
+      world.addComponent(pointerEntity, Transform),
+      screenToWorld(
+        pointerToScreen(pos, Ctx2D.canvas),
+        camPos,
+        camComp.tilt,
+        camComp.zoom,
+      ),
+    );
+    world.addComponent(pointerEntity, isPointer);
+  });
+}
+function handleLookAtPointer(world: World) {
+  world.query({ and: [Eye, Transform, Hierarchy] }).forEach((e) => {
+    const eye = world.getComponent(e, Eye);
+    const t = world.getComponent(e, Transform);
+    let h = world.getComponent(e, Hierarchy);
+    let x = t.x;
+    let y = t.y;
+    while (world.hasComponent(h.parent, Hierarchy)) {
+      if (world.hasComponent(h.parent, Transform)) {
+        const parentTransform = world.getComponent(h.parent, Transform);
+        const c = Math.cos(parentTransform.rad);
+        const s = Math.sin(parentTransform.rad);
+        const _x = x;
+        const _y = y;
+        x = c * _x - s * _y;
+        y = s * _x + c * _y;
+        x += parentTransform.x;
+        y += parentTransform.y;
+      }
+      h = world.getComponent(h.parent, Hierarchy);
+    }
+    let pointerRect = -1;
+    let minDistance = Number.POSITIVE_INFINITY;
+    world.query({ and: [isPointer, Transform] }).forEach((e) => {
+      const t = world.getComponent(e, Transform);
+      const dx = t.x - x;
+      const dy = t.y - y;
+      const distance = (dx ** 2 + dy ** 2) ** 0.5;
+      if (distance > minDistance) return;
+      minDistance = distance;
+      pointerRect = e;
+    });
+    eye.lookAtEntity = pointerRect ?? -1;
   });
 }
 
@@ -325,36 +402,32 @@ function pointerToScreen(pointerPos: vec2, canvas: HTMLCanvasElement): vec2 {
 // initialization
 const game = new World();
 
+const player = addPerson(game, 0, 0);
+// addPerson(game, -3, 0);
+// addPerson(game, 3, 0);
+
 const camera = game.addEntity();
-const camPos = game.addComponent(camera, Transform, { y: 1 });
-const camComp = game.addComponent(camera, Camera, {
-  zoom: 20,
+game.addComponent(camera, Transform, { y: 1 });
+game.addComponent(camera, Camera, {
+  zoom: 18,
   isActive: true,
+  // targetEntity: player,
 });
-
-const pointerRect = game.addEntity();
-const pointerTransform = game.addComponent(pointerRect, Transform);
-game.addComponent(pointerRect, Rect);
-
-addPerson(game);
-addPerson(game, 3);
-addPerson(game, -3);
 
 {
   (function update() {
     requestAnimationFrame(update);
     drawBackground();
-    game.update(handleCamera, handleDrawing, handleMovement);
+    game.update(
+      handleLookAtPointer,
+      handleCamera,
+      handleDrawRects,
+      handleDrawEyes,
+      handlePointer,
+      handleGravity,
+      handleMovement,
+    );
     updateTime(Time);
     updatePointer(Pointer);
-    Object.assign(
-      pointerTransform,
-      screenToWorld(
-        pointerToScreen(Pointer, Ctx2D.canvas),
-        camPos,
-        camComp.tilt,
-        camComp.zoom,
-      ),
-    );
   })();
 }

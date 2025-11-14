@@ -461,8 +461,8 @@ game.addComponent(player, Hierarchy);
       handleSpawnFood,
       handleEatFood,
       handleInput,
-      handleMovement,
       handleEntityHierarchy,
+      handleMovement,
     );
     updateTime(Time);
     updateKeyboard(Keys);

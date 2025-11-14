@@ -118,6 +118,12 @@
       ]
     }
   },
+  "redirects": {
+    "https://deno.land/x/get_ip/mod.ts": "https://deno.land/x/get_ip@v2.0.0/mod.ts"
+  },
+  "remote": {
+    "https://deno.land/x/get_ip@v2.0.0/mod.ts": "8a967dece886ddf7f7bf6c8d6000c98a4ff374834a90a4e0fde868ce4301873d"
+  },
   "workspace": {
     "dependencies": [
       "jsr:@std/http@^1.0.20",

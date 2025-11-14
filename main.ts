@@ -20,7 +20,18 @@ for (const example of examples) {
   watchExample(examplePath);
 }
 
-Deno.serve((req) => serveDir(req, { fsRoot: path }));
+const nets = Deno.networkInterfaces();
+function isPrivate(networkInterfaces: Deno.NetworkInterfaceInfo) {
+  return (
+    networkInterfaces.name.toLowerCase().includes("vboxnet") ||
+    networkInterfaces.name.toLowerCase().includes("docker") ||
+    networkInterfaces.name.toLowerCase().includes("lo")
+  );
+}
+const hostname = nets.find((v) => v.family == "IPv4" && !isPrivate(v))?.address;
+if (hostname) {
+  Deno.serve({ hostname }, (req) => serveDir(req, { fsRoot: path }));
+}
 
 async function watchExample(examplePath: string) {
   const watcher = Deno.watchFs(examplePath + "/src/");
