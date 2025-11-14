@@ -712,6 +712,7 @@ inGameUi.addComponent(debugTextEntity, Transform);
   requestAnimationFrame(update);
 
   debugText.content = `FPS: ${Math.ceil(1000 / Time.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}`;
+  Time.timeMilli % 5000 < 100 && game.cleanObjectPools();
 
   // drawing
   drawBg();
