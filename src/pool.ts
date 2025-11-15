@@ -13,17 +13,17 @@ export class ObjectPoolMap<K, V> {
   }
 
   add(key: K): V {
-    const index = this.keyToIndex.get(key);
-    if (index != undefined) return this.storage[index];
-    if (this.storage.length <= this.indexToKey.length) {
-      this.storage.push(this.objectFactory());
+    if (!this.keyToIndex.has(key)) {
+      if (this.storage.length <= this.indexToKey.length) {
+        this.storage.push(this.objectFactory());
+      }
+      this.keyToIndex.set(key, this.indexToKey.length);
+      this.indexToKey[this.indexToKey.length] = key;
     }
-    this.keyToIndex.set(key, this.indexToKey.length);
-    this.indexToKey[this.indexToKey.length] = key;
-    return this.storage[this.indexToKey.length - 1];
+    return this.storage[this.keyToIndex.get(key) as number];
   }
 
-  remove(key: K) {
+  remove(key: K): void {
     const index = this.keyToIndex.get(key);
     const backKey = this.indexToKey[this.indexToKey.length - 1];
     if (index == undefined || backKey == undefined) return;

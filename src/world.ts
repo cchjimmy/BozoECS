@@ -64,11 +64,11 @@ export class World {
     return Object.assign(this.compManager.add(entity, component), values);
   }
 
-  removeComponent<T extends object>(entity: entityT, component: T) {
+  removeComponent<T extends object>(entity: entityT, component: T): void {
     this.registerComponent(component);
     let mask = this.maskMap.get(entity) ?? 0;
     const compId = this.compManager.getId(component);
-    if ((mask & (1 << compId)) == 0) return false;
+    if ((mask & (1 << compId)) == 0) return;
     this.getArchetype(mask).delete(entity);
     mask &= ~(1 << compId);
     this.maskMap.set(entity, mask);
@@ -113,14 +113,13 @@ export class World {
       }
     }
     const res: entityT[] = [];
-    this.archetypeMap.forEach((v, k) => {
-      const set = v;
-      set.size > 0 &&
-        (k & andMask) == andMask &&
-        (k & notMask) == 0 &&
-        res.push(...set);
-    });
-    return [...new Set(res)];
+    for (const entry of this.archetypeMap) {
+      entry[1].size > 0 &&
+        (entry[0] & andMask) == andMask &&
+        (entry[0] & notMask) == 0 &&
+        res.push(...entry[1]);
+    }
+    return res;
   }
 
   entityCount(): number {
