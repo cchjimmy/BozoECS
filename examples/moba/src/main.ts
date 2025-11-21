@@ -43,7 +43,7 @@ const ParticleEmitter = {
     percentageLifeTime: number,
   ) {
     const t = world.getComponent(particleEntity, Transform);
-    t.scaleX = t.scaleY = -(percentageLifeTime ** 2) + 1;
+    t.scaleX = t.scaleY = -((2 * percentageLifeTime - 1) ** 6) + 1;
   },
 };
 const Camera = { zoom: 20, tilt: 0, isActive: false, targetEntity: -1 };
@@ -175,7 +175,6 @@ function checkOnScreenEntities(world: World) {
   const cam = world.getComponent(camEntity, Camera);
   const camTransform = world.getComponent(camEntity, Transform);
   world.query({ and: [Rect, Transform] }).forEach((e) => {
-    world.removeComponent(e, OnScreen);
     const r = world.getComponent(e, Rect);
     const t = world.getComponent(e, Transform);
     rectsOverlap(
@@ -187,7 +186,9 @@ function checkOnScreenEntities(world: World) {
       t.y + r.offsetY + r.height / 2,
       r.width,
       r.height,
-    ) && world.addComponent(e, OnScreen);
+    )
+      ? world.addComponent(e, OnScreen)
+      : world.removeComponent(e, OnScreen);
   });
 }
 function handlePIDControllers(world: World) {
@@ -287,38 +288,41 @@ function handleTimers(world: World) {
   });
 }
 function drawTexts(world: World) {
+  const old = Ctx2D.ctx.fillStyle;
   world.query({ and: [Text, Transform] }).forEach((e) => {
     const t = world.getComponent(e, Text);
     const p = world.getComponent(e, Transform);
     Ctx2D.ctx.font = `${t.fontSize}px serif`;
-    const old = Ctx2D.ctx.fillStyle;
     const lines = t.content.split("\n");
+    Ctx2D.ctx.fillStyle = t.backgroundColor;
     for (let i = 0, l = lines.length; i < l; i++) {
       const txtMetric = Ctx2D.ctx.measureText(lines[i]);
-      Ctx2D.ctx.fillStyle = t.backgroundColor;
       Ctx2D.ctx.fillRect(
         p.x,
         p.y + i * (2 * t.padding) + i * txtMetric.fontBoundingBoxAscent,
         t.padding * 2 + txtMetric.width,
         t.padding * 2 + txtMetric.fontBoundingBoxAscent,
       );
-      Ctx2D.ctx.fillStyle = t.color;
+    }
+    Ctx2D.ctx.fillStyle = t.color;
+    for (let i = 0, l = lines.length; i < l; i++) {
+      const txtMetric = Ctx2D.ctx.measureText(lines[i]);
       Ctx2D.ctx.fillText(
         lines[i],
         p.x + t.padding,
         p.y + i * (2 * t.padding) + (i + 1) * txtMetric.fontBoundingBoxAscent,
       );
     }
-    Ctx2D.ctx.fillStyle = old;
   });
+  Ctx2D.ctx.fillStyle = old;
 }
 function drawRects(world: World) {
+  const oldF = Ctx2D.ctx.fillStyle;
+  const oldS = Ctx2D.ctx.strokeStyle;
   world.query({ and: [Transform, Rect, Colour, OnScreen] }).forEach((e) => {
     const p = world.getComponent(e, Transform);
     const r = world.getComponent(e, Rect);
     const c = world.getComponent(e, Colour);
-    const oldF = Ctx2D.ctx.fillStyle;
-    const oldS = Ctx2D.ctx.strokeStyle;
     Ctx2D.ctx.fillStyle = c.fill;
     Ctx2D.ctx.strokeStyle = c.stroke;
     const cos = Math.cos(p.rad);
@@ -344,9 +348,9 @@ function drawRects(world: World) {
       cos * -p.x + sin * -p.y,
       -sin * -p.x + cos * -p.y,
     );
-    Ctx2D.ctx.fillStyle = oldF;
-    Ctx2D.ctx.strokeStyle = oldS;
   });
+  Ctx2D.ctx.fillStyle = oldF;
+  Ctx2D.ctx.strokeStyle = oldS;
 }
 function drawPathFindTargets(world: World) {
   const old = Ctx2D.ctx.fillStyle;
@@ -437,44 +441,36 @@ function handleButtons(world: World) {
   });
 }
 function drawHealthBars(world: World) {
+  const oldFill = Ctx2D.ctx.fillStyle;
+  const widthMult = 1.5;
+  const barHeight = 0.3;
+  const margin = 0.2;
   world.query({ and: [OnScreen, Health, Transform, Rect] }).forEach((e) => {
     const t = world.getComponent(e, Transform);
     const r = world.getComponent(e, Rect);
     const h = world.getComponent(e, Health);
     const cos = Math.cos(t.rad);
     const sin = Math.sin(t.rad);
-    const oldStroke = Ctx2D.ctx.strokeStyle;
-    const oldFill = Ctx2D.ctx.fillStyle;
-    const oldLineWidth = Ctx2D.ctx.lineWidth;
+    let x = -(r.width * widthMult + margin) / 2;
+    let y = -(barHeight + margin) / 2 + r.offsetY - 1;
     Ctx2D.ctx.fillStyle = "black";
-    const width = r.width * 1.5;
-    const x = -width / 2;
-    const y = r.offsetY * t.scaleY - 1;
     Ctx2D.ctx.fillRect(
       t.x + cos * x - sin * y,
       t.y + sin * x + cos * y,
-      width,
-      0.3,
+      r.width * widthMult + margin,
+      barHeight + margin,
     );
+    x = (-r.width * widthMult) / 2;
+    y = -barHeight / 2 + r.offsetY - 1;
     Ctx2D.ctx.fillStyle = "green";
     Ctx2D.ctx.fillRect(
       t.x + cos * x - sin * y,
       t.y + sin * x + cos * y,
-      width * (h.current / h.max),
-      0.3,
+      r.width * widthMult * (h.current / h.max),
+      barHeight,
     );
-    Ctx2D.ctx.strokeStyle = "black";
-    Ctx2D.ctx.lineWidth = 0.1;
-    Ctx2D.ctx.strokeRect(
-      t.x + cos * x - sin * y,
-      t.y + sin * x + cos * y,
-      width,
-      0.3,
-    );
-    Ctx2D.ctx.strokeStyle = oldStroke;
-    Ctx2D.ctx.fillStyle = oldFill;
-    Ctx2D.ctx.lineWidth = oldLineWidth;
   });
+  Ctx2D.ctx.fillStyle = oldFill;
 }
 
 // entities
@@ -730,10 +726,10 @@ inGameUi.addComponent(debugTextEntity, Transform);
   // processing
   inGameUi.update(handleButtons);
   game.update(
+    handleParticleEmitters,
     handleTimers,
     handlePathfind,
     handleInput,
-    handleParticleEmitters,
     move,
   );
 

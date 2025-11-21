@@ -4,6 +4,7 @@
     "dev": "deno run -WRNS --unstable-bundle main.ts debug"
   },
   "imports": {
+    "@std/fs": "jsr:@std/fs@^1.0.20",
     "@std/http": "jsr:@std/http@^1.0.20",
     "pixi.js": "npm:pixi.js@^8.9.2",
     "bozoecs": "./src/index.ts"

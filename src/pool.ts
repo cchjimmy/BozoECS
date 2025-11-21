@@ -25,8 +25,8 @@ export class ObjectPoolMap<K, V> {
 
   remove(key: K): void {
     const index = this.keyToIndex.get(key);
+    if (index == undefined) return;
     const backKey = this.indexToKey[this.indexToKey.length - 1];
-    if (index == undefined || backKey == undefined) return;
     const temp = this.storage[this.indexToKey.length - 1];
     this.storage[this.indexToKey.length - 1] = this.storage[index];
     this.storage[index] = temp;

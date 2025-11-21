@@ -3,13 +3,15 @@ import { newEntity, type entityT } from "./entity.ts";
 
 export type queryT = Partial<Record<"and" | "not", object[]>>;
 
+export type systemT = (world: World) => void;
+
 export class World {
   private maskMap: Map<number, number> = new Map();
   private archetypeMap: Map<number, Set<entityT>> = new Map();
-  private entitiesToDelete: entityT[] = [];
   private compManager = new ComponentManager();
 
-  addEntity(entity: entityT = newEntity()): entityT {
+  addEntity(): entityT {
+    const entity = newEntity();
     this.maskMap.set(entity, 0);
     this.getArchetype(0).add(entity);
     return entity;
@@ -30,7 +32,10 @@ export class World {
   }
 
   deleteEntity(entity: entityT) {
-    this.entitiesToDelete.push(entity);
+    this.compManager.delete(entity);
+    const mask = this.maskMap.get(entity) ?? 0;
+    this.maskMap.delete(entity);
+    this.getArchetype(mask).delete(entity);
   }
 
   registerComponent<T extends object>(component: T): World {
@@ -39,11 +44,7 @@ export class World {
   }
 
   hasComponent<T extends object>(entity: entityT, component: T): boolean {
-    return (
-      ((this.maskMap.get(entity) ?? 0) &
-        (1 << this.compManager.getId(component))) >
-      0
-    );
+    return this.compManager.has(entity, component);
   }
 
   addComponent<T extends object>(
@@ -54,9 +55,8 @@ export class World {
     this.registerComponent(component);
     let mask = this.maskMap.get(entity) ?? 0;
     const compId = this.compManager.getId(component);
-    if ((mask & (1 << compId)) != 0) {
+    if (mask & (1 << compId))
       return Object.assign(this.compManager.get(entity, component), values);
-    }
     this.getArchetype(mask).delete(entity);
     mask |= 1 << compId;
     this.maskMap.set(entity, mask);
@@ -70,7 +70,7 @@ export class World {
     const compId = this.compManager.getId(component);
     if ((mask & (1 << compId)) == 0) return;
     this.getArchetype(mask).delete(entity);
-    mask &= ~(1 << compId);
+    mask ^= 1 << compId;
     this.maskMap.set(entity, mask);
     this.getArchetype(mask).add(entity);
     this.compManager.remove(entity, component);
@@ -80,19 +80,8 @@ export class World {
     return this.compManager.get(entity, component);
   }
 
-  update(...fns: ((world: World) => void)[]) {
+  update(...fns: systemT[]) {
     for (let i = 0, l = fns.length; i < l; i++) fns[i](this);
-    this.commitEntityDeletion();
-  }
-
-  commitEntityDeletion() {
-    while (this.entitiesToDelete.length) {
-      const entity = this.entitiesToDelete.pop() as entityT;
-      this.compManager.delete(entity);
-      const mask = this.maskMap.get(entity) ?? 0;
-      this.maskMap.delete(entity);
-      this.getArchetype(mask).delete(entity);
-    }
   }
 
   cleanObjectPools() {

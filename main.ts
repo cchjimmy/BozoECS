@@ -1,4 +1,5 @@
 import { serveDir } from "@std/http/file-server";
+import { exists } from "@std/fs/exists";
 
 const options: Deno.bundle.Options = {
   minify: true,
@@ -16,6 +17,7 @@ const examples = Deno.readDirSync(path);
 for (const example of examples) {
   if (!example.isDirectory) continue;
   const examplePath = path + example.name;
+  emptyDir(examplePath + "/build");
   buildExample(examplePath, options);
   watchExample(examplePath);
 }
@@ -47,12 +49,16 @@ async function buildExample(
   buildOpts: Deno.bundle.Options,
 ) {
   console.log(`Building ${examplePath}`);
-  try {
-    await Deno.remove(examplePath + "/build", { recursive: true });
-  } catch {
-    // do nothing
-  }
   buildOpts.entrypoints = [examplePath + "/src/main.ts"];
   buildOpts.outputPath = examplePath + "/build/out.js";
-  Deno.bundle(buildOpts);
+  await Deno.bundle(buildOpts);
+}
+
+async function emptyDir(path: string) {
+  if (!(await exists(path))) return;
+  const dir = Deno.readDir(path);
+  for await (const file of dir) {
+    if (!(await exists(file.name))) continue;
+    Deno.remove(file.name);
+  }
 }

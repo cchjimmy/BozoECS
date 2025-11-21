@@ -1,4 +1,4 @@
-import { World } from "bozoecs";
+import { entityT, World } from "bozoecs";
 
 // singletons
 const Ctx2D = setUpCanvas2D();
@@ -83,8 +83,8 @@ function updatePointer(pointer: pointerT) {
 const Transform = { x: 0, y: 0, rad: 0 };
 const Hierarchy = { parent: -1 };
 const Eye = { eyeWhiteRadius: 1, pupilRadius: 0.4, lookAtEntity: -1 };
-const Camera = { zoom: 20, tilt: 0, isActive: false, targetEntity: -1 };
-const Rect = { width: 1, height: 1, offsetX: -0.5, offsetY: -0.5 };
+const Camera = { zoom: 20, tilt: 0, isActive: false };
+const Rect = { width: 1, height: 1 };
 const Material = { density: 0.1 };
 const Velocity = { x: 0, y: 0 };
 const Acceleration = { x: 0, y: 0 };
@@ -95,25 +95,21 @@ function addLimb(
   world: World,
   x = 0,
   y = 0,
-  w = 1,
-  h = 1,
+  rect: typeof Rect = { width: 1, height: 1 },
+  offset: vec2 = { x: 0, y: 0 },
   parent = -1,
-  offsetX = -w / 2,
-  offsetY = 0,
 ) {
+  const anchor = world.addEntity();
+  world.addComponent(anchor, Transform, { x, y });
+  world.addComponent(anchor, Hierarchy, { parent });
   const limb = world.addEntity();
-  world.addComponent(limb, Transform, { x, y });
-  world.addComponent(limb, Hierarchy, { parent });
-  world.addComponent(limb, Rect, {
-    width: w,
-    height: h,
-    offsetX,
-    offsetY,
-  });
+  world.addComponent(limb, Transform, offset);
+  world.addComponent(limb, Hierarchy, { parent: anchor });
+  world.addComponent(limb, Rect, rect);
   world.addComponent(limb, Material);
   world.addComponent(limb, Velocity);
   world.addComponent(limb, Acceleration);
-  return limb;
+  return anchor;
 }
 function addEye(
   world: World,
@@ -131,59 +127,66 @@ function addEye(
   return eye;
 }
 function addPerson(world: World, x = 0, y = 0, lookAtEntity = -1) {
-  const torso = addLimb(world, x, y, 1, 2);
-  const head = addLimb(world, 0, -0.2, 1, 1, torso, -0.5, -1);
-  const leftEye = addEye(world, -0.4, -0.4, 0.3, 0.1, lookAtEntity, head);
-  const right = addEye(world, 0.4, -0.4, 0.3, 0.1, lookAtEntity, head);
-  const leftUpperArm = addLimb(world, -1, 0, 0.5, 1, torso);
-  const leftLowerArm = addLimb(world, 0, 1, 0.5, 1, leftUpperArm);
-  const rightUpperArm = addLimb(world, 1, 0, 0.5, 1, torso);
-  const rightLowerArm = addLimb(world, 0, 1, 0.5, 1, rightUpperArm);
-  const leftUpperLeg = addLimb(world, -0.5, 2, 0.5, 1, torso);
-  const leftLowerLeg = addLimb(world, 0, 1, 0.5, 1, leftUpperLeg);
-  const rightUpperLeg = addLimb(world, 0.5, 2, 0.5, 1, torso);
-  const rightLowerLeg = addLimb(world, 0, 1, 0.5, 1, rightUpperLeg);
+  const headRect: typeof Rect = { width: 1, height: 1 };
+  const headOffset: vec2 = { x: -0.5, y: 0 };
+  const torsoRect: typeof Rect = { width: 1, height: 2 };
+  const torsoOffset: vec2 = { x: -0.5, y: -2 };
+  const limbRect: typeof Rect = { width: 0.5, height: 0.9 };
+  const limbOffset: vec2 = { x: -0.25, y: -0.9 };
+
+  const torso = addLimb(world, x, y, torsoRect, torsoOffset);
+  const head = addLimb(world, 0, 0.2, headRect, headOffset, torso);
+  const leftEye = addEye(world, 0.4, 0.4, 0.3, 0.1, lookAtEntity, head);
+  const rightEye = addEye(world, -0.4, 0.4, 0.3, 0.1, lookAtEntity, head);
+  const leftUpperArm = addLimb(world, 1, 0, limbRect, limbOffset, torso);
+  const leftLowerArm = addLimb(
+    world,
+    0,
+    -1,
+    limbRect,
+    limbOffset,
+    leftUpperArm,
+  );
+  const rightUpperArm = addLimb(world, -1, 0, limbRect, limbOffset, torso);
+  const rightLowerArm = addLimb(
+    world,
+    0,
+    -1,
+    limbRect,
+    limbOffset,
+    rightUpperArm,
+  );
+  const leftUpperLeg = addLimb(world, 0.5, -2.2, limbRect, limbOffset, torso);
+  const leftLowerLeg = addLimb(
+    world,
+    0,
+    -1,
+    limbRect,
+    limbOffset,
+    leftUpperLeg,
+  );
+  const rightUpperLeg = addLimb(world, -0.5, -2.2, limbRect, limbOffset, torso);
+  const rightLowerLeg = addLimb(
+    world,
+    0,
+    -1,
+    limbRect,
+    limbOffset,
+    rightUpperLeg,
+  );
   return torso;
 }
 
 // systems
 function handleDrawRects(world: World) {
   Ctx2D.ctx.beginPath();
-  world.query({ and: [Transform, Rect], not: [Hierarchy] }).forEach((e) => {
-    const t = world.getComponent(e, Transform);
-    const r = world.getComponent(e, Rect);
-    const c = Math.cos(t.rad);
-    const s = Math.sin(t.rad);
-    Ctx2D.ctx.transform(c, s, -s, c, t.x, t.y);
-    Ctx2D.ctx.rect(r.offsetX, r.offsetY, r.width, r.height);
-    Ctx2D.ctx.transform(c, -s, s, c, c * -t.x + s * -t.y, -s * -t.x + c * -t.y);
-  });
-  world.query({ and: [Transform, Rect, Hierarchy] }).forEach((e) => {
-    const t = world.getComponent(e, Transform);
+  world.query({ and: [Transform, Rect] }).forEach((e) => {
+    const { x, y, rad: r } = calculateHierarchyTransform(world, e);
     const rect = world.getComponent(e, Rect);
-    let h = world.getComponent(e, Hierarchy);
-    let x = t.x;
-    let y = t.y;
-    let r = t.rad;
-    while (world.hasComponent(h.parent, Hierarchy)) {
-      if (world.hasComponent(h.parent, Transform)) {
-        const parentTransform = world.getComponent(h.parent, Transform);
-        const c = Math.cos(parentTransform.rad);
-        const s = Math.sin(parentTransform.rad);
-        const _x = x;
-        const _y = y;
-        x = c * _x - s * _y;
-        y = s * _x + c * _y;
-        x += parentTransform.x;
-        y += parentTransform.y;
-        r += parentTransform.rad;
-      }
-      h = world.getComponent(h.parent, Hierarchy);
-    }
     const c = Math.cos(r);
     const s = Math.sin(r);
     Ctx2D.ctx.transform(c, s, -s, c, x, y);
-    Ctx2D.ctx.rect(rect.offsetX, rect.offsetY, rect.width, rect.height);
+    Ctx2D.ctx.rect(0, 0, rect.width, rect.height);
     Ctx2D.ctx.transform(c, -s, s, c, c * -x + s * -y, -s * -x + c * -y);
   });
   Ctx2D.ctx.fillStyle = "white";
@@ -191,25 +194,8 @@ function handleDrawRects(world: World) {
 }
 function handleDrawEyes(world: World) {
   world.query({ and: [Transform, Eye, Hierarchy] }).forEach((e) => {
-    const t = world.getComponent(e, Transform);
     const eye = world.getComponent(e, Eye);
-    let h = world.getComponent(e, Hierarchy);
-    let x = t.x;
-    let y = t.y;
-    while (world.hasComponent(h.parent, Hierarchy)) {
-      if (world.hasComponent(h.parent, Transform)) {
-        const parentTransform = world.getComponent(h.parent, Transform);
-        const c = Math.cos(parentTransform.rad);
-        const s = Math.sin(parentTransform.rad);
-        const _x = x;
-        const _y = y;
-        x = c * _x - s * _y;
-        y = s * _x + c * _y;
-        x += parentTransform.x;
-        y += parentTransform.y;
-      }
-      h = world.getComponent(h.parent, Hierarchy);
-    }
+    const { x, y } = calculateHierarchyTransform(world, e);
     Ctx2D.ctx.fillStyle = "lightgrey";
     Ctx2D.ctx.beginPath();
     Ctx2D.ctx.ellipse(
@@ -256,20 +242,25 @@ function handleCamera(world: World) {
   Ctx2D.ctx.resetTransform();
   const c = world.getComponent(camEntity, Camera);
   const p = world.getComponent(camEntity, Transform);
-  if (c.targetEntity != -1 && world.hasComponent(c.targetEntity, Transform)) {
-    const targetPos = world.getComponent(c.targetEntity, Transform);
-    Object.assign(p, targetPos);
+  if (world.hasComponent(camEntity, Hierarchy)) {
+    const h = world.getComponent(camEntity, Hierarchy);
+    if (world.hasComponent(h.parent, Transform)) {
+      Object.assign(p, world.getComponent(h.parent, Transform));
+    }
   }
-  const sin = Math.sin(c.tilt) * c.zoom;
-  const cos = Math.cos(c.tilt) * c.zoom;
+  const sin = Math.sin(p.rad + c.tilt);
+  const cos = Math.cos(p.rad + c.tilt);
+  const x = p.x * c.zoom;
+  const y = p.y * -c.zoom;
   Ctx2D.ctx.transform(
     cos,
     sin,
     -sin,
     cos,
-    cos * -p.x - sin * -p.y + Ctx2D.canvas.width * 0.5,
-    sin * -p.x + cos * -p.y + Ctx2D.canvas.height * 0.5,
+    cos * -x - sin * -y + Ctx2D.canvas.width * 0.5,
+    sin * -x + cos * -y + Ctx2D.canvas.height * 0.5,
   );
+  Ctx2D.ctx.transform(c.zoom, 0, 0, -c.zoom, 0, 0);
 }
 function handleGravity(world: World) {
   world
@@ -281,7 +272,7 @@ function handleGravity(world: World) {
       const h = world.getComponent(e, Hierarchy);
       const mass = r.width * r.height * m.density;
       if (h.parent != -1) return;
-      a.y = 9.81;
+      a.y = -9.81;
     });
 }
 function handleMovement(world: World) {
@@ -310,39 +301,24 @@ function handlePointer(world: World) {
     const pointerEntity = world.addEntity();
     const pos = Pointer.pos.get(k);
     if (!pos) return;
-    Object.assign(
-      world.addComponent(pointerEntity, Transform),
+    world.addComponent(
+      pointerEntity,
+      Transform,
       screenToWorld(
-        pointerToScreen(pos, Ctx2D.canvas),
+        pointerToScreen(pos, Ctx2D.canvas, true),
         camPos,
         camComp.tilt,
         camComp.zoom,
       ),
     );
     world.addComponent(pointerEntity, isPointer);
+    world.addComponent(pointerEntity, Rect);
   });
 }
 function handleLookAtPointer(world: World) {
-  world.query({ and: [Eye, Transform, Hierarchy] }).forEach((e) => {
+  world.query({ and: [Eye, Transform] }).forEach((e) => {
     const eye = world.getComponent(e, Eye);
-    const t = world.getComponent(e, Transform);
-    let h = world.getComponent(e, Hierarchy);
-    let x = t.x;
-    let y = t.y;
-    while (world.hasComponent(h.parent, Hierarchy)) {
-      if (world.hasComponent(h.parent, Transform)) {
-        const parentTransform = world.getComponent(h.parent, Transform);
-        const c = Math.cos(parentTransform.rad);
-        const s = Math.sin(parentTransform.rad);
-        const _x = x;
-        const _y = y;
-        x = c * _x - s * _y;
-        y = s * _x + c * _y;
-        x += parentTransform.x;
-        y += parentTransform.y;
-      }
-      h = world.getComponent(h.parent, Hierarchy);
-    }
+    const { x, y } = calculateHierarchyTransform(world, e);
     let pointerRect = -1;
     let minDistance = Number.POSITIVE_INFINITY;
     world.query({ and: [isPointer, Transform] }).forEach((e) => {
@@ -376,15 +352,19 @@ function screenToWorld(
   const res = { x: 0, y: 0 };
   const x = screenPos.x - Ctx2D.canvas.width / 2;
   const y = screenPos.y - Ctx2D.canvas.height / 2;
-  res.x = cos * x + sin * y;
-  res.y = -sin * x + cos * y;
+  res.x = cos * x - sin * y;
+  res.y = sin * x + cos * y;
   res.x /= cameraZoom;
   res.y /= cameraZoom;
   res.x += cameraPos.x;
   res.y += cameraPos.y;
   return res;
 }
-function pointerToScreen(pointerPos: vec2, canvas: HTMLCanvasElement): vec2 {
+function pointerToScreen(
+  pointerPos: vec2,
+  canvas: HTMLCanvasElement,
+  invertY: boolean = false,
+): vec2 {
   const out = { x: 0, y: 0 };
   const rect = canvas.getBoundingClientRect();
   out.x = pointerPos.x - rect.left;
@@ -396,34 +376,62 @@ function pointerToScreen(pointerPos: vec2, canvas: HTMLCanvasElement): vec2 {
     out.x *= canvas.height / innerHeight;
     out.y *= canvas.height / innerHeight;
   }
+  if (invertY) out.y = -out.y + canvas.height;
   return out;
+}
+function calculateHierarchyTransform(
+  world: World,
+  entity: entityT,
+): typeof Transform {
+  const t = world.getComponent(entity, Transform);
+  if (!world.hasComponent(entity, Hierarchy)) return t;
+  let x = t.x;
+  let y = t.y;
+  let r = t.rad;
+  let h = world.getComponent(entity, Hierarchy);
+  while (world.hasComponent(h.parent, Hierarchy)) {
+    if (world.hasComponent(h.parent, Transform)) {
+      const parentTransform = world.getComponent(h.parent, Transform);
+      const c = Math.cos(parentTransform.rad);
+      const s = Math.sin(parentTransform.rad);
+      const _x = x;
+      const _y = y;
+      x = c * _x - s * _y;
+      y = s * _x + c * _y;
+      x += parentTransform.x;
+      y += parentTransform.y;
+      r += parentTransform.rad;
+    }
+    h = world.getComponent(h.parent, Hierarchy);
+  }
+  return { x, y, rad: r };
 }
 
 // initialization
 const game = new World();
 
 const player = addPerson(game, 0, 0);
-// addPerson(game, -3, 0);
+// addPerson(game, -3, 1);
 // addPerson(game, 3, 0);
 
 const camera = game.addEntity();
-game.addComponent(camera, Transform, { y: 1 });
+game.addComponent(camera, Transform, { x: 0, y: 0 });
 game.addComponent(camera, Camera, {
   zoom: 18,
   isActive: true,
-  // targetEntity: player,
 });
+game.addComponent(camera, Hierarchy, { parent: player });
 
 {
   (function update() {
     requestAnimationFrame(update);
     drawBackground();
     game.update(
-      handleLookAtPointer,
       handleCamera,
+      handlePointer,
+      handleLookAtPointer,
       handleDrawRects,
       handleDrawEyes,
-      handlePointer,
       handleGravity,
       handleMovement,
     );
