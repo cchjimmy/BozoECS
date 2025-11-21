@@ -43,10 +43,12 @@ Below are the instance methods of the class.
 ### Instance Methods
 
 ```typescript
-addEntity(): entityT;
+addEntity(entity: entityT = newEntity()): entityT;
 ```
 
-This adds a new entity to a World instance.
+This adds a new or existing entity to a World instance.
+If the input entity already exists in the World,
+it is returned without any modification to its components.
 
 ```typescript
 copyEntity(src: entityT, dest: entityT = newEntity()): entityT;

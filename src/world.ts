@@ -10,8 +10,8 @@ export class World {
   private archetypeMap: Map<number, Set<entityT>> = new Map();
   private compManager = new ComponentManager();
 
-  addEntity(): entityT {
-    const entity = newEntity();
+  addEntity(entity: entityT = newEntity()): entityT {
+    if (this.maskMap.has(entity)) return entity;
     this.maskMap.set(entity, 0);
     this.getArchetype(0).add(entity);
     return entity;
