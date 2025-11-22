@@ -30,7 +30,10 @@ export class ComponentManager {
   }
 
   has<T extends object>(entity: entityT, component: T): boolean {
-    return (this.pools.get(component) as ObjectPoolMap<entityT, T>).has(entity);
+    return (
+      this.pools.has(component) &&
+      (this.pools.get(component) as ObjectPoolMap<entityT, T>).has(entity)
+    );
   }
 
   get<T extends object>(entity: entityT, component: T): T {

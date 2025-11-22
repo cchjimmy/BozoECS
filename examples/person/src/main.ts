@@ -81,7 +81,10 @@ function updatePointer(pointer: pointerT) {
 
 // components
 const Transform = { x: 0, y: 0, rad: 0 };
-const Hierarchy = { parent: -1 };
+const Hierarchy: { parent: entityT; children: entityT[] } = {
+  parent: -1,
+  children: [],
+};
 const Eye = { eyeWhiteRadius: 1, pupilRadius: 0.4, lookAtEntity: -1 };
 const Camera = { zoom: 20, tilt: 0, isActive: false };
 const Rect = { width: 1, height: 1 };
@@ -101,14 +104,14 @@ function addLimb(
 ) {
   const anchor = world.addEntity();
   world.addComponent(anchor, Transform, { x, y });
-  world.addComponent(anchor, Hierarchy, { parent });
+  world.addComponent(anchor, Velocity);
+  world.addComponent(anchor, Acceleration);
   const limb = world.addEntity();
   world.addComponent(limb, Transform, offset);
-  world.addComponent(limb, Hierarchy, { parent: anchor });
   world.addComponent(limb, Rect, rect);
   world.addComponent(limb, Material);
-  world.addComponent(limb, Velocity);
-  world.addComponent(limb, Acceleration);
+  attach(world, parent, anchor);
+  attach(world, anchor, limb);
   return anchor;
 }
 function addEye(
@@ -174,7 +177,20 @@ function addPerson(world: World, x = 0, y = 0, lookAtEntity = -1) {
     limbOffset,
     rightUpperLeg,
   );
-  return torso;
+  return {
+    head,
+    rightEye,
+    leftEye,
+    torso,
+    rightUpperArm,
+    rightLowerArm,
+    leftUpperArm,
+    leftLowerArm,
+    rightUpperLeg,
+    rightLowerLeg,
+    leftUpperLeg,
+    leftLowerLeg,
+  };
 }
 
 // systems
@@ -245,7 +261,7 @@ function handleCamera(world: World) {
   if (world.hasComponent(camEntity, Hierarchy)) {
     const h = world.getComponent(camEntity, Hierarchy);
     if (world.hasComponent(h.parent, Transform)) {
-      Object.assign(p, world.getComponent(h.parent, Transform));
+      Object.assign(p, calculateHierarchyTransform(world, h.parent));
     }
   }
   const sin = Math.sin(p.rad + c.tilt);
@@ -263,17 +279,14 @@ function handleCamera(world: World) {
   Ctx2D.ctx.transform(c.zoom, 0, 0, -c.zoom, 0, 0);
 }
 function handleGravity(world: World) {
-  world
-    .query({ and: [Rect, Material, Acceleration, Hierarchy] })
-    .forEach((e) => {
-      const r = world.getComponent(e, Rect);
-      const m = world.getComponent(e, Material);
-      const a = world.getComponent(e, Acceleration);
+  world.query({ and: [Acceleration] }).forEach((e) => {
+    const a = world.getComponent(e, Acceleration);
+    if (world.hasComponent(e, Hierarchy)) {
       const h = world.getComponent(e, Hierarchy);
-      const mass = r.width * r.height * m.density;
       if (h.parent != -1) return;
-      a.y = -9.81;
-    });
+    }
+    a.y = -9.81;
+  });
 }
 function handleMovement(world: World) {
   world.query({ and: [Velocity, Acceleration] }).forEach((e) => {
@@ -406,6 +419,37 @@ function calculateHierarchyTransform(
   }
   return { x, y, rad: r };
 }
+function attach(world: World, parent: entityT, child: entityT) {
+  if (parent != -1) {
+    !world.hasComponent(parent, Hierarchy) &&
+      world.addComponent(parent, Hierarchy, { children: [] });
+    const hp = world.getComponent(parent, Hierarchy);
+    for (let i = 0, l = hp.children.length; i < l; i++) {
+      if (hp.children[i] == child) return;
+    }
+    hp.children.push(child);
+  }
+  !world.hasComponent(child, Hierarchy) &&
+    world.addComponent(child, Hierarchy, { children: [] });
+  const hc = world.getComponent(child, Hierarchy);
+  hc.parent = parent;
+}
+function detach(world: World, parent: entityT, child: entityT) {
+  if (parent != -1) {
+    !world.hasComponent(parent, Hierarchy) &&
+      world.addComponent(parent, Hierarchy, { children: [] });
+    const hp = world.getComponent(parent, Hierarchy);
+    for (let i = 0, l = hp.children.length; i < l; i++) {
+      if (hp.children[i] != child) continue;
+      hp.children.splice(i, 1);
+      break;
+    }
+  }
+  !world.hasComponent(child, Hierarchy) &&
+    world.addComponent(child, Hierarchy, { children: [] });
+  const hc = world.getComponent(child, Hierarchy);
+  hc.parent = -1;
+}
 
 // initialization
 const game = new World();
@@ -420,7 +464,7 @@ game.addComponent(camera, Camera, {
   zoom: 18,
   isActive: true,
 });
-game.addComponent(camera, Hierarchy, { parent: player });
+game.addComponent(camera, Hierarchy, { parent: player.torso });
 
 {
   (function update() {
@@ -432,7 +476,7 @@ game.addComponent(camera, Hierarchy, { parent: player });
       handleLookAtPointer,
       handleDrawRects,
       handleDrawEyes,
-      handleGravity,
+      // handleGravity,
       handleMovement,
     );
     updateTime(Time);

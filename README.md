@@ -48,7 +48,7 @@ addEntity(entity: entityT = newEntity()): entityT;
 
 This adds a new or existing entity to a World instance.
 If the input entity already exists in the World,
-it is returned without any modification to its components.
+it is returned without any modifications to its components.
 
 ```typescript
 copyEntity(src: entityT, dest: entityT = newEntity()): entityT;
@@ -61,7 +61,7 @@ It can override existing entities or create new entity copies.
 registerComponent<T extends object>(component: T): World;
 ```
 
-This internally adds an object pool for the input component and the component is added into an id map for identification.
+This internally adds an object pool for the input component and the component is added to an id map for identification.
 
 ```typescript
 addComponent<T extends object>(entity: entityT, component: T, values: Partial<T> = {}): T;
