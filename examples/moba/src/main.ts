@@ -43,7 +43,7 @@ const ParticleEmitter = {
     percentageLifeTime: number,
   ) {
     const t = world.getComponent(particleEntity, Transform);
-    t.scaleX = t.scaleY = -((2 * percentageLifeTime - 1) ** 6) + 1;
+    t.scaleX = t.scaleY = -((2 * percentageLifeTime - 1) ** 10) + 1;
   },
 };
 const Camera = { zoom: 20, tilt: 0, isActive: false, targetEntity: -1 };
@@ -78,7 +78,7 @@ function setUpCanvas2D(): {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Cannot initialize context 2d.");
 
-  document.body.appendChild(canvas);
+  !document.querySelector("canvas") && document.body.appendChild(canvas);
 
   globalThis.onresize = globalThis.onload = () => {
     if (innerWidth / innerHeight < canvas.width / canvas.height) {
@@ -203,7 +203,7 @@ function handlePIDControllers(world: World) {
   });
 }
 function handleParticleEmitters(world: World) {
-  world.query({ and: [ParticleEmitter, Transform] }).forEach((e) => {
+  world.query({ and: [OnScreen, ParticleEmitter, Transform] }).forEach((e) => {
     const emitter = world.getComponent(e, ParticleEmitter);
     if (!emitter.emit || !world.hasComponent(emitter.particleEntity, Transform))
       return;
@@ -213,12 +213,11 @@ function handleParticleEmitters(world: World) {
     const particleTransform = world.getComponent(particle, Transform);
     Object.assign(particleTransform, t);
     const timer = world.addComponent(particle, Timer);
-    const radian =
-      t.rad + (Math.random() * 2 - 1) * emitter.spreadRadians * 0.5;
-    particleTransform.rad = radian;
+    particleTransform.rad =
+      t.rad + emitter.spreadRadians * (Math.random() - 0.5);
     world.addComponent(particle, Velocity, {
-      x: Math.cos(radian) * emitter.speed,
-      y: Math.sin(radian) * emitter.speed,
+      x: Math.cos(particleTransform.rad) * emitter.speed,
+      y: Math.sin(particleTransform.rad) * emitter.speed,
     });
     world.addComponent(particle, Callback).callback = () => {
       if (timer.timeMilli < emitter.particleLifetimeSeconds * 1000) {
@@ -397,20 +396,40 @@ function drawImg(world: World) {
   world.query({ and: [Graphic, Transform] }).forEach((e) => {
     const g = world.getComponent(e, Graphic);
     const p = world.getComponent(e, Transform);
-    const r = world.hasComponent(e, Rect) && world.getComponent(e, Rect);
     const img = new Image();
     img.src = g.src;
-    const imgWidth = r ? r.width : img.width;
-    const imgHeight = r ? r.height : img.height;
+    let imgWidth = img.width;
+    let imgHeight = img.height;
+    let offsetX = 0;
+    let offsetY = 0;
+    if (world.hasComponent(e, Rect)) {
+      const r = world.getComponent(e, Rect);
+      imgWidth = r.width;
+      imgHeight = r.height;
+      offsetX = r.offsetX;
+      offsetY = r.offsetY;
+    }
     const scaleX = imgWidth / img.width;
     const scaleY = imgHeight / img.height;
-    Ctx2D.ctx.transform(scaleX, 0, 0, scaleY, 0, 0);
-    Ctx2D.ctx.drawImage(
-      img,
-      (p.x - imgWidth / 2) / scaleX,
-      (p.y - imgHeight / 2) / scaleY,
+    const c = Math.cos(p.rad);
+    const s = Math.sin(p.rad);
+    Ctx2D.ctx.transform(
+      c * scaleX,
+      s * scaleX,
+      -s * scaleY,
+      c * scaleY,
+      p.x,
+      p.y,
     );
-    Ctx2D.ctx.transform(1 / scaleX, 0, 0, 1 / scaleY, 0, 0);
+    Ctx2D.ctx.drawImage(img, offsetX, offsetY);
+    Ctx2D.ctx.transform(
+      c / scaleX,
+      -s / scaleX,
+      s / scaleY,
+      c / scaleY,
+      (c * -p.x) / scaleX + (s * -p.y) / scaleY,
+      (-s * -p.x) / scaleX + (c * -p.y) / scaleY,
+    );
   });
 }
 function handleButtons(world: World) {
@@ -451,12 +470,12 @@ function drawHealthBars(world: World) {
     const h = world.getComponent(e, Health);
     const cos = Math.cos(t.rad);
     const sin = Math.sin(t.rad);
-    let x = -(r.width * widthMult + margin) / 2;
-    let y = -(barHeight + margin) / 2 + r.offsetY - 1;
+    let x = -(r.width * widthMult) / 2;
+    let y = -barHeight / 2 + r.offsetY - 1;
     Ctx2D.ctx.fillStyle = "black";
     Ctx2D.ctx.fillRect(
-      t.x + cos * x - sin * y,
-      t.y + sin * x + cos * y,
+      t.x - margin / 2 + cos * x - sin * y,
+      t.y - margin / 2 + sin * x + cos * y,
       r.width * widthMult + margin,
       barHeight + margin,
     );
@@ -664,26 +683,41 @@ game.addComponent(turrent, ParticleEmitter, {
 });
 game.addComponent(turrent, Timer);
 game.addComponent(turrent, Callback).callback = (e: entityT) => {
-  const t = game.getComponent(e, Timer);
+  const t = game.hasComponent(e, Timer) && game.getComponent(e, Timer);
+  if (!t) return;
   if (t.timeMilli < 50) return;
   t.reset = true;
-  game.getComponent(e, ParticleEmitter).emit = true;
+  game.hasComponent(e, ParticleEmitter) &&
+    (game.getComponent(e, ParticleEmitter).emit = true);
 };
 
 for (let i = 0; i < 2; i++) {
-  game.getComponent(game.copyEntity(turrent), Transform).y += 15 * (i + 1);
+  const copy = game.copyEntity(turrent);
+  game.getComponent(copy, Transform).y += 15 * (i + 1);
+  game.getComponent(copy, ParticleEmitter).particleEntity = copy;
 }
 
 const player = addPlayer(game, 0, 0);
 game.getComponent(player, Health).current *= 0.6;
 
-const map = addGraphic(game, "./assets/Map_of_MOBA.svg", 0, 0, 300, 300);
+const map = addGraphic(game, "./assets/Map_of_MOBA.svg", -150, -150, 300, 300);
 
 const cam = addCamera(game, 0, 0);
 const camComponent = game.getComponent(cam, Camera);
 camComponent.targetEntity = player;
 camComponent.isActive = true;
 camComponent.zoom = 15;
+
+const cleaner = game.addEntity();
+game.addComponent(cleaner, Timer);
+game.addComponent(cleaner, Callback, {
+  callback: (e: entityT) => {
+    const t = game.getComponent(e, Timer);
+    if (t.timeMilli < 5000) return;
+    t.reset = true;
+    game.cleanObjectPools();
+  },
+});
 
 const qt = new Quadtree({ cx: 0, cy: 0, width: 1e10, height: 1e10 });
 
@@ -704,37 +738,39 @@ const debugText = inGameUi.addComponent(debugTextEntity, Text, {
 });
 inGameUi.addComponent(debugTextEntity, Transform);
 
-(function update() {
-  requestAnimationFrame(update);
+{
+  (function update() {
+    requestAnimationFrame(update);
 
-  debugText.content = `FPS: ${Math.ceil(1000 / Time.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}`;
-  Time.timeMilli % 5000 < 100 && game.cleanObjectPools();
+    const playerTransform = game.getComponent(player, Transform);
+    debugText.content = `FPS: ${Math.ceil(1000 / Time.dtMilli)}\nEntity count: ${game.entityCount()}\nDevice type: ${detectDeviceType()}\nPos: (${Math.floor(playerTransform.x)}, ${Math.floor(playerTransform.y)})`;
 
-  // drawing
-  drawBg();
-  game.update(
-    handleCamera,
-    checkOnScreenEntities,
-    drawImg,
-    drawRects,
-    //drawPathFindTargets,
-    drawHealthBars,
-  );
-  Ctx2D.ctx.resetTransform();
-  inGameUi.update(drawImg, drawRects, drawTexts);
+    // drawing
+    // drawBg();
+    game.update(
+      handleCamera,
+      checkOnScreenEntities,
+      drawImg,
+      drawRects,
+      // drawPathFindTargets,
+      drawHealthBars,
+    );
+    Ctx2D.ctx.resetTransform();
+    inGameUi.update(drawImg, drawRects, drawTexts);
 
-  // processing
-  inGameUi.update(handleButtons);
-  game.update(
-    handleParticleEmitters,
-    handleTimers,
-    handlePathfind,
-    handleInput,
-    move,
-  );
+    // processing
+    inGameUi.update(handleButtons);
+    game.update(
+      handleParticleEmitters,
+      handlePathfind,
+      handleInput,
+      handleTimers,
+      move,
+    );
 
-  updatePointer(Pointer);
-  updateKeyboard(Keys);
-  updateTime(Time);
-  canPlayerMove = true;
-})();
+    updatePointer(Pointer);
+    updateKeyboard(Keys);
+    updateTime(Time);
+    canPlayerMove = true;
+  })();
+}

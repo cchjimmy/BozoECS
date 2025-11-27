@@ -58,7 +58,7 @@ export class World {
     if (mask & (1 << compId))
       return Object.assign(this.compManager.get(entity, component), values);
     this.getArchetype(mask).delete(entity);
-    mask |= 1 << compId;
+    mask ^= 1 << compId;
     this.maskMap.set(entity, mask);
     this.getArchetype(mask).add(entity);
     return Object.assign(this.compManager.add(entity, component), values);
@@ -69,11 +69,11 @@ export class World {
     let mask = this.maskMap.get(entity) ?? 0;
     const compId = this.compManager.getId(component);
     if ((mask & (1 << compId)) == 0) return;
+    this.compManager.remove(entity, component);
     this.getArchetype(mask).delete(entity);
     mask ^= 1 << compId;
     this.maskMap.set(entity, mask);
     this.getArchetype(mask).add(entity);
-    this.compManager.remove(entity, component);
   }
 
   getComponent<T extends object>(entity: entityT, component: T): T {
@@ -84,7 +84,7 @@ export class World {
     for (let i = 0, l = fns.length; i < l; i++) fns[i](this);
   }
 
-  cleanObjectPools() {
+  cleanObjectPools(): void {
     this.compManager.clean();
   }
 

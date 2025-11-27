@@ -92,6 +92,7 @@ const Material = { density: 0.1 };
 const Velocity = { x: 0, y: 0 };
 const Acceleration = { x: 0, y: 0 };
 const isPointer = {};
+const AngularVelocity = { radPerSecond: 0 };
 
 // entities
 function addLimb(
@@ -106,6 +107,7 @@ function addLimb(
   world.addComponent(anchor, Transform, { x, y });
   world.addComponent(anchor, Velocity);
   world.addComponent(anchor, Acceleration);
+  world.addComponent(anchor, AngularVelocity);
   const limb = world.addEntity();
   world.addComponent(limb, Transform, offset);
   world.addComponent(limb, Rect, rect);
@@ -194,6 +196,13 @@ function addPerson(world: World, x = 0, y = 0, lookAtEntity = -1) {
 }
 
 // systems
+function handleAngularVelocity(world: World) {
+  world.query({ and: [Transform, AngularVelocity] }).forEach((e) => {
+    const t = world.getComponent(e, Transform);
+    const av = world.getComponent(e, AngularVelocity);
+    t.rad += (av.radPerSecond * Time.dtMilli) / 1000;
+  });
+}
 function handleDrawRects(world: World) {
   Ctx2D.ctx.beginPath();
   world.query({ and: [Transform, Rect] }).forEach((e) => {
@@ -455,6 +464,9 @@ function detach(world: World, parent: entityT, child: entityT) {
 const game = new World();
 
 const player = addPerson(game, 0, 0);
+game.getComponent(player.rightUpperLeg, AngularVelocity).radPerSecond = 2;
+game.getComponent(player.rightLowerLeg, AngularVelocity).radPerSecond = -2;
+game.getComponent(player.leftLowerArm, AngularVelocity).radPerSecond = -1;
 // addPerson(game, -3, 1);
 // addPerson(game, 3, 0);
 
@@ -478,6 +490,7 @@ game.addComponent(camera, Hierarchy, { parent: player.torso });
       handleDrawEyes,
       // handleGravity,
       handleMovement,
+      handleAngularVelocity,
     );
     updateTime(Time);
     updatePointer(Pointer);

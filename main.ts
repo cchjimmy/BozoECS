@@ -56,9 +56,10 @@ async function buildExample(
 
 async function emptyDir(path: string) {
   if (!(await exists(path))) return;
-  const dir = Deno.readDir(path);
-  for await (const file of dir) {
-    if (!(await exists(file.name))) continue;
-    Deno.remove(file.name);
-  }
+  Deno.remove(path, { recursive: true });
+  // const dir = Deno.readDir(path);
+  // for await (const file of dir) {
+  //   if (!(await exists(file.name))) continue;
+  //   Deno.remove(file.name);
+  // }
 }

@@ -45,9 +45,7 @@ export class ComponentManager {
   }
 
   delete(entity: entityT): void {
-    for (const entry of this.pools) {
-      entry[1].remove(entity);
-    }
+    for (const entry of this.pools) entry[1].remove(entity);
   }
 
   copy(src: entityT, dest: entityT): void {
@@ -56,9 +54,7 @@ export class ComponentManager {
     }
   }
 
-  clean() {
-    for (const entry of this.pools) {
-      entry[1].clean();
-    }
+  clean(): void {
+    for (const entry of this.pools) entry[1].clean();
   }
 }
