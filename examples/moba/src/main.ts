@@ -427,8 +427,8 @@ function drawImg(world: World) {
       -s / scaleX,
       s / scaleY,
       c / scaleY,
-      (c * -p.x) / scaleX + (s * -p.y) / scaleY,
-      (-s * -p.x) / scaleX + (c * -p.y) / scaleY,
+      (c * -p.x + s * -p.y) / scaleY,
+      (-s * -p.x + c * -p.y) / scaleY,
     );
   });
 }

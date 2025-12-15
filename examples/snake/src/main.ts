@@ -6,11 +6,12 @@ const Time = setUpTime();
 const Keys = setUpKeyboard();
 const Pointer = setUpPointer();
 const Game = {
-  snakeWidth: 10,
-  foodRadius: 15,
   startLength: 5,
-  foodColor: "#F0A0A0",
+  snakeWidth: 10,
   snakeColor: "#F0D0D0",
+  snakeSpeed: 40,
+  foodRadius: 15,
+  foodColor: "#F0A0A0",
 };
 
 function setUpCanvas2D(): {
@@ -318,12 +319,14 @@ function handleReset(world: World) {
     .forEach((e) => {
       const p = world.getComponent(e, Transform);
       const collidedBody = world
-        .query({ and: [Hierarchy], not: [PlayerControl] })
+        .query({ and: [Hierarchy, Transform] })
         .find((other) => {
           const otherH = world.getComponent(other, Hierarchy);
-          if (otherH.parent == e) return false;
+          if (otherH.parent == e || other == e) return false;
           const otherP = world.getComponent(other, Transform);
-          return (otherP.x - p.x) ** 2 + (otherP.y - p.y) ** 2 < 6 ** 2;
+          return (
+            (otherP.x - p.x) ** 2 + (otherP.y - p.y) ** 2 < Game.snakeWidth ** 2
+          );
         });
       if (
         p.x > Ctx2D.canvas.width ||
@@ -345,17 +348,16 @@ function handleReset(world: World) {
         world
           .query({ not: [PlayerControl] })
           .forEach((e) => world.deleteEntity(e));
-        world.getComponent(e, Hierarchy).child = -1;
         const v = world.getComponent(e, Velocity);
-        ((v.x = 40), (v.y = 0));
+        ((v.x = Game.snakeSpeed), (v.y = 0));
         let parent = e;
-        for (let i = 0; i < Game.startLength - 1; i++) {
+        for (let i = 0, l = Game.startLength - 1; i < l; i++) {
           const bodyPart = world.addEntity();
           world.addComponent(bodyPart, Velocity);
           world.addComponent(bodyPart, Hierarchy, { parent });
           const parentTransform = world.getComponent(parent, Transform);
           world.addComponent(bodyPart, Transform, {
-            x: parentTransform.x - 6,
+            x: parentTransform.x - Game.snakeWidth,
             y: parentTransform.y,
           });
           world.getComponent(parent, Hierarchy).child = bodyPart;
@@ -365,8 +367,7 @@ function handleReset(world: World) {
     });
 }
 function handleSpawnFood(world: World) {
-  const food = world.query({ and: [isFood] });
-  if (food.length > 0) return;
+  if (world.query({ and: [isFood] }).length > 0) return;
   // spawn food
   const foodEntity = world.addEntity();
   world.addComponent(foodEntity, isFood);
@@ -381,32 +382,31 @@ function handleEatFood(world: World) {
     world.query({ and: [isFood, Transform] }).forEach((foodE) => {
       const foodTransform = world.getComponent(foodE, Transform);
       if (
-        (playerTransform.x - foodTransform.x) ** 2 <
-          ((Game.snakeWidth + Game.foodRadius) / 2) ** 2 &&
-        (playerTransform.y - foodTransform.y) ** 2 <
-          ((Game.snakeWidth + Game.foodRadius) / 2) ** 2
-      ) {
-        world.deleteEntity(foodE);
-        const parent = world
-          .query({ and: [Hierarchy] })
-          .find((e) => world.getComponent(e, Hierarchy).child == -1);
-        if (
-          !parent ||
-          !world.hasComponent(parent, Transform) ||
-          !world.hasComponent(parent, Hierarchy)
-        )
-          return;
-        // spawn new body part
-        const bodyPart = world.addEntity();
-        world.addComponent(bodyPart, Velocity);
-        world.addComponent(bodyPart, Hierarchy, { parent });
-        world.addComponent(
-          bodyPart,
-          Transform,
-          world.getComponent(parent, Transform),
-        );
-        world.getComponent(parent, Hierarchy).child = bodyPart;
-      }
+        (foodTransform.x - playerTransform.x) ** 2 +
+          (foodTransform.y - playerTransform.y) ** 2 >
+        (Game.snakeWidth / 2 + Game.foodRadius) ** 2
+      )
+        return;
+      world.deleteEntity(foodE);
+      const parent = world
+        .query({ and: [Hierarchy] })
+        .find((e) => world.getComponent(e, Hierarchy).child == -1);
+      if (
+        !parent ||
+        !world.hasComponent(parent, Transform) ||
+        !world.hasComponent(parent, Hierarchy)
+      )
+        return;
+      // spawn new body part
+      const bodyPart = world.addEntity();
+      world.addComponent(bodyPart, Velocity);
+      world.addComponent(bodyPart, Hierarchy, { parent });
+      world.addComponent(
+        bodyPart,
+        Transform,
+        world.getComponent(parent, Transform),
+      );
+      world.getComponent(parent, Hierarchy).child = bodyPart;
     });
   });
 }
@@ -421,13 +421,8 @@ function handleEntityHierarchy(world: World) {
       world.hasComponent(h.parent, Velocity)
     ) {
       const parentTransform = world.getComponent(h.parent, Transform);
-      if (
-        (p.x - parentTransform.x) ** 2 + (p.y - parentTransform.y) ** 2 <
-        50
-      ) {
-        v.x = v.y = 0;
+      if ((p.x - parentTransform.x) ** 2 + (p.y - parentTransform.y) ** 2 < 50)
         return;
-      }
       const parentVelocity = world.getComponent(h.parent, Velocity);
       const velocityMag =
         (parentVelocity.x ** 2 + parentVelocity.y ** 2) ** 0.5;
@@ -447,7 +442,7 @@ game.addComponent(player, Transform, {
   x: Ctx2D.canvas.width / 2,
   y: Ctx2D.canvas.height / 2,
 });
-game.addComponent(player, Velocity, { x: 40 });
+game.addComponent(player, Velocity, { x: Game.snakeSpeed });
 game.addComponent(player, PlayerControl);
 game.addComponent(player, Hierarchy);
 

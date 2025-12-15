@@ -13,12 +13,12 @@ export class ObjectPoolMap<K, V> {
   }
 
   add(key: K): V {
-    if (!this.keyToIndex.has(key)) {
-      if (this.storage.length <= this.keyToIndex.size)
-        this.storage.push(this.objectFactory());
-      this.keyToIndex.set(key, this.keyToIndex.size);
-      this.indexToKey[this.keyToIndex.size - 1] = key;
-    }
+    if (this.keyToIndex.has(key))
+      return this.storage[this.keyToIndex.get(key) as number];
+    if (this.storage.length <= this.keyToIndex.size)
+      this.storage.push(this.objectFactory());
+    this.keyToIndex.set(key, this.keyToIndex.size);
+    this.indexToKey[this.keyToIndex.size - 1] = key;
     return this.storage[this.keyToIndex.get(key) as number];
   }
 

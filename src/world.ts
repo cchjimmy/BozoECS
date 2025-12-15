@@ -6,7 +6,7 @@ export type queryT = Partial<Record<"and" | "not", object[]>>;
 export type systemT = (world: World) => void;
 
 export class World {
-  private maskMap: Map<number, number> = new Map();
+  private maskMap: Map<entityT, number> = new Map();
   private archetypeMap: Map<number, Set<entityT>> = new Map();
   private compManager = new ComponentManager();
 
@@ -52,26 +52,26 @@ export class World {
     component: T,
     values: Partial<T> = component,
   ): T {
-    this.registerComponent(component);
+    this.compManager.register(component);
     let mask = this.maskMap.get(entity) ?? 0;
-    const compId = this.compManager.getId(component);
-    if (mask & (1 << compId))
+    const compMask = this.compManager.getMask(component);
+    if (mask & compMask)
       return Object.assign(this.compManager.get(entity, component), values);
     this.getArchetype(mask).delete(entity);
-    mask ^= 1 << compId;
+    mask ^= compMask;
     this.maskMap.set(entity, mask);
     this.getArchetype(mask).add(entity);
     return Object.assign(this.compManager.add(entity, component), values);
   }
 
   removeComponent<T extends object>(entity: entityT, component: T): void {
-    this.registerComponent(component);
+    this.compManager.register(component);
     let mask = this.maskMap.get(entity) ?? 0;
-    const compId = this.compManager.getId(component);
-    if ((mask & (1 << compId)) == 0) return;
+    const compMask = this.compManager.getMask(component);
+    if (!(mask & compMask)) return;
     this.compManager.remove(entity, component);
     this.getArchetype(mask).delete(entity);
-    mask ^= 1 << compId;
+    mask ^= compMask;
     this.maskMap.set(entity, mask);
     this.getArchetype(mask).add(entity);
   }
@@ -92,17 +92,15 @@ export class World {
     let andMask = 0,
       notMask = 0;
     if (query.and) {
-      for (let i = 0, l = query.and.length; i < l; i++) {
-        andMask |= 1 << this.compManager.getId(query.and[i]);
-      }
+      for (let i = 0, l = query.and.length; i < l; i++)
+        andMask |= this.compManager.getMask(query.and[i]);
     }
     if (query.not) {
-      for (let i = 0, l = query.not.length; i < l; i++) {
-        notMask |= 1 << this.compManager.getId(query.not[i]);
-      }
+      for (let i = 0, l = query.not.length; i < l; i++)
+        notMask |= this.compManager.getMask(query.not[i]);
     }
     const res: entityT[] = [];
-    for (const entry of this.archetypeMap) {
+    for (const entry of this.archetypeMap.entries()) {
       entry[1].size > 0 &&
         (entry[0] & andMask) == andMask &&
         (entry[0] & notMask) == 0 &&
