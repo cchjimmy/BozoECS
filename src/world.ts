@@ -33,9 +33,8 @@ export class World {
 
   deleteEntity(entity: entityT) {
     this.compManager.delete(entity);
-    const mask = this.maskMap.get(entity) ?? 0;
+    this.getArchetype(this.maskMap.get(entity) ?? 0).delete(entity);
     this.maskMap.delete(entity);
-    this.getArchetype(mask).delete(entity);
   }
 
   registerComponent<T extends object>(component: T): World {
@@ -68,7 +67,7 @@ export class World {
     this.compManager.register(component);
     let mask = this.maskMap.get(entity) ?? 0;
     const compMask = this.compManager.getMask(component);
-    if (!(mask & compMask)) return;
+    if ((mask & compMask) ^ compMask) return;
     this.compManager.remove(entity, component);
     this.getArchetype(mask).delete(entity);
     mask ^= compMask;
