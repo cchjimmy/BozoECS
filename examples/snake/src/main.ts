@@ -122,12 +122,12 @@ const isFood = {};
 // systems
 function handleMovement(world: World) {
   world.query({ and: [Transform, Velocity] }).forEach((e) => {
-    const p = world.getComponent(e, Transform);
+    const t = world.getComponent(e, Transform);
     const v = world.getComponent(e, Velocity);
-    p.x += (v.x * Time.dtMilli) / 1000;
-    p.y += (v.y * Time.dtMilli) / 1000;
+    t.x += (v.x * Time.dtMilli) / 1000;
+    t.y += (v.y * Time.dtMilli) / 1000;
     if (v.x == 0 && v.y == 0) return;
-    p.rad = Math.atan2(v.y, v.x);
+    t.rad = Math.atan2(v.y, v.x);
   });
 }
 function handleDrawing(world: World) {
@@ -305,8 +305,9 @@ function handleInput(world: World) {
     ) {
       angularVel += Math.PI;
     }
-    const c = Math.cos((angularVel * Time.dtMilli) / 1000);
-    const s = Math.sin((angularVel * Time.dtMilli) / 1000);
+    angularVel *= Time.dtMilli / 1000;
+    const c = Math.cos(angularVel);
+    const s = Math.sin(angularVel);
     const x = v.x,
       y = v.y;
     v.x = c * x - s * y;
@@ -326,22 +327,22 @@ function handleReset(world: World) {
     world.addComponent(player, PlayerControl);
     world.addComponent(player, Hierarchy);
   }
-  const p = world.getComponent(player, Transform);
+  const t = world.getComponent(player, Transform);
   const collidedBody = world
     .query({ and: [Hierarchy, Transform] })
     .find((other) => {
       const otherH = world.getComponent(other, Hierarchy);
       if (player == otherH.parent || player == other) return false;
-      const otherP = world.getComponent(other, Transform);
+      const otherT = world.getComponent(other, Transform);
       return (
-        (otherP.x - p.x) ** 2 + (otherP.y - p.y) ** 2 < Game.snakeWidth ** 2
+        (otherT.x - t.x) ** 2 + (otherT.y - t.y) ** 2 < Game.snakeWidth ** 2
       );
     });
   if (
-    p.x > Ctx2D.canvas.width ||
-    p.x < 0 ||
-    p.y > Ctx2D.canvas.height ||
-    p.y < 0 ||
+    t.x > Ctx2D.canvas.width ||
+    t.x < 0 ||
+    t.y > Ctx2D.canvas.height ||
+    t.y < 0 ||
     world.entityCount() < Game.startLength ||
     collidedBody != undefined
   ) {
@@ -349,11 +350,11 @@ function handleReset(world: World) {
     if (score > Number.parseInt(localStorage.getItem("snake_best") ?? "0")) {
       localStorage.setItem("snake_best", score.toString());
     }
-    p.x = Ctx2D.canvas.width / 2;
-    p.y = Ctx2D.canvas.height / 2;
-    world.query({ not: [PlayerControl] }).forEach((e) => world.deleteEntity(e));
+    t.x = Ctx2D.canvas.width / 2;
+    t.y = Ctx2D.canvas.height / 2;
     const v = world.getComponent(player, Velocity);
     ((v.x = Game.snakeSpeed), (v.y = 0));
+    world.query({ not: [PlayerControl] }).forEach((e) => world.deleteEntity(e));
     let parent = player;
     for (let i = 0, l = Game.startLength - 1; i < l; i++) {
       const bodyPart = world.addEntity();

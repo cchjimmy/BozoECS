@@ -13,7 +13,6 @@ export class World {
   addEntity(entity: entityT = newEntity()): entityT {
     if (this.maskMap.has(entity)) return entity;
     this.maskMap.set(entity, 0);
-    this.getArchetype(0).add(entity);
     return entity;
   }
 

@@ -20,7 +20,7 @@ typedef entityT = number;
 
 ### Component
 
-Components are plain objects and their instances are stored in separate [ObjectPoolMaps](./src/pool.ts)s when added to an entity.
+Components are plain objects and their instances are stored in separate [ObjectPoolMap](./src/pool.ts)s when added to an entity.
 They can be registered using "World.registerComponent" or "World.addComponent".
 Components are instantiated via the spread operator.
 
