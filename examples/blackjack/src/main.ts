@@ -260,8 +260,7 @@ function resetGame(world: World) {
   Game.bet = Game.minBet;
   Game.status = GAME_STATUSES.PLAY;
 }
-function resumeGame(world: World) {
-  resetCards(world);
+function calculateCredits() {
   switch (Game.status) {
     case GAME_STATUSES.BLACKJACK:
       // 3:2 ratio
@@ -278,6 +277,9 @@ function resumeGame(world: World) {
     case GAME_STATUSES.DRAW:
   }
   Game.bet = Math.min(Game.bet, Game.credits);
+}
+function resumeGame(world: World) {
+  resetCards(world);
   Game.status = GAME_STATUSES.PLAY;
 }
 function calcHandValue(
@@ -400,6 +402,7 @@ async function handleDealer(world: World) {
     await sleep(2);
   }
   Game.status = checkWin(world);
+  calculateCredits();
 }
 function checkWin(world: World) {
   const split = splitHand(world);
@@ -510,6 +513,7 @@ function setUpButtons(world: World) {
     "bet /2": (e) => {
       const b = world.getComponent(e, Button);
       if (b.justReleased) {
+        if (Game.status == GAME_STATUSES.PLAY) return;
         Game.bet /= 2;
         Game.bet = Math.round(Game.bet);
         Game.bet = Math.max(Game.minBet, Game.bet);
@@ -518,6 +522,7 @@ function setUpButtons(world: World) {
     "bet *2": (e) => {
       const b = world.getComponent(e, Button);
       if (b.justReleased) {
+        if (Game.status == GAME_STATUSES.PLAY) return;
         Game.bet *= 2;
         Game.bet = Math.min(Game.bet, Game.credits);
       }
@@ -530,6 +535,7 @@ function setUpButtons(world: World) {
         }
         pickCard(world);
         Game.status = checkWin(world);
+        calculateCredits();
       }
     },
     stay: (e) => {
