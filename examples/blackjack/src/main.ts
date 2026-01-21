@@ -206,6 +206,7 @@ function handlePickCard(world: World) {
       world.addComponent(facedDown, Graphic, { image: Deck["back"] });
       return;
     }
+    if (Game.status == GAME_STATUSES.PLAY) return;
     const t = world.getComponent(graphics[faceDownIndex], Transform);
     const g = world.getComponent(graphics[faceDownIndex], Graphic);
     let clicked = false;
