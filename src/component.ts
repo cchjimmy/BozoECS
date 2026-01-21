@@ -15,7 +15,10 @@ export class ComponentManager {
   }
 
   getMask<T extends object>(component: T): number {
-    return this.maskMap.get(component) ?? -1;
+    const mask = this.maskMap.get(component);
+    if (mask != undefined) return mask;
+    this.register(component);
+    return this.maskMap.get(component) as number;
   }
 
   add<T extends object>(entity: entityT, component: T): T {

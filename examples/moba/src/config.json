@@ -10,7 +10,7 @@
     },
     "minion": {
       "healthPoint": 15,
-      "spawnRate": 2
+      "spawnRate": 1
     },
     "turrent": {
       "healthPoint": 100,

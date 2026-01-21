@@ -4,25 +4,25 @@ import { World } from "bozoecs";
 const Transform = { x: 0, y: 0, rad: 0, scaleX: 0, scaleY: 0 };
 const Velocity = { x: 0, y: 0 };
 const Rect = { width: 10, height: 10 };
-const Camera = { zoom: 4 };
+const Camera = { zoom: 2 };
 const IsPlayer = {};
 
 // singletons
-const Ctx2D = setUpCanvas2D();
+const CtxGl = setUpCanvasGl();
 const Pointer = setUpPointer();
 const Keys = setUpKeyboard();
-const Assets: HTMLImageElement[] = [];
 const Time = setUpTime();
+const Assets: unknown[] = [];
 
-function setUpCanvas2D(): {
+function setUpCanvasGl(): {
   canvas: HTMLCanvasElement;
-  ctx: CanvasRenderingContext2D;
+  ctx: WebGLRenderingContext;
 } {
   const canvas =
     document.querySelector("canvas") ?? document.createElement("canvas");
   if (!canvas) throw new Error("Cannot create canvas element.");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Cannot initialize context 2d.");
+  const ctx = canvas.getContext("webgl");
+  if (!ctx) throw new Error("Cannot initialize webgl.");
 
   document.body.appendChild(canvas);
 
@@ -118,65 +118,57 @@ function timeUpdate(time: { dtMilli: number; timeMilli: number }) {
 }
 
 // systems
-function handleDrawing(world: World) {
-  const oldF = Ctx2D.ctx.fillStyle;
-
-  Ctx2D.ctx.fillStyle = "white";
-  Ctx2D.ctx.beginPath();
-  world.query({ and: [Transform, Rect] }).forEach((e) => {
-    const t = world.getComponent(e, Transform);
-    const r = world.getComponent(e, Rect);
-    Ctx2D.ctx.rect(
-      t.x - r.width * 0.5,
-      t.y - r.height * 0.5,
-      r.width,
-      r.height,
-    );
-  });
-  Ctx2D.ctx.fill();
-
-  Ctx2D.ctx.transform(1, 0, 0, -1, 0, 0);
-  Ctx2D.ctx.drawImage(Assets[0], 0, 0, 10, 10, 0, 0, 10, 10);
-  Ctx2D.ctx.transform(1, 0, 0, -1, 0, 0);
-
-  Ctx2D.ctx.fillStyle = oldF;
-}
-
-function handleInput(world: World) {
-  world.query({ and: [Velocity, IsPlayer] }).forEach((e) => {
-    const v = world.getComponent(e, Velocity);
-    v.x = +!!Keys.isDown["d"] - +!!Keys.isDown["a"];
-    v.y = +!!Keys.isDown["w"] - +!!Keys.isDown["s"];
-    const speed = 100;
-    ((v.x *= speed), (v.y *= speed));
-
-    Pointer.justPressed && console.log("action");
-  });
-}
-
-function handleMovement(world: World) {
-  world.query({ and: [Transform, Velocity] }).forEach((e) => {
-    const t = world.getComponent(e, Transform);
-    const v = world.getComponent(e, Velocity);
-    t.x += (v.x * Time.dtMilli) / 1000;
-    t.y += (v.y * Time.dtMilli) / 1000;
-  });
-}
-
-function handleCamera(world: World) {
-  world.query({ and: [Transform, Camera] }).forEach((e) => {
-    const t = world.getComponent(e, Transform);
-    const c = world.getComponent(e, Camera);
-    Ctx2D.ctx.setTransform(
-      c.zoom,
-      0,
-      0,
-      -c.zoom,
-      -t.x * c.zoom + Ctx2D.canvas.width * 0.5,
-      t.y * c.zoom + Ctx2D.canvas.height * 0.5,
-    );
-  });
-}
+// function handleDrawRect(world: World) {
+//   Ctx2D.ctx.fillStyle = "white";
+//   Ctx2D.ctx.beginPath();
+//   world.query({ and: [Transform, Rect] }).forEach((e) => {
+//     const t = world.getComponent(e, Transform);
+//     const r = world.getComponent(e, Rect);
+//     Ctx2D.ctx.rect(
+//       t.x - r.width * 0.5,
+//       t.y - r.height * 0.5,
+//       r.width,
+//       r.height,
+//     );
+//   });
+//   Ctx2D.ctx.fill();
+// }
+function handleDrawImage(world: World) {}
+// function handleInput(world: World) {
+//   world.query({ and: [Velocity, IsPlayer] }).forEach((e) => {
+//     const v = world.getComponent(e, Velocity);
+//     v.x = +!!Keys.isDown["d"] - +!!Keys.isDown["a"];
+//     v.y = +!!Keys.isDown["w"] - +!!Keys.isDown["s"];
+//     const speed = 100;
+//     ((v.x *= speed), (v.y *= speed));
+//
+//     Pointer.justPressed && console.log("action");
+//   });
+// }
+//
+// function handleMovement(world: World) {
+//   world.query({ and: [Transform, Velocity] }).forEach((e) => {
+//     const t = world.getComponent(e, Transform);
+//     const v = world.getComponent(e, Velocity);
+//     t.x += (v.x * Time.dtMilli) / 1000;
+//     t.y += (v.y * Time.dtMilli) / 1000;
+//   });
+// }
+//
+// function handleCamera(world: World) {
+//   world.query({ and: [Transform, Camera] }).forEach((e) => {
+//     const t = world.getComponent(e, Transform);
+//     const c = world.getComponent(e, Camera);
+//     Ctx2D.ctx.setTransform(
+//       c.zoom,
+//       0,
+//       0,
+//       -c.zoom,
+//       -t.x * c.zoom + Ctx2D.canvas.width * 0.5,
+//       t.y * c.zoom + Ctx2D.canvas.height * 0.5,
+//     );
+//   });
+// }
 
 // entities
 function addRect(
@@ -201,30 +193,41 @@ function addPlayer(world: World) {
   world.addComponent(player, Velocity);
   world.addComponent(player, IsPlayer);
   world.addComponent(player, Camera);
+  world.addComponent(player, Rect);
   return player;
 }
 
-// initialization
-Ctx2D.canvas.style.imageRendering = "pixelated";
-Ctx2D.ctx.imageSmoothingEnabled = false;
+// utils
+function loadTexture(
+  src: string,
+  gl: WebGLRenderingContext = CtxGl.ctx,
+): WebGLTexture {
+  const texture = gl.createTexture();
+  const img = new Image();
+  img.src = src;
+  img.onload = () => {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  };
+  return texture;
+}
 
-const atlas = new Image();
-atlas.src = "./assets/roguelike_atlas.png";
+// initialization
+const atlas = loadTexture("./assets/roguelike_atlas.png");
 Assets.push(atlas);
 
 const game = new World();
-addPlayer(game);
-addRect(game, 10, 10);
-addRect(game, -10, -10);
 
 (function loop() {
-  const oldF = Ctx2D.ctx.fillStyle;
-  Ctx2D.ctx.fillStyle = "blue";
-  Ctx2D.ctx.resetTransform();
-  Ctx2D.ctx.fillRect(0, 0, Ctx2D.canvas.width, Ctx2D.canvas.height);
-  Ctx2D.ctx.fillStyle = oldF;
-
-  game.update(handleCamera, handleDrawing, handleInput, handleMovement);
+  CtxGl.ctx.clearColor(0, 0, 1, 1);
+  CtxGl.ctx.clear(CtxGl.ctx.COLOR_BUFFER_BIT);
+  game.update(
+    //   handleCamera,
+    //   handleDrawRect,
+    handleDrawImage,
+    //   handleInput,
+    //   handleMovement,
+  );
   pointerUpdate(Pointer);
   keysUpdate(Keys);
   timeUpdate(Time);
