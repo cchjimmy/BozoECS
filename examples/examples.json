@@ -38,5 +38,15 @@
       "mobile": true
     },
     "developers": ["cchjimmy"]
+  },
+  {
+    "name": "blackjack",
+    "url": "./blackjack",
+    "desc": "Singleplayer blackjack.",
+    "supports": {
+      "desktop": true,
+      "mobile": true
+    },
+    "developers": ["cchjimmy"]
   }
 ]
