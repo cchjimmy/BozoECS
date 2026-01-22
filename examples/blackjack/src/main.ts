@@ -730,16 +730,6 @@ resetGame(game);
 
     gameTextComp.content = `Credits: ${Game.credits}\nBet: ${Game.bet}\n${StatusStrings[Game.status]}`;
 
-    for (const e of game.query({ and: [Button, Text] })) {
-      const b = game.getComponent(e, Button);
-      const t = game.getComponent(e, Text);
-      let outStr = "";
-      for (const prop in b) {
-        outStr += `${prop}: ${b[prop as keyof typeof b]}; `;
-      }
-      gameTextComp.content += `${t.content}: ${outStr}\n`;
-    }
-
     drawDownedPointers();
 
     // drawing
