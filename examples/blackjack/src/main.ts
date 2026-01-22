@@ -22,68 +22,46 @@ function updateTime(time: {
 }
 function setUpPointers() {
   const pointers: {
-    x: number;
-    y: number;
-    isDown: boolean;
-    justPressed: boolean;
-    justReleased: boolean;
-  }[] = [];
+    x: number[];
+    y: number[];
+    isDown: boolean[];
+    justPressed: boolean[];
+    justReleased: boolean[];
+  } = {
+    x: [],
+    y: [],
+    isDown: [],
+    justPressed: [],
+    justReleased: [],
+  };
   globalThis.onpointerup = (e) => {
-    e.preventDefault();
     const id = e.pointerId;
-    pointers[id] ??= {
-      x: e.x,
-      y: e.y,
-      isDown: false,
-      justPressed: false,
-      justReleased: false,
-    };
-    pointers[id].x = e.x;
-    pointers[id].y = e.y;
-    pointers[id].isDown = false;
-    pointers[id].justReleased = true;
+    pointers.x[id] = e.x;
+    pointers.y[id] = e.y;
+    pointers.isDown[id] = false;
+    pointers.justReleased[id] = true;
   };
   globalThis.onpointerdown = (e) => {
-    e.preventDefault();
     const id = e.pointerId;
-    pointers[id] ??= {
-      x: e.x,
-      y: e.y,
-      isDown: false,
-      justPressed: false,
-      justReleased: false,
-    };
-    pointers[id].x = e.x;
-    pointers[id].y = e.y;
-    pointers[id].isDown = true;
-    pointers[id].justPressed = true;
+    pointers.x[id] = e.x;
+    pointers.y[id] = e.y;
+    pointers.isDown[id] = true;
+    pointers.justPressed[id] = true;
   };
   globalThis.onpointermove = (e) => {
-    e.preventDefault();
     const id = e.pointerId;
-    pointers[id] ??= {
-      x: e.x,
-      y: e.y,
-      isDown: false,
-      justPressed: false,
-      justReleased: false,
-    };
-    pointers[id].x = e.x;
-    pointers[id].y = e.y;
+    pointers.x[id] = e.x;
+    pointers.y[id] = e.y;
   };
   return pointers;
 }
-function updatePointers(
-  pointers: {
-    justPressed: boolean;
-    justReleased: boolean;
-  }[],
-) {
-  for (let i = 0, l = pointers.length; i < l; i++) {
-    pointers[i].justPressed = false;
-  }
-  for (let i = 0, l = pointers.length; i < l; i++) {
-    pointers[i].justReleased = false;
+function updatePointers(pointers: {
+  justPressed: boolean[];
+  justReleased: boolean[];
+}) {
+  for (let i = 0, l = pointers.justPressed.length; i < l; i++) {
+    pointers.justPressed[i] = false;
+    pointers.justReleased[i] = false;
   }
 }
 function setUpCanvas() {
@@ -110,9 +88,9 @@ function screen2World(x: number, y: number) {
 function drawDownedPointers() {
   Ctx2d.ctx.fillStyle = "orange";
   Ctx2d.ctx.beginPath();
-  for (let i = 0, l = Pointers.length; i < l; i++) {
-    if (!Pointers[i].isDown) continue;
-    const worldPos = screen2World(Pointers[i].x, Pointers[i].y);
+  for (let i = 0, l = Pointers.isDown.length; i < l; i++) {
+    if (!Pointers.isDown[i]) continue;
+    const worldPos = screen2World(Pointers.x[i], Pointers.y[i]);
     Ctx2d.ctx.rect(worldPos.x, worldPos.y, 10, 10);
   }
   Ctx2d.ctx.fill();
@@ -227,8 +205,8 @@ function handlePickCard(world: World) {
     const t = world.getComponent(graphics[faceDownIndex], Transform);
     const g = world.getComponent(graphics[faceDownIndex], Graphic);
     let clicked = false;
-    for (let i = 0, l = Pointers.length; i < l; i++) {
-      const worldPos = screen2World(Pointers[i].x, Pointers[i].y);
+    for (let i = 0, l = Pointers.x.length; i < l; i++) {
+      const worldPos = screen2World(Pointers.x[i], Pointers.y[i]);
       if (
         !isPointInRect(
           worldPos.x,
@@ -240,7 +218,7 @@ function handlePickCard(world: World) {
         )
       )
         continue;
-      clicked = Pointers[i].justPressed;
+      clicked = Pointers.justPressed[i];
       if (!clicked) continue;
       break;
     }
@@ -335,9 +313,10 @@ function handleButtons(world: World) {
     const b = world.getComponent(e, Button);
     const t = world.getComponent(e, Transform);
     const r = world.getComponent(e, Rect);
-    for (let i = 0, l = Pointers.length; i < l; i++) {
-      const worldPos = screen2World(Pointers[i].x, Pointers[i].y);
-      b.hovered = isPointInRect(
+    b.hovered = b.justPressed = b.justReleased = false;
+    for (let i = 0, l = Pointers.x.length; i < l; i++) {
+      const worldPos = screen2World(Pointers.x[i], Pointers.y[i]);
+      b.hovered ||= isPointInRect(
         worldPos.x,
         worldPos.y,
         t.x,
@@ -345,8 +324,8 @@ function handleButtons(world: World) {
         r.w * t.scaleX,
         r.h * t.scaleY,
       );
-      b.justPressed = b.hovered && Pointers[i].justPressed;
-      b.justReleased = b.hovered && Pointers[i].justReleased;
+      b.justPressed ||= b.hovered && Pointers.justPressed[i];
+      b.justReleased ||= b.hovered && Pointers.justReleased[i];
     }
   }
 }
@@ -587,8 +566,8 @@ function setUpButtons(world: World) {
   const eC = world.addComponent(buttonContainer, EntityContainer, {
     entities: [],
   });
-  for (let i = 0, l = names.length; i < l; i++) {
-    eC.entities.push(addButton(world, names[i], 0, 0, h, w, buttons[names[i]]));
+  for (const name in buttons) {
+    eC.entities.push(addButton(world, name, 0, 0, h, w, buttons[name]));
   }
 }
 function addButton(
@@ -750,6 +729,16 @@ resetGame(game);
     Ctx2d.ctx.fillRect(0, 0, Ctx2d.canvas.width, Ctx2d.canvas.height);
 
     gameTextComp.content = `Credits: ${Game.credits}\nBet: ${Game.bet}\n${StatusStrings[Game.status]}`;
+
+    for (const e of game.query({ and: [Button, Text] })) {
+      const b = game.getComponent(e, Button);
+      const t = game.getComponent(e, Text);
+      let outStr = "";
+      for (const prop in b) {
+        outStr += `${prop}: ${b[prop as keyof typeof b]}; `;
+      }
+      gameTextComp.content += `${t.content}: ${outStr}\n`;
+    }
 
     drawDownedPointers();
 
