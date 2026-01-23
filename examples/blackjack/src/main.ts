@@ -253,8 +253,8 @@ async function handleDealer(world: World) {
   setButtonsActivation(world, true);
   Game.status = checkWin(world);
   calculateCredits();
-  if (Game.credits < Game.minBet) {
-    Game.status = GAME_STATUSES.GAMEOVER;
+  if (Game.credits <= 0) {
+    Game.status = GAME_STATUSES.GAME_OVER;
   }
 }
 function checkWin(world: World) {
@@ -263,7 +263,7 @@ function checkWin(world: World) {
   const dealersHand = 1;
   const playersVal = calcHandValue(world, split[playersHand]);
   const dealersVal = calcHandValue(world, split[dealersHand]);
-  if (Game.credits < Game.minBet) return GAME_STATUSES.GAMEOVER;
+  if (Game.credits <= 0) return GAME_STATUSES.GAME_OVER;
   if (playersVal > Game.targetVal) return GAME_STATUSES.BUSTED;
   if (dealersVal == 0 || playersVal == 0) return GAME_STATUSES.PLAY;
   if (playersVal == Game.targetVal && dealersVal != Game.targetVal)
@@ -551,7 +551,7 @@ function setUpButtons(world: World) {
       const b = world.getComponent(e, Button);
       b.enabled =
         Game.status != GAME_STATUSES.PLAY &&
-        Game.status != GAME_STATUSES.GAMEOVER;
+        Game.status != GAME_STATUSES.GAME_OVER;
       colourChange(b, world.getComponent(e, Colour));
       if (b.justReleased) {
         Game.bet /= 2;
@@ -563,7 +563,7 @@ function setUpButtons(world: World) {
       const b = world.getComponent(e, Button);
       b.enabled =
         Game.status != GAME_STATUSES.PLAY &&
-        Game.status != GAME_STATUSES.GAMEOVER;
+        Game.status != GAME_STATUSES.GAME_OVER;
       colourChange(b, world.getComponent(e, Colour));
       if (b.justReleased) {
         Game.bet *= 2;
@@ -574,7 +574,7 @@ function setUpButtons(world: World) {
       const b = world.getComponent(e, Button);
       colourChange(b, world.getComponent(e, Colour));
       if (b.justReleased) {
-        if (Game.status == GAME_STATUSES.GAMEOVER) {
+        if (Game.status == GAME_STATUSES.GAME_OVER) {
           onGameOver();
           resetGame(world);
         }
@@ -586,8 +586,8 @@ function setUpButtons(world: World) {
           Game.status = GAME_STATUSES.BUSTED;
           calculateCredits();
         }
-        if (Game.credits < Game.minBet) {
-          Game.status = GAME_STATUSES.GAMEOVER;
+        if (Game.credits <= 0) {
+          Game.status = GAME_STATUSES.GAME_OVER;
         }
       }
     },
@@ -721,7 +721,7 @@ const enum GAME_STATUSES {
   DRAW,
   LOSE,
   WIN,
-  GAMEOVER,
+  GAME_OVER,
 }
 const Game = {
   width: 900,
@@ -747,7 +747,7 @@ const StatusStrings: Record<GAME_STATUSES, string> = {
   [GAME_STATUSES.DRAW]: "Draw",
   [GAME_STATUSES.LOSE]: "Lose",
   [GAME_STATUSES.WIN]: "Win",
-  [GAME_STATUSES.GAMEOVER]: "Game over",
+  [GAME_STATUSES.GAME_OVER]: "Game Over",
 };
 
 Ctx2d.canvas.width = Game.width;
