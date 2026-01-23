@@ -85,16 +85,6 @@ function screen2World(x: number, y: number) {
     y: (y - clientRect.top) / ratio,
   };
 }
-function drawDownedPointers() {
-  Ctx2d.ctx.fillStyle = "orange";
-  Ctx2d.ctx.beginPath();
-  for (let i = 0, l = Pointers.isDown.length; i < l; i++) {
-    if (!Pointers.isDown[i]) continue;
-    const worldPos = screen2World(Pointers.x[i], Pointers.y[i]);
-    Ctx2d.ctx.rect(worldPos.x, worldPos.y, 10, 10);
-  }
-  Ctx2d.ctx.fill();
-}
 function isPointInRect(
   px: number,
   py: number,
@@ -109,41 +99,35 @@ function isPointInRect(
 function sleep(seconds: number) {
   return new Promise((res) => setTimeout(res, seconds * 1000));
 }
-
-// systems
-function handleCard2Img(world: World) {
-  for (const e of world.query({ and: [Card, Graphic] })) {
+function calcHandValue(
+  world: World,
+  hand: entityT[] = [],
+  target: number = 21,
+) {
+  let value = 0;
+  const vals: number[][] = [];
+  const indices: number[] = [];
+  for (const e of hand) {
     const c = world.getComponent(e, Card);
-    const g = world.getComponent(e, Graphic);
-    g.image = Deck[c.value];
-    if (!world.hasComponent(e, InHand)) {
-      g.image = Deck["back"];
-    } else if (!world.getComponent(e, InHand).isRevealed) {
-      g.image = Deck["back"];
+    const values = CardValues[c.value].sort();
+    vals.push(values);
+    indices.push(values.length - 1);
+    value += values[values.length - 1];
+  }
+  let exhausted = false;
+  while (value > target && !exhausted) {
+    let indexSum = 0;
+    for (let i = 0, l = indices.length; i < l; i++) {
+      if (indices[i] == 0) continue;
+      indexSum += indices[i];
+      value -= vals[i][indices[i]];
+      indices[i]--;
+      value += vals[i][indices[i]];
+      if (value <= target) break;
     }
+    exhausted = indexSum == 0;
   }
-}
-function handleDrawImages(world: World) {
-  for (const e of world.query({ and: [Transform, Graphic] })) {
-    const t = world.getComponent(e, Transform);
-    const g = world.getComponent(e, Graphic);
-    const c = Math.cos(t.rad);
-    const s = Math.sin(t.rad);
-    Ctx2d.ctx.transform(c, s, -s, c, t.x, t.y);
-    Ctx2d.ctx.transform(t.scaleX, 0, 0, t.scaleY, 0, 0);
-    Ctx2d.ctx.drawImage(g.image, 0, 0);
-    Ctx2d.ctx.transform(1 / t.scaleX, 0, 0, 1 / t.scaleY, 0, 0);
-    Ctx2d.ctx.transform(c, -s, s, c, c * -t.x + s * -t.y, -s * -t.x + c * -t.y);
-  }
-}
-function handleCamera(world: World) {
-  for (const e of world.query({ and: [Transform, Camera2D] })) {
-    const t = world.getComponent(e, Transform);
-    const cam = world.getComponent(e, Camera2D);
-    const c = Math.cos(t.rad) * cam.zoom;
-    const s = Math.sin(t.rad) * cam.zoom;
-    Ctx2d.ctx.setTransform(c, s, -s, c, t.x, t.y);
-  }
+  return value;
 }
 function pickACard(world: World, forPlayer = true, revealed = true) {
   let playersHand: entityT[] | undefined;
@@ -195,12 +179,144 @@ async function pickCard(world: World, forPlayer = true) {
     setButtonsActivation(world, false);
     for (let i = 0; i < 4; i++) {
       pickACard(world, i % 2 != 0, i != 2);
-      await sleep(1);
+      await sleep(0.2);
     }
     setButtonsActivation(world, true);
     return;
   }
   pickACard(world, forPlayer);
+}
+function resetGame(world: World) {
+  resetCards(world);
+  Game.credits = 100;
+  Game.minBet = 10;
+  Game.bet = Game.minBet;
+  Game.status = GAME_STATUSES.PLAY;
+  Game.rounds = 0;
+  Game.best = parseInt(localStorage.getItem("best_blackjack") ?? "0");
+}
+function calculateCredits() {
+  switch (Game.status) {
+    case GAME_STATUSES.BLACKJACK:
+      // 3:2 ratio
+      Game.credits += Math.floor((Game.bet / 2) * 3);
+      break;
+    case GAME_STATUSES.LOSE:
+    case GAME_STATUSES.BUSTED:
+      Game.credits -= Game.bet;
+      break;
+    case GAME_STATUSES.WIN:
+      Game.credits += Game.bet;
+      break;
+    case GAME_STATUSES.PLAY:
+    case GAME_STATUSES.DRAW:
+  }
+}
+function resumeGame(world: World) {
+  resetCards(world);
+  Game.status = GAME_STATUSES.PLAY;
+  Game.rounds++;
+  if (Game.rounds % Game.roundsTilBetIncrease == 0) {
+    Game.minBet **= Game.betIncreaseExponent;
+    Game.minBet = Math.ceil(Game.minBet);
+  }
+  Game.bet = Math.max(Game.minBet, Game.bet);
+}
+function resetCards(world: World) {
+  for (const e of world.query({ and: [InHand] })) {
+    world.removeComponent(e, InHand);
+    world.addComponent(e, MovementTarget, { x: Game.deckX, y: Game.deckY });
+  }
+  for (const e of world.query({ and: [Transform, EntityContainer] })) {
+    const t = world.getComponent(e, Transform);
+    const eC = world.getComponent(e, EntityContainer);
+    if (t.y == 0 || t.y == Ctx2d.canvas.height - CardSpec.height) {
+      eC.entities.length = 0;
+    }
+  }
+}
+async function handleDealer(world: World) {
+  const dealersHand = 1;
+  const split = splitHand(world);
+  setButtonsActivation(world, false);
+  if (split[dealersHand].length == 2) {
+    world.getComponent(split[dealersHand][1], InHand).isRevealed = true;
+    await sleep(1);
+  }
+  let value = calcHandValue(world, split[dealersHand]);
+  while (value <= Game.dealerHitThreashold) {
+    pickCard(world, false);
+    const split = splitHand(world);
+    value = calcHandValue(world, split[dealersHand]);
+    await sleep(1);
+  }
+  setButtonsActivation(world, true);
+  Game.status = checkWin(world);
+  calculateCredits();
+  if (Game.credits < Game.minBet) {
+    Game.status = GAME_STATUSES.GAMEOVER;
+  }
+}
+function checkWin(world: World) {
+  const split = splitHand(world);
+  const playersHand = 0;
+  const dealersHand = 1;
+  const playersVal = calcHandValue(world, split[playersHand]);
+  const dealersVal = calcHandValue(world, split[dealersHand]);
+  if (Game.credits < Game.minBet) return GAME_STATUSES.GAMEOVER;
+  if (playersVal > Game.targetVal) return GAME_STATUSES.BUSTED;
+  if (dealersVal == 0 || playersVal == 0) return GAME_STATUSES.PLAY;
+  if (playersVal == Game.targetVal && dealersVal != Game.targetVal)
+    return GAME_STATUSES.BLACKJACK;
+  if (playersVal == dealersVal) return GAME_STATUSES.DRAW;
+  if (dealersVal > playersVal && dealersVal <= Game.targetVal)
+    return GAME_STATUSES.LOSE;
+  if (
+    (playersVal > dealersVal && playersVal <= Game.targetVal) ||
+    dealersVal > Game.targetVal
+  )
+    return GAME_STATUSES.WIN;
+  return GAME_STATUSES.PLAY;
+}
+function onGameOver() {
+  Game.best = Game.best > Game.rounds ? Game.best : Game.rounds;
+  localStorage.setItem("best_blackjack", Game.best.toString());
+}
+
+// systems
+function handleCard2Img(world: World) {
+  for (const e of world.query({ and: [Card, Graphic] })) {
+    const c = world.getComponent(e, Card);
+    const g = world.getComponent(e, Graphic);
+    g.image = Deck[c.value];
+    if (!world.hasComponent(e, InHand)) {
+      g.image = Deck["back"];
+    } else if (!world.getComponent(e, InHand).isRevealed) {
+      g.image = Deck["back"];
+    }
+  }
+}
+function handleDrawImages(world: World) {
+  for (const e of world.query({ and: [Transform, Graphic] })) {
+    const t = world.getComponent(e, Transform);
+    const g = world.getComponent(e, Graphic);
+    const c = Math.cos(t.rad);
+    const s = Math.sin(t.rad);
+    Ctx2d.ctx.transform(c, s, -s, c, t.x, t.y);
+    Ctx2d.ctx.transform(t.scaleX, 0, 0, t.scaleY, 0, 0);
+    Ctx2d.ctx.drawImage(g.image, 0, 0);
+    Ctx2d.ctx.transform(1 / t.scaleX, 0, 0, 1 / t.scaleY, 0, 0);
+    Ctx2d.ctx.transform(c, -s, s, c, c * -t.x + s * -t.y, -s * -t.x + c * -t.y);
+  }
+}
+function handleCamera(world: World) {
+  for (const e of world.query({ and: [Transform, Camera2D] })) {
+    const t = world.getComponent(e, Transform);
+    const cam = world.getComponent(e, Camera2D);
+    const c = Math.cos(t.rad) * cam.zoom;
+    const s = Math.sin(t.rad) * cam.zoom;
+    Ctx2d.ctx.setTransform(c, s, -s, c, t.x, t.y);
+  }
 }
 function handlePickCard(world: World) {
   const deck = world.query({ and: [Card], not: [InHand] });
@@ -254,90 +370,13 @@ function handleCardVisibility(world: World) {
     world.removeComponent(e, Graphic);
   }
 }
-function resetCards(world: World) {
-  for (const e of world.query({ and: [InHand] })) {
-    world.removeComponent(e, InHand);
-    world.addComponent(e, MovementTarget, { x: Game.deckX, y: Game.deckY });
-  }
-  for (const e of world.query({ and: [Transform, EntityContainer] })) {
-    const t = world.getComponent(e, Transform);
-    const eC = world.getComponent(e, EntityContainer);
-    if (t.y == 0 || t.y == Ctx2d.canvas.height - CardSpec.height) {
-      eC.entities.length = 0;
-    }
-  }
-}
-function resetGame(world: World) {
-  resetCards(world);
-  Game.credits = 100;
-  Game.bet = Game.minBet;
-  Game.status = GAME_STATUSES.PLAY;
-}
-function calculateCredits() {
-  switch (Game.status) {
-    case GAME_STATUSES.BLACKJACK:
-      // 3:2 ratio
-      Game.credits += Math.floor((Game.bet / 2) * 3);
-      break;
-    case GAME_STATUSES.LOSE:
-    case GAME_STATUSES.BUSTED:
-      Game.credits -= Game.bet;
-      break;
-    case GAME_STATUSES.WIN:
-      Game.credits += Game.bet;
-      break;
-    case GAME_STATUSES.PLAY:
-    case GAME_STATUSES.DRAW:
-  }
-  Game.bet = Math.min(Game.bet, Game.credits);
-}
-function resumeGame(world: World) {
-  resetCards(world);
-  Game.status = GAME_STATUSES.PLAY;
-}
-function calcHandValue(
-  world: World,
-  hand: entityT[] = [],
-  target: number = 21,
-) {
-  let value = 0;
-  const vals: number[][] = [];
-  const indices: number[] = [];
-  for (const e of hand) {
-    const c = world.getComponent(e, Card);
-    const values = CardValues[c.value].sort();
-    vals.push(values);
-    indices.push(values.length - 1);
-    value += values[values.length - 1];
-  }
-  let exhausted = false;
-  while (value > target && !exhausted) {
-    let indexSum = 0;
-    for (let i = 0, l = indices.length; i < l; i++) {
-      if (indices[i] == 0) continue;
-      indexSum += indices[i];
-      value -= vals[i][indices[i]];
-      indices[i]--;
-      value += vals[i][indices[i]];
-      if (value <= target) break;
-    }
-    exhausted = indexSum == 0;
-  }
-  return value;
-}
 function handleButtons(world: World) {
-  for (const e of world.query({ and: [Button, Transform, Rect, Colour] })) {
+  for (const e of world.query({ and: [Button, Transform, Rect] })) {
     const b = world.getComponent(e, Button);
     const t = world.getComponent(e, Transform);
     const r = world.getComponent(e, Rect);
-    const c = world.getComponent(e, Colour);
     b.hovered = b.justPressed = b.justReleased = false;
-    if (!b.enabled) {
-      c.fill = "#00000020";
-      continue;
-    } else {
-      c.fill = "#00000069";
-    }
+    if (!b.enabled) continue;
     for (let i = 0, l = Pointers.x.length; i < l; i++) {
       const worldPos = screen2World(Pointers.x[i], Pointers.y[i]);
       b.hovered ||= isPointInRect(
@@ -412,45 +451,6 @@ function handleDrawText(world: World) {
     }
   }
 }
-async function handleDealer(world: World) {
-  const dealersHand = 1;
-  const split = splitHand(world);
-  setButtonsActivation(world, false);
-  if (split[dealersHand].length == 2) {
-    world.getComponent(split[dealersHand][1], InHand).isRevealed = true;
-    await sleep(2);
-  }
-  let value = calcHandValue(world, split[dealersHand]);
-  while (value <= Game.dealerHitThreashold) {
-    pickCard(world, false);
-    const split = splitHand(world);
-    value = calcHandValue(world, split[dealersHand]);
-    await sleep(2);
-  }
-  setButtonsActivation(world, true);
-  Game.status = checkWin(world);
-  calculateCredits();
-}
-function checkWin(world: World) {
-  const split = splitHand(world);
-  const playersHand = 0;
-  const dealersHand = 1;
-  const playersVal = calcHandValue(world, split[playersHand]);
-  const dealersVal = calcHandValue(world, split[dealersHand]);
-  if (playersVal > Game.targetVal) return GAME_STATUSES.BUSTED;
-  if (dealersVal == 0 || playersVal == 0) return GAME_STATUSES.PLAY;
-  if (playersVal == Game.targetVal && dealersVal != Game.targetVal)
-    return GAME_STATUSES.BLACKJACK;
-  if (playersVal == dealersVal) return GAME_STATUSES.DRAW;
-  if (dealersVal > playersVal && dealersVal <= Game.targetVal)
-    return GAME_STATUSES.LOSE;
-  if (
-    (playersVal > dealersVal && playersVal <= Game.targetVal) ||
-    dealersVal > Game.targetVal
-  )
-    return GAME_STATUSES.WIN;
-  return GAME_STATUSES.PLAY;
-}
 function handleContainers(world: World) {
   for (const e of world.query({
     and: [Transform, HorizontalContainer, EntityContainer],
@@ -458,6 +458,7 @@ function handleContainers(world: World) {
     const t = world.getComponent(e, Transform);
     const hC = world.getComponent(e, HorizontalContainer);
     const eC = world.getComponent(e, EntityContainer);
+    // Ctx2d.ctx.fillRect(t.x, t.y, hC.width * t.scaleX, 1);
     const padX = hC.padding * t.scaleX;
     const padY = hC.padding * t.scaleY;
     const width = (hC.width - padX * 2) * t.scaleX;
@@ -542,10 +543,16 @@ function setUpCardContainers(world: World) {
   world.addComponent(dealerContainer, EntityContainer, { entities: [] });
 }
 function setUpButtons(world: World) {
+  function colourChange(b: typeof Button, c: typeof Colour) {
+    c.fill = b.enabled ? "#00000069" : "#00000020";
+  }
   const buttons: { [name: string]: (_: entityT) => void } = {
     "bet /2": (e) => {
       const b = world.getComponent(e, Button);
-      b.enabled = !(Game.status == GAME_STATUSES.PLAY);
+      b.enabled =
+        Game.status != GAME_STATUSES.PLAY &&
+        Game.status != GAME_STATUSES.GAMEOVER;
+      colourChange(b, world.getComponent(e, Colour));
       if (b.justReleased) {
         Game.bet /= 2;
         Game.bet = Math.round(Game.bet);
@@ -554,23 +561,40 @@ function setUpButtons(world: World) {
     },
     "bet *2": (e) => {
       const b = world.getComponent(e, Button);
-      b.enabled = !(Game.status == GAME_STATUSES.PLAY);
+      b.enabled =
+        Game.status != GAME_STATUSES.PLAY &&
+        Game.status != GAME_STATUSES.GAMEOVER;
+      colourChange(b, world.getComponent(e, Colour));
       if (b.justReleased) {
         Game.bet *= 2;
-        Game.bet = Math.min(Game.bet, Game.credits);
+        Game.bet = Math.max(Math.min(Game.bet, Game.credits), Game.minBet);
       }
     },
     hit: (e) => {
       const b = world.getComponent(e, Button);
+      colourChange(b, world.getComponent(e, Colour));
       if (b.justReleased) {
+        if (Game.status == GAME_STATUSES.GAMEOVER) {
+          onGameOver();
+          resetGame(world);
+        }
         if (Game.status != GAME_STATUSES.PLAY) {
           resumeGame(world);
         }
         pickCard(world);
+        if (checkWin(world) == GAME_STATUSES.BUSTED) {
+          Game.status = GAME_STATUSES.BUSTED;
+          calculateCredits();
+        }
+        if (Game.credits < Game.minBet) {
+          Game.status = GAME_STATUSES.GAMEOVER;
+        }
       }
     },
     stay: (e) => {
       const b = world.getComponent(e, Button);
+      b.enabled &&= Game.status == GAME_STATUSES.PLAY;
+      colourChange(b, world.getComponent(e, Colour));
       if (b.justReleased) {
         const split = splitHand(world);
         const playersHand = 0;
@@ -578,29 +602,24 @@ function setUpButtons(world: World) {
         handleDealer(world);
       }
     },
-    reset: (e) => {
-      const b = world.getComponent(e, Button);
-      if (b.justReleased) {
-        resetGame(world);
-      }
-    },
   };
   const w = 100;
   const h = 100;
+  const leftpadPercent = 0.2;
+  const x = Ctx2d.canvas.width * leftpadPercent;
   const y = Ctx2d.canvas.height / 2 - h / 2;
   const padding = 5;
-  const dx = h + padding;
-  const names = Object.keys(buttons);
-  const width = names.length * dx + padding;
-  const startX = Ctx2d.canvas.width * 0.6 - width / 2;
   const buttonContainer = world.addEntity();
-  world.addComponent(buttonContainer, Transform, { x: startX, y });
-  world.addComponent(buttonContainer, HorizontalContainer, { width, padding });
+  world.addComponent(buttonContainer, Transform, { x, y });
+  world.addComponent(buttonContainer, HorizontalContainer, {
+    width: Ctx2d.canvas.width * (1 - leftpadPercent),
+    padding,
+  });
   const eC = world.addComponent(buttonContainer, EntityContainer, {
     entities: [],
   });
   for (const name in buttons) {
-    eC.entities.push(addButton(world, name, 0, 0, h, w, buttons[name]));
+    eC.entities.push(addButton(world, name, 0, 0, w, h, buttons[name]));
   }
 }
 function addButton(
@@ -617,7 +636,7 @@ function addButton(
   world.addComponent(button, Callback, { callback });
   world.addComponent(button, Rect, { w, h });
   world.addComponent(button, Button);
-  world.addComponent(button, Text, { content: labal, font: "20px sans-serif" });
+  world.addComponent(button, Text, { content: labal, font: "35px sans-serif" });
   world.addComponent(button, Colour, {
     fill: "#00000069",
     stroke: "transparent",
@@ -702,16 +721,21 @@ const enum GAME_STATUSES {
   DRAW,
   LOSE,
   WIN,
+  GAMEOVER,
 }
 const Game = {
   width: 900,
   height: 600,
   deckX: 20,
   deckY: 600 / 2 - 150,
-  cardSpeed: 1800,
+  cardSpeed: 3000,
   credits: 100,
   bet: 0,
   minBet: 10,
+  best: 0,
+  rounds: 0,
+  roundsTilBetIncrease: 5,
+  betIncreaseExponent: 1.1,
   targetVal: 21,
   dealerHitThreashold: 16,
   status: GAME_STATUSES.PLAY,
@@ -723,6 +747,7 @@ const StatusStrings: Record<GAME_STATUSES, string> = {
   [GAME_STATUSES.DRAW]: "Draw",
   [GAME_STATUSES.LOSE]: "Lose",
   [GAME_STATUSES.WIN]: "Win",
+  [GAME_STATUSES.GAMEOVER]: "Game over",
 };
 
 Ctx2d.canvas.width = Game.width;
@@ -755,9 +780,9 @@ resetGame(game);
     Ctx2d.ctx.fillStyle = "#424242";
     Ctx2d.ctx.fillRect(0, 0, Ctx2d.canvas.width, Ctx2d.canvas.height);
 
-    gameTextComp.content = `Credits: ${Game.credits}\nBet: ${Game.bet}\n${StatusStrings[Game.status]}`;
-
-    drawDownedPointers();
+    gameTextComp.content = `Credits: ${Game.credits}\nBet: ${Game.bet}\nRound ${Game.rounds + 1}, Best: ${Game.best + 1}\n${StatusStrings[Game.status]}\n\n\n\n\n\n\n\n\n\n\n\n\n\nNext min bet: ${Math.ceil(Game.minBet ** Game.betIncreaseExponent)}\nRounds until min bet increases: ${
+      Game.roundsTilBetIncrease - (Game.rounds % Game.roundsTilBetIncrease) - 1
+    }`;
 
     // drawing
     game.update(
