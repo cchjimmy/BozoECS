@@ -116,7 +116,11 @@ function handleCard2Img(world: World) {
     const c = world.getComponent(e, Card);
     const g = world.getComponent(e, Graphic);
     g.image = Deck[c.value];
-    !world.hasComponent(e, InHand) && (g.image = Deck["back"]);
+    if (!world.hasComponent(e, InHand)) {
+      g.image = Deck["back"];
+    } else if (!world.getComponent(e, InHand).isRevealed) {
+      g.image = Deck["back"];
+    }
   }
 }
 function handleDrawImages(world: World) {
@@ -141,7 +145,7 @@ function handleCamera(world: World) {
     Ctx2d.ctx.setTransform(c, s, -s, c, t.x, t.y);
   }
 }
-function pickACard(world: World, forPlayer = true) {
+function pickACard(world: World, forPlayer = true, revealed = true) {
   let playersHand: entityT[] | undefined;
   let dealersHand: entityT[] | undefined;
   for (const e of world.query({ and: [Transform, EntityContainer] })) {
@@ -152,8 +156,12 @@ function pickACard(world: World, forPlayer = true) {
   }
   if (!playersHand || !dealersHand) return;
   const deck = world.query({ and: [Card], not: [InHand] });
+  if (deck.length == 0) return;
   const drew = deck[Math.round(Math.random() * (deck.length - 1))];
-  world.addComponent(drew, InHand, { isPlayer: forPlayer });
+  world.addComponent(drew, InHand, {
+    isPlayer: forPlayer,
+    isRevealed: revealed,
+  });
   world.addComponent(drew, Transform, { x: Game.deckX, y: Game.deckY });
   world.addComponent(drew, Graphic);
   if (forPlayer) {
@@ -174,14 +182,23 @@ function splitHand(world: World) {
   }
   return split;
 }
-function pickCard(world: World, forPlayer = true) {
+function setButtonsActivation(world: World, enabled = true) {
+  for (const e of world.query({ and: [Button] })) {
+    world.getComponent(e, Button).enabled = enabled;
+  }
+}
+async function pickCard(world: World, forPlayer = true) {
   const split = splitHand(world);
   const playersHand = 0;
   const dealersHand = 1;
-  const hand = forPlayer ? playersHand : dealersHand;
-  // picks 2 if hand is empty
-  if (split[hand].length == 0) {
-    pickACard(world, forPlayer);
+  if (split[playersHand].length == 0 && split[dealersHand].length == 0) {
+    setButtonsActivation(world, false);
+    for (let i = 0; i < 4; i++) {
+      pickACard(world, i % 2 != 0, i != 2);
+      await sleep(1);
+    }
+    setButtonsActivation(world, true);
+    return;
   }
   pickACard(world, forPlayer);
 }
@@ -309,11 +326,18 @@ function calcHandValue(
   return value;
 }
 function handleButtons(world: World) {
-  for (const e of world.query({ and: [Button, Transform, Rect] })) {
+  for (const e of world.query({ and: [Button, Transform, Rect, Colour] })) {
     const b = world.getComponent(e, Button);
     const t = world.getComponent(e, Transform);
     const r = world.getComponent(e, Rect);
+    const c = world.getComponent(e, Colour);
     b.hovered = b.justPressed = b.justReleased = false;
+    if (!b.enabled) {
+      c.fill = "#00000020";
+      continue;
+    } else {
+      c.fill = "#00000069";
+    }
     for (let i = 0, l = Pointers.x.length; i < l; i++) {
       const worldPos = screen2World(Pointers.x[i], Pointers.y[i]);
       b.hovered ||= isPointInRect(
@@ -335,15 +359,15 @@ function handleCallbacks(world: World) {
   }
 }
 function handleDrawRects(world: World) {
-  Ctx2d.ctx.strokeStyle = "red";
-  Ctx2d.ctx.fillStyle = "#00000050";
-  Ctx2d.ctx.beginPath();
-  for (const e of world.query({ and: [Transform, Rect] })) {
+  for (const e of world.query({ and: [Transform, Rect, Colour] })) {
     const t = world.getComponent(e, Transform);
     const r = world.getComponent(e, Rect);
-    Ctx2d.ctx.rect(t.x, t.y, r.w * t.scaleX, r.h * t.scaleY);
+    const c = world.getComponent(e, Colour);
+    Ctx2d.ctx.fillStyle = c.fill;
+    Ctx2d.ctx.strokeStyle = c.stroke;
+    Ctx2d.ctx.fillRect(t.x, t.y, r.w * t.scaleX, r.h * t.scaleY);
+    Ctx2d.ctx.strokeRect(t.x, t.y, r.w * t.scaleX, r.h * t.scaleY);
   }
-  Ctx2d.ctx.fill();
 }
 function handleMoveTargets(world: World) {
   for (const e of world.query({ and: [Transform, MovementTarget] })) {
@@ -391,13 +415,19 @@ function handleDrawText(world: World) {
 async function handleDealer(world: World) {
   const dealersHand = 1;
   const split = splitHand(world);
+  setButtonsActivation(world, false);
+  if (split[dealersHand].length == 2) {
+    world.getComponent(split[dealersHand][1], InHand).isRevealed = true;
+    await sleep(2);
+  }
   let value = calcHandValue(world, split[dealersHand]);
-  while (value <= 16) {
+  while (value <= Game.dealerHitThreashold) {
     pickCard(world, false);
     const split = splitHand(world);
     value = calcHandValue(world, split[dealersHand]);
     await sleep(2);
   }
+  setButtonsActivation(world, true);
   Game.status = checkWin(world);
   calculateCredits();
 }
@@ -408,7 +438,7 @@ function checkWin(world: World) {
   const playersVal = calcHandValue(world, split[playersHand]);
   const dealersVal = calcHandValue(world, split[dealersHand]);
   if (playersVal > Game.targetVal) return GAME_STATUSES.BUSTED;
-  if (dealersVal == 0) return GAME_STATUSES.PLAY;
+  if (dealersVal == 0 || playersVal == 0) return GAME_STATUSES.PLAY;
   if (playersVal == Game.targetVal && dealersVal != Game.targetVal)
     return GAME_STATUSES.BLACKJACK;
   if (playersVal == dealersVal) return GAME_STATUSES.DRAW;
@@ -475,8 +505,14 @@ const Transform = { x: 0, y: 0, rad: 0, scaleX: 1, scaleY: 1 };
 const Graphic = { image: new Image() };
 const Camera2D = { zoom: 1 };
 const Card: { value: keyof typeof Deck } = { value: "back" };
-const InHand = { isPlayer: true };
-const Button = { hovered: false, justPressed: false, justReleased: false };
+const InHand = { isPlayer: true, isRevealed: true };
+const Button = {
+  hovered: false,
+  justPressed: false,
+  justReleased: false,
+  enabled: true,
+};
+const Colour = { fill: "", stroke: "" };
 const Rect = { w: 10, h: 10 };
 const Callback = { callback: (_: entityT) => {} };
 const MovementTarget = { x: 0, y: 0 };
@@ -509,8 +545,8 @@ function setUpButtons(world: World) {
   const buttons: { [name: string]: (_: entityT) => void } = {
     "bet /2": (e) => {
       const b = world.getComponent(e, Button);
+      b.enabled = !(Game.status == GAME_STATUSES.PLAY);
       if (b.justReleased) {
-        if (Game.status == GAME_STATUSES.PLAY) return;
         Game.bet /= 2;
         Game.bet = Math.round(Game.bet);
         Game.bet = Math.max(Game.minBet, Game.bet);
@@ -518,8 +554,8 @@ function setUpButtons(world: World) {
     },
     "bet *2": (e) => {
       const b = world.getComponent(e, Button);
+      b.enabled = !(Game.status == GAME_STATUSES.PLAY);
       if (b.justReleased) {
-        if (Game.status == GAME_STATUSES.PLAY) return;
         Game.bet *= 2;
         Game.bet = Math.min(Game.bet, Game.credits);
       }
@@ -531,14 +567,11 @@ function setUpButtons(world: World) {
           resumeGame(world);
         }
         pickCard(world);
-        Game.status = checkWin(world);
-        calculateCredits();
       }
     },
     stay: (e) => {
       const b = world.getComponent(e, Button);
       if (b.justReleased) {
-        if (Game.status != GAME_STATUSES.PLAY) return;
         const split = splitHand(world);
         const playersHand = 0;
         if (split[playersHand].length == 0) return;
@@ -585,6 +618,10 @@ function addButton(
   world.addComponent(button, Rect, { w, h });
   world.addComponent(button, Button);
   world.addComponent(button, Text, { content: labal, font: "20px sans-serif" });
+  world.addComponent(button, Colour, {
+    fill: "#00000069",
+    stroke: "transparent",
+  });
   return button;
 }
 function addCard(world: World, value: keyof typeof Deck) {
@@ -666,18 +703,7 @@ const enum GAME_STATUSES {
   LOSE,
   WIN,
 }
-const Game: {
-  width: number;
-  height: number;
-  deckX: number;
-  deckY: number;
-  cardSpeed: number;
-  credits: number;
-  bet: number;
-  minBet: number;
-  targetVal: number;
-  status: GAME_STATUSES;
-} = {
+const Game = {
   width: 900,
   height: 600,
   deckX: 20,
@@ -687,6 +713,7 @@ const Game: {
   bet: 0,
   minBet: 10,
   targetVal: 21,
+  dealerHitThreashold: 16,
   status: GAME_STATUSES.PLAY,
 };
 const StatusStrings: Record<GAME_STATUSES, string> = {
