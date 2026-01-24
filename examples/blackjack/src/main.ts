@@ -141,18 +141,22 @@ function pickACard(world: World, forPlayer = true, revealed = true) {
   if (!playersHand || !dealersHand) return;
   const deck = world.query({ and: [Card], not: [InHand] });
   if (deck.length == 0) return;
-  const drew = deck[Math.round(Math.random() * (deck.length - 1))];
-  world.addComponent(drew, InHand, {
+  const picked = deck[Math.round(Math.random() * (deck.length - 1))];
+  world.addComponent(picked, InHand, {
     isPlayer: forPlayer,
     isRevealed: revealed,
   });
-  world.addComponent(drew, Transform, { x: Game.deckX, y: Game.deckY });
-  world.addComponent(drew, Graphic);
+  const t = world.addComponent(picked, Transform, {
+    x: Game.deckX,
+    y: Game.deckY,
+  });
+  world.addComponent(picked, Graphic);
   if (forPlayer) {
-    playersHand.push(drew);
+    playersHand.push(picked);
   } else {
-    dealersHand.push(drew);
+    dealersHand.push(picked);
   }
+  // flipAnimation(t);
 }
 function splitHand(world: World) {
   const inHandCards = world.query({ and: [InHand] });
@@ -202,7 +206,7 @@ function calculateCredits() {
       Game.credits += Math.floor((Game.bet / 2) * 3);
       break;
     case GAME_STATUSES.LOSE:
-    case GAME_STATUSES.BUSTED:
+    case GAME_STATUSES.BUST:
       Game.credits -= Game.bet;
       break;
     case GAME_STATUSES.WIN:
@@ -264,11 +268,11 @@ function checkWin(world: World) {
   const playersVal = calcHandValue(world, split[playersHand]);
   const dealersVal = calcHandValue(world, split[dealersHand]);
   if (Game.credits <= 0) return GAME_STATUSES.GAME_OVER;
-  if (playersVal > Game.targetVal) return GAME_STATUSES.BUSTED;
-  if (dealersVal == 0 || playersVal == 0) return GAME_STATUSES.PLAY;
-  if (playersVal == Game.targetVal && dealersVal != Game.targetVal)
-    return GAME_STATUSES.BLACKJACK;
+  if (playersVal > Game.targetVal) return GAME_STATUSES.BUST;
   if (playersVal == dealersVal) return GAME_STATUSES.DRAW;
+  if (dealersVal == 0 || playersVal == 0) return GAME_STATUSES.PLAY;
+  if (playersVal == Game.targetVal && split[playersHand].length == 2)
+    return GAME_STATUSES.BLACKJACK;
   if (dealersVal > playersVal && dealersVal <= Game.targetVal)
     return GAME_STATUSES.LOSE;
   if (
@@ -281,6 +285,17 @@ function checkWin(world: World) {
 function onGameOver() {
   Game.best = Game.best > Game.rounds ? Game.best : Game.rounds;
   localStorage.setItem("best_blackjack", Game.best.toString());
+}
+async function flipAnimation(t: typeof Transform, duration = 0.5) {
+  const start = Time.timeSeconds;
+  const originalScaleX = t.scaleX;
+  while (Time.timeSeconds < start + duration) {
+    t.scaleX =
+      (originalScaleX *
+        (Math.cos(((Time.timeSeconds - start) / duration) * Math.PI * 2) + 1)) /
+      2;
+    await sleep(1 / 30); // 30 fps
+  }
 }
 
 // systems
@@ -543,8 +558,9 @@ function setUpCardContainers(world: World) {
   world.addComponent(dealerContainer, EntityContainer, { entities: [] });
 }
 function setUpButtons(world: World) {
-  function colourChange(b: typeof Button, c: typeof Colour) {
+  function buttonStyle(b: typeof Button, c: typeof Colour) {
     c.fill = b.enabled ? "#00000069" : "#00000020";
+    c.stroke = b.hovered ? "white" : "transparent";
   }
   const buttons: { [name: string]: (_: entityT) => void } = {
     "bet /2": (e) => {
@@ -552,7 +568,7 @@ function setUpButtons(world: World) {
       b.enabled =
         Game.status != GAME_STATUSES.PLAY &&
         Game.status != GAME_STATUSES.GAME_OVER;
-      colourChange(b, world.getComponent(e, Colour));
+      buttonStyle(b, world.getComponent(e, Colour));
       if (b.justReleased) {
         Game.bet /= 2;
         Game.bet = Math.round(Game.bet);
@@ -564,7 +580,7 @@ function setUpButtons(world: World) {
       b.enabled =
         Game.status != GAME_STATUSES.PLAY &&
         Game.status != GAME_STATUSES.GAME_OVER;
-      colourChange(b, world.getComponent(e, Colour));
+      buttonStyle(b, world.getComponent(e, Colour));
       if (b.justReleased) {
         Game.bet *= 2;
         Game.bet = Math.max(Math.min(Game.bet, Game.credits), Game.minBet);
@@ -572,7 +588,7 @@ function setUpButtons(world: World) {
     },
     hit: (e) => {
       const b = world.getComponent(e, Button);
-      colourChange(b, world.getComponent(e, Colour));
+      buttonStyle(b, world.getComponent(e, Colour));
       if (b.justReleased) {
         if (Game.status == GAME_STATUSES.GAME_OVER) {
           onGameOver();
@@ -582,8 +598,8 @@ function setUpButtons(world: World) {
           resumeGame(world);
         }
         pickCard(world);
-        if (checkWin(world) == GAME_STATUSES.BUSTED) {
-          Game.status = GAME_STATUSES.BUSTED;
+        if (checkWin(world) == GAME_STATUSES.BUST) {
+          Game.status = GAME_STATUSES.BUST;
           calculateCredits();
         }
         if (Game.credits <= 0) {
@@ -591,10 +607,10 @@ function setUpButtons(world: World) {
         }
       }
     },
-    stay: (e) => {
+    stand: (e) => {
       const b = world.getComponent(e, Button);
       b.enabled &&= Game.status == GAME_STATUSES.PLAY;
-      colourChange(b, world.getComponent(e, Colour));
+      buttonStyle(b, world.getComponent(e, Colour));
       if (b.justReleased) {
         const split = splitHand(world);
         const playersHand = 0;
@@ -717,7 +733,7 @@ const CardValues: Record<keyof typeof Deck, number[]> = {
 const enum GAME_STATUSES {
   PLAY,
   BLACKJACK,
-  BUSTED,
+  BUST,
   DRAW,
   LOSE,
   WIN,
@@ -743,7 +759,7 @@ const Game = {
 const StatusStrings: Record<GAME_STATUSES, string> = {
   [GAME_STATUSES.PLAY]: "",
   [GAME_STATUSES.BLACKJACK]: "Blackjack",
-  [GAME_STATUSES.BUSTED]: "Busted",
+  [GAME_STATUSES.BUST]: "Bust",
   [GAME_STATUSES.DRAW]: "Draw",
   [GAME_STATUSES.LOSE]: "Lose",
   [GAME_STATUSES.WIN]: "Win",

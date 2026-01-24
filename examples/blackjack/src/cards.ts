@@ -116,6 +116,9 @@ function drawCard(
   ctx.fill();
   ctx.save();
   ctx.clip();
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 1;
+  ctx.stroke();
   if (isBack) {
     ctx.fillStyle = "darkgrey";
   } else {
