@@ -3,22 +3,22 @@ import { entityT } from "./entity.ts";
 
 export class ComponentManager {
   private poolMap: Map<object, ObjectPoolMap<entityT, object>> = new Map();
-  private maskMap: Map<object, bigint> = new Map();
+  private idMap: Map<object, number> = new Map();
 
   register<T extends object>(component: T): void {
     if (this.poolMap.has(component)) return;
-    this.maskMap.set(component, BigInt(2 ** this.maskMap.size));
+    this.idMap.set(component, this.idMap.size);
     this.poolMap.set(
       component,
       new ObjectPoolMap<entityT, T>(() => ({ ...component })),
     );
   }
 
-  getMask<T extends object>(component: T): bigint {
-    const mask = this.maskMap.get(component);
+  getId<T extends object>(component: T): number {
+    const mask = this.idMap.get(component);
     if (mask != undefined) return mask;
     this.register(component);
-    return this.maskMap.get(component) as bigint;
+    return this.idMap.get(component) as number;
   }
 
   add<T extends object>(entity: entityT, component: T): T {
