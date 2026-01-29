@@ -63,9 +63,8 @@ export class World {
 
   removeComponent<T extends object>(entity: entityT, component: T): void {
     this.compManager.register(component);
-    const cem = this.getCompEntityMap(this.compManager.getId(component));
-    if (!cem.has(entity)) return;
-    cem.delete(entity);
+    this.getCompEntityMap(this.compManager.getId(component)).delete(entity);
+    this.compManager.remove(entity, component);
   }
 
   getComponent<T extends object>(entity: entityT, component: T): T {
