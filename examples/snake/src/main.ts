@@ -161,6 +161,7 @@ function handleDrawing(world: World) {
   Ctx2D.ctx.strokeStyle = Game.snakeColor;
   Ctx2D.ctx.lineCap = "round";
   Ctx2D.ctx.lineWidth = Game.snakeWidth;
+  Ctx2D.ctx.lineJoin = "round";
   Ctx2D.ctx.stroke();
 
   const tail = world.query({ and: [Hierarchy] }).find((e) => {

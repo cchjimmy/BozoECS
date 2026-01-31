@@ -1,7 +1,7 @@
 import { ComponentManager } from "./component.ts";
 import { newEntity, type entityT } from "./entity.ts";
 
-export type queryT = Partial<Record<"and" | "not", object[]>>;
+export type queryT = Record<"and" | "not", object[]>;
 
 export type systemT = (world: World) => void;
 
@@ -63,7 +63,9 @@ export class World {
 
   removeComponent<T extends object>(entity: entityT, component: T): void {
     this.compManager.register(component);
-    this.getCompEntityMap(this.compManager.getId(component)).delete(entity);
+    const cem = this.getCompEntityMap(this.compManager.getId(component));
+    if (!cem.has(entity)) return;
+    cem.delete(entity);
     this.compManager.remove(entity, component);
   }
 
@@ -79,21 +81,17 @@ export class World {
     this.compManager.clean();
   }
 
-  query(query: queryT): entityT[] {
+  query(query: Partial<queryT>): entityT[] {
     let res: Set<entityT> = this.entitySet;
-    if (query.and) {
-      for (const comp of query.and) {
-        res = res.intersection(
-          this.getCompEntityMap(this.compManager.getId(comp)),
-        );
-      }
+    const q: queryT = { and: [], not: [] };
+    Object.assign(q, query);
+    for (const comp of q.and) {
+      res = res.intersection(
+        this.getCompEntityMap(this.compManager.getId(comp)),
+      );
     }
-    if (query.not) {
-      for (const comp of query.not) {
-        res = res.difference(
-          this.getCompEntityMap(this.compManager.getId(comp)),
-        );
-      }
+    for (const comp of q.not) {
+      res = res.difference(this.getCompEntityMap(this.compManager.getId(comp)));
     }
     return [...res];
   }
