@@ -482,7 +482,7 @@ game.addComponent(camera, Hierarchy, { parent: player.torso });
   (function update() {
     requestAnimationFrame(update);
     drawBackground();
-    game.update(
+    game.update([
       handleCamera,
       handlePointer,
       handleLookAtPointer,
@@ -491,7 +491,7 @@ game.addComponent(camera, Hierarchy, { parent: player.torso });
       // handleGravity,
       handleMovement,
       handleAngularVelocity,
-    );
+    ]);
     updateTime(Time);
     updatePointer(Pointer);
   })();

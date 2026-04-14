@@ -207,7 +207,7 @@ game.addComponent(lightMass, Force, { y: 1480 });
       Time.dtSeconds = 1 / 30;
       Ctx2D.ctx.fillStyle = "#424242";
       Ctx2D.ctx.fillRect(0, 0, Ctx2D.canvas.width, Ctx2D.canvas.height);
-      game.update(
+      game.update([
         handleApplyForces,
         handleForceInteractions,
         // handleBounce,
@@ -215,7 +215,7 @@ game.addComponent(lightMass, Force, { y: 1480 });
         handleDrawForceField,
         handleDrawTexts,
         handleMovement,
-      );
+      ]);
     }
 
     updateTime(Time);

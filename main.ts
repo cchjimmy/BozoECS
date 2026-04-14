@@ -19,10 +19,9 @@ for (const example of examples) {
   const examplePath = path + example.name;
   emptyDir(examplePath + "/build");
   buildExample(examplePath, options);
-  watchExample(examplePath);
+  watchExample(examplePath, options);
 }
 
-const nets = Deno.networkInterfaces();
 function isPrivate(networkInterfaces: Deno.NetworkInterfaceInfo) {
   return (
     networkInterfaces.name.toLowerCase().includes("vboxnet") ||
@@ -30,17 +29,22 @@ function isPrivate(networkInterfaces: Deno.NetworkInterfaceInfo) {
     networkInterfaces.name.toLowerCase().includes("lo")
   );
 }
-const hostname = nets.find((v) => v.family == "IPv4" && !isPrivate(v))?.address;
+const hostname = Deno.networkInterfaces().find(
+  (v) => v.family == "IPv4" && !isPrivate(v),
+)?.address;
 if (hostname) {
   Deno.serve({ hostname }, (req) => serveDir(req, { fsRoot: path }));
 }
 
-async function watchExample(examplePath: string) {
+async function watchExample(
+  examplePath: string,
+  buildOpts: Deno.bundle.Options,
+) {
   const watcher = Deno.watchFs(examplePath + "/src/");
   for await (const event of watcher) {
     if (event.kind != "modify") continue;
     console.log(`Files in ${examplePath} have changed`);
-    buildExample(examplePath, options);
+    buildExample(examplePath, buildOpts);
   }
 }
 

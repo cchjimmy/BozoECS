@@ -1,11 +1,12 @@
 import App from "../../app/app.ts";
 import {
   addPlayer,
-  addTurrents,
-  addFountains,
-  addSpawners,
+  addSpawner,
+  addMinion,
   addGraphic,
   addCamera,
+  addTurrent,
+  addFountain,
 } from "../entities.ts";
 import { Camera } from "../components.ts";
 import { handleInput } from "../systems/gameplay.ts";
@@ -18,8 +19,8 @@ import {
   handleCollision,
   handleQuadtreeElms,
   handleParticleEmitters,
+  checkOnScreenEntities,
 } from "../systems/core.ts";
-import { checkOnScreenEntities } from "../systems/core.ts";
 import {
   drawImg,
   drawRects,
@@ -31,6 +32,45 @@ import {
   drawQuadTree,
   drawCameraRect,
 } from "../systems/drawing.ts";
+import { World } from "bozoecs";
+import { default as config } from "../../config.json" with { type: "json" };
+
+function addTurrents(world: World) {
+  const pos = [
+    -10, 10, -60, 60, -108, 108, -138, 92, -138, 0, -138, -110, -92, 138, 0,
+    138, 110, 138,
+  ];
+  for (let i = 0, l = pos.length; i < l; i += 2) {
+    addTurrent(world, pos[i], pos[i + 1]);
+    addTurrent(world, -pos[i], -pos[i + 1]);
+  }
+}
+
+function addFountains(world: World) {
+  addFountain(world, -128, 128);
+  addFountain(world, 128, -128);
+}
+
+function addSpawners(world: World) {
+  const base = addMinion(world, -152, 152);
+  const pos = [-138, 109, -109, 138, -120, 120];
+  for (let i = 0, l = pos.length; i < l; i += 2) {
+    addSpawner(
+      world,
+      pos[i],
+      pos[i + 1],
+      base,
+      config.entities.minion.spawnRate,
+    );
+    addSpawner(
+      world,
+      -pos[i],
+      -pos[i + 1],
+      base,
+      config.entities.minion.spawnRate,
+    );
+  }
+}
 
 export const gameWorld = App.createWorld((world) => {
   App.getQuadtree(App.getWorldId(world)).setBoundary({
@@ -55,6 +95,7 @@ export const gameWorld = App.createWorld((world) => {
   camComponent.targetEntity = player;
   camComponent.isActive = true;
   camComponent.zoom = 20;
+  // camComponent.zoom = 0.1;
 
   // const cleaner = world.addEntity();
   // world.addComponent(cleaner, Timer);

@@ -397,7 +397,7 @@ let timeMilli = 0;
 reset();
 
 (function update() {
-  w.update(
+  w.update([
     drawBackgound,
     drawRects,
     drawTexts,
@@ -405,7 +405,7 @@ reset();
     handlePlayerControl,
     checkCollision,
     checkGoal,
-  );
+  ]);
   dtMilli = performance.now() - timeMilli;
   timeMilli += dtMilli;
   requestAnimationFrame(update);

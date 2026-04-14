@@ -34,26 +34,6 @@ export function addCircle(
   world.addComponent(e, Circle, { radius });
   return e;
 }
-export function addSpawners(world: World) {
-  const base = addMinion(world, -152, 152);
-  const pos = [-138, 109, -109, 138, -120, 120];
-  for (let i = 0, l = pos.length; i < l; i += 2) {
-    addSpawner(
-      world,
-      pos[i],
-      pos[i + 1],
-      base,
-      config.entities.minion.spawnRate,
-    );
-    addSpawner(
-      world,
-      -pos[i],
-      -pos[i + 1],
-      base,
-      config.entities.minion.spawnRate,
-    );
-  }
-}
 export function addMinion(world: World, x: number, y: number): entityT {
   const e = addCircle(world);
   world.addComponent(e, Transform, { x, y });
@@ -91,25 +71,12 @@ export function addSpawner(
   });
   return e;
 }
-export function addTurrents(world: World) {
-  const pos = [
-    -10, 10, -60, 60, -108, 108, -138, 92, -138, 0, -138, -110, -92, 138, 0,
-    138, 110, 138,
-  ];
-  for (let i = 0, l = pos.length; i < l; i += 2) {
-    addTurrent(world, pos[i], pos[i + 1]);
-    addTurrent(world, -pos[i], -pos[i + 1]);
-  }
-}
-export function addFountains(world: World) {
-  const f1 = addCircle(world, -128, 128, 5);
+export function addFountain(world: World, x: number, y: number) {
+  const e = addCircle(world, x, y, 5);
   App.getQuadtree(App.getWorldId(world)).insert(
-    world.addComponent(f1, QtCircle),
+    world.addComponent(e, QtCircle),
   );
-  const f2 = addCircle(world, 128, -128, 5);
-  App.getQuadtree(App.getWorldId(world)).insert(
-    world.addComponent(f2, QtCircle),
-  );
+  return e;
 }
 export function addGraphic(
   world: World,

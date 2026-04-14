@@ -273,7 +273,7 @@ resetGame(game);
 
 (function loop() {
   requestAnimationFrame(loop);
-  game.update(handleDrawing, handleInput, handleCollision, handleMovement);
+  game.update([handleDrawing, handleInput, handleCollision, handleMovement]);
   Pointer.justReleased = false;
   Pointer.justPressed = false;
   for (const key in Keys.justPressed) {

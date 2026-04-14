@@ -19,11 +19,6 @@ function random(min: number, max: number): number {
   const Velocity = { x: 0, y: 0 };
   const Circle = { radius: 10, color: "green", graphics: new Graphics() };
 
-  // not necessary
-  w.registerComponent(Position)
-    .registerComponent(Velocity)
-    .registerComponent(Circle);
-
   // systems
   function render(world: World) {
     world.query({ and: [Position, Circle] }).forEach((e) => {
@@ -95,7 +90,7 @@ function random(min: number, max: number): number {
   app.stage.addChild(text);
 
   app.ticker.add(() => {
-    w.update(render, move, bounce);
+    w.update([render, move, bounce]);
     text.text = `FPS: ${(1000 / app.ticker.deltaMS).toFixed(0)}`;
   });
 })();

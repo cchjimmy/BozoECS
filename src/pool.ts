@@ -1,51 +1,31 @@
-export class ObjectPoolMap<K, V> {
-  private storage: V[] = [];
-  private keyToIndex: Map<K, number> = new Map();
-  private indexToKey: K[] = [];
-  private objectFactory: () => V;
+export class ObjectPool<T extends object> {
+  private _pool: T[] = [];
+  private _obj: T;
+  private _count = 0;
 
-  constructor(objectFactory: () => V) {
-    this.objectFactory = objectFactory;
+  constructor(obj: T) {
+    this._obj = obj;
   }
 
-  size() {
-    return this.keyToIndex.size;
+  release(obj: T): void {
+    this._count--;
+    this._pool.push(obj);
   }
 
-  add(key: K): V {
-    if (this.keyToIndex.has(key))
-      return this.storage[this.keyToIndex.get(key) as number];
-    if (this.storage.length <= this.keyToIndex.size)
-      this.storage.push(this.objectFactory());
-    this.keyToIndex.set(key, this.keyToIndex.size);
-    this.indexToKey[this.keyToIndex.size - 1] = key;
-    return this.storage[this.keyToIndex.get(key) as number];
+  get(): T {
+    this._count++;
+    return Object.assign(this._pool.pop() ?? {}, this._obj);
   }
 
-  remove(key: K): void {
-    const index = this.keyToIndex.get(key);
-    if (index == undefined) return;
-    const backKey = this.indexToKey[this.keyToIndex.size - 1];
-    const temp = this.storage[index];
-    this.storage[index] = this.storage[this.keyToIndex.size - 1];
-    this.storage[this.keyToIndex.size - 1] = temp;
-    this.indexToKey[index] = backKey;
-    this.indexToKey.pop();
-    this.keyToIndex.set(backKey, index);
-    this.keyToIndex.delete(key);
+  copy(obj: Partial<T>): T {
+    return Object.assign(this.get(), obj);
   }
 
-  get(key: K): V {
-    const index = this.keyToIndex.get(key);
-    if (index == undefined) throw new Error("Key not found.");
-    return this.storage[index];
+  size(): number {
+    return this._count;
   }
 
-  has(key: K): boolean {
-    return this.keyToIndex.has(key);
-  }
-
-  clean(): void {
-    this.storage.splice(this.keyToIndex.size);
+  clean() {
+    this._pool.length = 0;
   }
 }

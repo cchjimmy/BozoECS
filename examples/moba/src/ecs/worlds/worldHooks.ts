@@ -7,19 +7,17 @@ function isQtreeElm(elm: object): elm is QtreeShapes {
   return (isRect(elm) || isCircle(elm)) && Object.hasOwn(elm, "owner");
 }
 
-World.onAddComponent = (world, entity, component) => {
+World.onAddedComponent = (world, entity, component, instance) => {
   // for handleQuadtreeElms in systems
   if (isQtreeElm(component)) {
-    App.getQuadtree(App.getWorldId(world)).insert(
-      world.getComponent(entity, component),
-    );
+    App.getQuadtree(App.getWorldId(world)).insert(instance as typeof component);
   }
 };
 
-World.onRemoveComponent = (world, entity, component) => {
+World.onRemoveComponent = (world, entity, component, instance) => {
   if (isQtreeElm(component)) {
     App.getQuadtree(App.getWorldId(world)).eraseExact(
-      world.getComponent(entity, component),
+      instance as typeof component,
     );
   }
 };

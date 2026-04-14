@@ -801,15 +801,15 @@ resetGame(game);
     }`;
 
     // drawing
-    game.update(
+    game.update([
       handleCamera,
       handleDrawImages,
       handleDrawRects,
       handleDrawText,
-    );
+    ]);
 
     // process
-    game.update(
+    game.update([
       handleContainers,
       handleCardVisibility,
       handlePickCard,
@@ -818,7 +818,7 @@ resetGame(game);
       handleMoveTargets,
       handleCallbacks,
       handleMovement,
-    );
+    ]);
 
     updateTime(Time);
     updatePointers(Pointers);

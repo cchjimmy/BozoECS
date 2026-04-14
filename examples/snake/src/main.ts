@@ -447,7 +447,7 @@ const game = new World();
 {
   (function update() {
     requestAnimationFrame(update);
-    game.update(
+    game.update([
       handleDrawing,
       handleReset,
       handleSpawnFood,
@@ -455,7 +455,7 @@ const game = new World();
       handleInput,
       handleEntityHierarchy,
       handleMovement,
-    );
+    ]);
     updateTime(Time);
     updateKeyboard(Keys);
     updatePointer(Pointer);

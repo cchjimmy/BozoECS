@@ -221,13 +221,13 @@ const game = new World();
 (function loop() {
   CtxGl.ctx.clearColor(0, 0, 1, 1);
   CtxGl.ctx.clear(CtxGl.ctx.COLOR_BUFFER_BIT);
-  game.update(
+  game.update([
     //   handleCamera,
     //   handleDrawRect,
-    handleDrawImage,
-    //   handleInput,
-    //   handleMovement,
-  );
+    //       handleDrawImage,
+    //           //   handleInput,
+    //               //   handleMovement,
+  ]);
   pointerUpdate(Pointer);
   keysUpdate(Keys);
   timeUpdate(Time);
