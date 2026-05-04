@@ -1,41 +1,5 @@
-import App from "./app/app.ts";
 import { default as config } from "../src/config.json" with { type: "json" };
 
-export function drawBg(color: string = "#424242") {
-  const old = App.ctx.fillStyle;
-  App.ctx.fillStyle = color;
-  App.ctx.fillRect(0, 0, App.canvas.width, App.canvas.height);
-  App.ctx.fillStyle = old;
-}
-export function rectCircleOverLap(
-  rcx: number,
-  rcy: number,
-  rw: number,
-  rh: number,
-  ccx: number,
-  ccy: number,
-  cr: number,
-) {
-  return (
-    (ccx - rcx) ** 2 < (rw / 2 + cr) ** 2 &&
-    (ccy - rcy) ** 2 < (rh / 2 + cr) ** 2
-  );
-}
-export function rectsOverlap(
-  cx1: number,
-  cy1: number,
-  w1: number,
-  h1: number,
-  cx2: number,
-  cy2: number,
-  w2: number,
-  h2: number,
-): boolean {
-  return (
-    (cx1 - cx2) ** 2 < ((w1 + w2) / 2) ** 2 &&
-    (cy1 - cy2) ** 2 < ((h1 + h2) / 2) ** 2
-  );
-}
 type vec2 = { x: number; y: number };
 export function screenToWorld(
   pointerPos: vec2,
@@ -75,12 +39,6 @@ export function worldToScreen(
   res.y += config.viewport.height * 0.5;
   return res;
 }
-// credit: https://www.30secondsofcode.org/js/s/detect-device-type/
-export function detectDeviceType(): string {
-  return /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)
-    ? "Mobile"
-    : "Desktop";
-}
 export function pointerToScreen(
   pointer: vec2,
   canvas: HTMLCanvasElement,
@@ -97,4 +55,11 @@ export function pointerToScreen(
     out.y *= canvas.height / innerHeight;
   }
   return out;
+}
+
+/**
+ * returns squared distance
+ */
+export function distanceSq(a: vec2, b: vec2): number {
+  return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
 }

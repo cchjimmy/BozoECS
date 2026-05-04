@@ -1,7 +1,8 @@
 export type QtreeRect = { width: number; height: number; x: number; y: number };
 export type QtreeLine = { x1: number; y1: number; x2: number; y2: number };
 export type QtreeCircle = { x: number; y: number; radius: number };
-export type QtreeShapes = QtreeRect | QtreeCircle | QtreeLine;
+export type QtreePoint = { x: number; y: number };
+export type QtreeShapes = QtreeRect | QtreeCircle | QtreeLine | QtreePoint;
 
 export function rectContainShape(a: QtreeRect, b: QtreeShapes): boolean {
   if (isRect(b)) {
@@ -10,6 +11,8 @@ export function rectContainShape(a: QtreeRect, b: QtreeShapes): boolean {
     return rectContainLine(a, b);
   } else if (isCircle(b)) {
     return rectContainCircle(a, b);
+  } else if (isPoint(b)) {
+    return rectContainPoint(a, b);
   }
   return false;
 }
@@ -20,6 +23,8 @@ export function rectIntersectShape(a: QtreeRect, b: QtreeShapes): boolean {
     return rectIntersectCircle(a, b);
   } else if (isLine(b)) {
     return rectIntersectLine(a, b);
+  } else if (isPoint(b)) {
+    return rectContainPoint(a, b);
   }
   return false;
 }
@@ -70,31 +75,29 @@ export function lineIntersectRay(
     );
   return t >= 0 && t <= 1;
 }
-export function circleIntersectRay(a: QtreeCircle, b: QtreeLine): boolean {
-  // (x - cx) ^ 2 + (y - cy) ^ 2 = r ^ 2
-  // y = m * x + c
-  // (x - cx) ^ 2 + (m * x + c - cy) ^ 2 = r ^ 2
-  // x ^ 2 - 2 * cx * x + cx ^ 2 + (m * x) ^ 2 + m * x * c - m * x * cy + c * m * x + c ^ 2 - c * cy - cy * m * x - cy * c + cy ^ 2 = r ^ 2
-  // x ^ 2 * (1 + m ^ 2) + x * (-2 * cx + m * c - m * cy + c * m - cy * m) + (cx ^ 2 + c ^ 2 - c * cy - cy * c + cy ^ 2) = r ^ 2
+export function pointIntersectRay(a: QtreePoint, b: QtreeLine): boolean {
   const m = (b.y2 - b.y1) / (b.x2 - b.x1);
-  const c = b.y1 / (m * b.x1);
-  const A = 1 + m * m;
-  const B = 2 * (-a.x + m * (c - a.y));
-  const C = a.x * a.x + c * c - 2 * c * a.y + a.y * a.y;
-  // quadratic formula determinant B ^ 2 - 4 * A * C
-  // if det < 0 then no real solution, otherwise there are solutions
-  const det = B * B - 4 * A * C;
-  if (det < 0) return false;
-  // intersection points
-  const x1 = (-B + Math.sqrt(det)) / (2 * A);
-  const x2 = (-B - Math.sqrt(det)) / (2 * A);
-  const y1 = m * x1 + c;
-  const y2 = m * x2 + c;
-  // checks if vectors of ray and ray origin to interesections align
+  const c = b.y1 - m * b.x1;
   return (
-    (b.x2 - b.x1) * (x1 - b.x1) + (b.y2 - b.y1) * (y1 - b.y1) > 0 &&
-    (b.x2 - b.x1) * (x2 - b.x1) + (b.y2 - b.y1) * (y2 - b.y1) > 0
+    a.y == m * a.x + c &&
+    (b.x2 - b.x1) * (a.x - b.x1) + (b.y2 - b.y1) * (a.y - b.y1) > 0
   );
+}
+export function pointIntersectPoint(a: QtreePoint, b: QtreePoint): boolean {
+  return a.x == b.x && a.y == b.y;
+}
+export function circleIntersectRay(a: QtreeCircle, b: QtreeLine): boolean {
+  const m1 = (b.y2 - b.y1) / (b.x2 - b.x1);
+  const c1 = b.y1 - m1 * b.x1;
+  const m2 = -1 / m1; // perpendicular to m1
+  const c2 = a.y - m2 * a.x;
+  const x = (c2 - c1) / (m1 - m2);
+  const y = m1 * x + c1;
+  const isSameDirection =
+    (b.x2 - b.x1) * (x - b.x1) + (b.y2 - b.y1) * (y - b.y1) > 0;
+  return isSameDirection
+    ? (a.x - x) ** 2 + (a.y - y) ** 2 <= a.radius ** 2
+    : false;
 }
 export function RayIntersectShape(a: QtreeLine, b: QtreeShapes): boolean {
   if (isCircle(b)) {
@@ -103,6 +106,8 @@ export function RayIntersectShape(a: QtreeLine, b: QtreeShapes): boolean {
     return rectIntersectRay(b, a);
   } else if (isLine(b)) {
     return lineIntersectRay(a, b);
+  } else if (isPoint(b)) {
+    return pointIntersectRay(b, a);
   }
   return false;
 }
@@ -141,19 +146,27 @@ export function lineIntersectLine(a: QtreeLine, b: QtreeLine): boolean {
     (1 / d) * -(-(a.x1 - b.x1) * (b.y2 - b.y1) + (a.y1 - b.y1) * (b.x2 - b.x1));
   return s >= 0 && s <= 1 && t >= 0 && t <= 1;
 }
-export function rectContainPoint(
-  rect: QtreeRect,
-  x: number,
-  y: number,
-): boolean {
+export function lineIntersectPoint(a: QtreeLine, b: QtreePoint): boolean {
+  const m = (a.y2 - a.y1) / (a.x2 - a.x1);
+  const c = a.y1 - m * a.x1;
+  // checks if point is on the line AND within line segment.
+  return (
+    b.y == m * b.x + c &&
+    (b.x - a.x1) * (b.x - a.x2) + (b.y - a.y1) * (b.y - a.y2) < 0
+  );
+}
+function _rectContainPoint(rect: QtreeRect, x: number, y: number): boolean {
   return (
     (rect.x + rect.width / 2 - x) ** 2 <= (rect.width / 2) ** 2 &&
     (rect.y + rect.height / 2 - y) ** 2 <= (rect.height / 2) ** 2
   );
 }
+export function rectContainPoint(a: QtreeRect, b: QtreePoint): boolean {
+  return _rectContainPoint(a, b.x, b.y);
+}
 export function rectIntersectLine(a: QtreeRect, b: QtreeLine): boolean {
   // checks if either points of the QtreeLine lies within QtreeRect
-  if (rectContainPoint(a, b.x1, b.y1) || rectContainPoint(a, b.x2, b.y2))
+  if (_rectContainPoint(a, b.x1, b.y1) || _rectContainPoint(a, b.x2, b.y2))
     return true;
   const side: QtreeLine = { x1: 0, y1: 0, x2: 0, y2: 0 };
   for (let i = 0; i < 4; i++) {
@@ -167,33 +180,30 @@ export function rectIntersectLine(a: QtreeRect, b: QtreeLine): boolean {
   return false;
 }
 export function circleIntersectLine(a: QtreeCircle, b: QtreeLine): boolean {
-  const m = (b.y2 - b.y1) / (b.x2 - b.x1);
-  const c = b.y1 / (m * b.x1);
-  const A = 1 + m * m;
-  const B = 2 * (-a.x + m * (c - a.y));
-  const C = a.x * a.x + c * c - 2 * c * a.y + a.y * a.y;
-  const det = B * B - 4 * A * C;
-  if (det < 0) return false;
-  const x1 = (-B + Math.sqrt(det)) / (2 * A);
-  const x2 = (-B - Math.sqrt(det)) / (2 * A);
-  const maxLineX = b.x1 > b.x2 ? b.x1 : b.x2;
-  const minLineX = maxLineX == b.x1 ? b.x2 : b.x1;
-  return (
-    // checks either points of QtreeLine is within QtreeCircle
-    (a.x - b.x1) * (a.x - b.x1) + (a.y - b.y1) * (a.y - b.y1) <
-      a.radius * a.radius ||
-    (a.x - b.x2) * (a.x - b.x2) + (a.y - b.y2) * (a.y - b.y2) <
-      a.radius * a.radius ||
-    // checks if intersection lies within QtreeLine
-    (x1 < maxLineX && x1 > minLineX) ||
-    (x2 < maxLineX && x2 > minLineX)
-  );
+  const m1 = (b.y2 - b.y1) / (b.x2 - b.x1);
+  const c1 = b.y1 - m1 * b.x1;
+  const m2 = -1 / m1; // perpendicular to m1
+  const c2 = a.y - m2 * a.x;
+  const x = (c2 - c1) / (m1 - m2);
+  const y = m1 * x + c1;
+  // dot product between vectors constructed by the two points of the line to the intersection.
+  // if it is < 0 point is on the line
+  const isIntersectedWithinLine =
+    (x - b.x1) * (x - b.x2) + (y - b.x1) * (y - b.y2) < 0;
+  // locus of points
+  return isIntersectedWithinLine
+    ? (a.x - x) ** 2 + (a.y - y) ** 2 <= a.radius ** 2
+    : (b.x1 - a.x) ** 2 + (b.y1 - a.y) ** 2 <= a.radius ** 2 ||
+        (b.x2 - a.x) ** 2 + (b.y2 - a.y) ** 2 <= a.radius ** 2;
 }
 export function circleIntersectCircle(a: QtreeCircle, b: QtreeCircle): boolean {
   return (
     (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) <
     (a.radius + b.radius) * (a.radius + b.radius)
   );
+}
+export function circleContainPoint(a: QtreeCircle, b: QtreePoint): boolean {
+  return (a.x - b.x) ** 2 + (a.y - b.y) ** 2 <= a.radius ** 2;
 }
 export function circleIntersectShape(a: QtreeCircle, b: QtreeShapes): boolean {
   if (isCircle(b)) {
@@ -202,6 +212,8 @@ export function circleIntersectShape(a: QtreeCircle, b: QtreeShapes): boolean {
     return circleIntersectLine(a, b);
   } else if (isRect(b)) {
     return rectIntersectCircle(b, a);
+  } else if (isPoint(b)) {
+    return circleContainPoint(a, b);
   }
   return false;
 }
@@ -212,6 +224,20 @@ export function lineIntersectShape(a: QtreeLine, b: QtreeShapes): boolean {
     return lineIntersectLine(a, b);
   } else if (isRect(b)) {
     return rectIntersectLine(b, a);
+  } else if (isPoint(b)) {
+    return lineIntersectPoint(a, b);
+  }
+  return false;
+}
+export function pointIntersectShape(a: QtreePoint, b: QtreeShapes): boolean {
+  if (isCircle(b)) {
+    return circleContainPoint(b, a);
+  } else if (isLine(b)) {
+    return lineIntersectPoint(b, a);
+  } else if (isRect(b)) {
+    return rectContainPoint(b, a);
+  } else if (isPoint(b)) {
+    return pointIntersectPoint(a, b);
   }
   return false;
 }
@@ -222,6 +248,8 @@ export function shapeIntersectShape(a: QtreeShapes, b: QtreeShapes): boolean {
     return rectIntersectShape(a, b);
   } else if (isLine(a)) {
     return lineIntersectShape(a, b);
+  } else if (isPoint(a)) {
+    return pointIntersectShape(a, b);
   }
   return false;
 }
@@ -233,6 +261,15 @@ export function isCircle(shape: object): shape is QtreeCircle {
 export function isRect(shape: object): shape is QtreeRect {
   return Object.hasOwn(shape, "width");
 }
+
 export function isLine(shape: object): shape is QtreeLine {
   return Object.hasOwn(shape, "x1");
+}
+
+export function isPoint(shape: object): shape is QtreePoint {
+  return (
+    Object.hasOwn(shape, "x") &&
+    !Object.hasOwn(shape, "width") &&
+    !Object.hasOwn(shape, "radius")
+  );
 }

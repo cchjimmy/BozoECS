@@ -1,4 +1,3 @@
-import App from "../../app/app.ts";
 import {
   addPlayer,
   addSpawner,
@@ -7,20 +6,26 @@ import {
   addCamera,
   addTurrent,
   addFountain,
-} from "../entities.ts";
-import { Camera } from "../components.ts";
-import { handleInput } from "../systems/gameplay.ts";
+} from "../../ecs/entities.ts";
+import {
+  handleAttack,
+  handleAttackInput,
+  handleMovementInput,
+  handleParticleEmitters,
+  handlePathfind,
+} from "../../ecs/systems/gameplay.ts";
 import {
   handleCamera,
   handleTimers,
   handleMovement,
-  handlePathfind,
   handleCallbacks,
+} from "../../ecs/systems/core.ts";
+import {
   handleCollision,
   handleQuadtreeElms,
-  handleParticleEmitters,
   checkOnScreenEntities,
-} from "../systems/core.ts";
+  drawBg,
+} from "./utils.ts";
 import {
   drawImg,
   drawRects,
@@ -29,11 +34,17 @@ import {
   drawHealthBars,
   drawPathFindTargets,
   drawParticleEmitters,
-  drawQuadTree,
   drawCameraRect,
-} from "../systems/drawing.ts";
+  drawAttackTargets,
+} from "../../ecs/systems/drawing.ts";
 import { World } from "bozoecs";
 import { default as config } from "../../config.json" with { type: "json" };
+import { Quadtree } from "../../quadtree/quadtree.ts";
+import { isQtreeElm } from "./utils.ts";
+import { Plugin } from "../../core/app.ts";
+import { Camera } from "../../ecs/components.ts";
+import ctx from "../resizingCanvas/api.ts";
+import { setGameWorld } from "../gameInfo/api.ts";
 
 function addTurrents(world: World) {
   const pos = [
@@ -72,16 +83,26 @@ function addSpawners(world: World) {
   }
 }
 
-export const gameWorld = App.createWorld((world) => {
-  App.getQuadtree(App.getWorldId(world)).setBoundary({
-    x: -150,
-    y: -150,
-    width: 300,
-    height: 300,
-  });
-  const player = addPlayer(world, -146, 146);
-  // const player = addPlayer(world, -115, 115);
+const world = new World();
+const qtree = new Quadtree();
+
+function setUp(world: World): void {
+  world.onAddedComponent = (_entity, _component, instance) => {
+    if (isQtreeElm(instance)) {
+      qtree.insert(instance);
+    }
+  };
+
+  world.onRemoveComponent = (_entity, _component, instance) => {
+    if (isQtreeElm(instance)) {
+      qtree.eraseExact(instance);
+    }
+  };
+
+  // const player = addPlayer(world, -146, 146);
+  const player = addPlayer(world, -115, 115);
   // const player = addPlayer(world, 0, 0);
+  // const player = addPlayer(world, 146, -146);
   addTurrents(world);
   addFountains(world);
   addSpawners(world);
@@ -107,9 +128,9 @@ export const gameWorld = App.createWorld((world) => {
   //     world.cleanObjectPools();
   //   },
   // });
-});
+}
 
-App.setSystems(gameWorld, [
+const systems = [
   handleCamera,
   handleQuadtreeElms,
   checkOnScreenEntities,
@@ -119,14 +140,36 @@ App.setSystems(gameWorld, [
   drawHealthBars,
   drawTexts,
   drawPathFindTargets,
-  // drawParticleEmitters,
-  // drawQuadTree,
-  // drawCameraRect,
   handleParticleEmitters,
   handlePathfind,
-  handleInput,
+  handleMovementInput,
+  handleAttackInput,
+  handleAttack,
   handleCallbacks,
   handleTimers,
   handleMovement,
   handleCollision,
-]);
+];
+
+const plug: Plugin = {
+  setUp: () => {
+    world.clearWorld();
+    setUp(world);
+    qtree.setBoundary({
+      x: -150,
+      y: -150,
+      width: 300,
+      height: 300,
+    });
+  },
+  update: () => {
+    drawBg();
+    setGameWorld(world);
+    for (const sys of systems) {
+      sys(world, qtree);
+    }
+    qtree.update();
+  },
+};
+
+export default plug;

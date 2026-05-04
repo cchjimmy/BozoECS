@@ -1,21 +1,22 @@
-import App from "../../app/app.ts";
+import pointers from "../../plugins/pointers/api.ts";
+import ctx from "../../plugins/resizingCanvas/api.ts";
 import { World } from "bozoecs";
 import { pointerToScreen } from "../../utils.ts";
 import { Button, Transform, Rect } from "../components.ts";
 
 export function handleButtons(world: World) {
-  for (let i = 0, l = App.pointers.x.length; i < l; i++) {
+  for (let i = 0, l = pointers.x.length; i < l; i++) {
     const pointerPos = pointerToScreen(
-      { x: App.pointers.x[i], y: App.pointers.y[i] },
-      App.canvas,
+      { x: pointers.x[i], y: pointers.y[i] },
+      ctx.canvas,
     );
     const pressPos = pointerToScreen(
-      { x: App.pointers.pressX[i], y: App.pointers.pressY[i] },
-      App.canvas,
+      { x: pointers.pressX[i], y: pointers.pressY[i] },
+      ctx.canvas,
     );
     const releasePos = pointerToScreen(
-      { x: App.pointers.releaseX[i], y: App.pointers.releaseY[i] },
-      App.canvas,
+      { x: pointers.releaseX[i], y: pointers.releaseY[i] },
+      ctx.canvas,
     );
     world.query({ and: [Button, Transform, Rect] }).forEach((e) => {
       const p = world.getComponent(e, Transform);
@@ -27,9 +28,9 @@ export function handleButtons(world: World) {
       b.hovered =
         (pointerPos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
         (pointerPos.y - p.y) ** 2 < (r.height / 2) ** 2;
-      b.pressed = b.hovered && App.pointers.isDown[i] && pressedWithinButton;
+      b.pressed = b.hovered && pointers.isDown[i] && pressedWithinButton;
       b.clicked =
-        App.pointers.justReleased[i] &&
+        pointers.justReleased[i] &&
         pressedWithinButton &&
         (releasePos.x - p.x) ** 2 < (r.width / 2) ** 2 &&
         (releasePos.y - p.y) ** 2 < (r.height / 2) ** 2;

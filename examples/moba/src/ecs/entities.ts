@@ -1,6 +1,5 @@
 import { World, entityT } from "bozoecs";
 import {
-  PathFinder,
   Camera,
   Button,
   Velocity,
@@ -16,11 +15,10 @@ import {
   Color,
   Circle,
   Health,
-  QtRect,
   QtCircle,
+  QtRect,
 } from "./components.ts";
 import { default as config } from "../../src/config.json" with { type: "json" };
-import App from "../app/app.ts";
 
 export function addCircle(
   world: World,
@@ -32,6 +30,7 @@ export function addCircle(
   world.addComponent(e, Transform, { x, y });
   world.addComponent(e, Color);
   world.addComponent(e, Circle, { radius });
+  world.addComponent(e, QtCircle);
   return e;
 }
 export function addMinion(world: World, x: number, y: number): entityT {
@@ -42,9 +41,6 @@ export function addMinion(world: World, x: number, y: number): entityT {
     max: config.entities.minion.healthPoint,
   });
   world.addComponent(e, Velocity);
-  App.getQuadtree(App.getWorldId(world)).insert(
-    world.addComponent(e, QtCircle),
-  );
   return e;
 }
 export function addSpawner(
@@ -59,23 +55,18 @@ export function addSpawner(
   world.addComponent(e, ParticleEmitter, {
     particleLifetimeSeconds: 10,
     particleEntity: spawnEntity,
-  });
-  world.addComponent(e, Timer);
-  world.addComponent(e, Callback, {
-    fn(e) {
-      const timer = world.getComponent(e, Timer);
-      if (timer.timeSeconds < 1 / spawnRate) return;
-      timer.reset = true;
-      world.getComponent(e, ParticleEmitter).emit = true;
-    },
+    emitRate: spawnRate,
+    enabled: true,
   });
   return e;
 }
 export function addFountain(world: World, x: number, y: number) {
   const e = addCircle(world, x, y, 5);
-  App.getQuadtree(App.getWorldId(world)).insert(
-    world.addComponent(e, QtCircle),
-  );
+  world.addComponent(e, Health, {
+    current: config.entities.fountain.healthPoint,
+    max: config.entities.fountain.healthPoint,
+  });
+  world.addComponent(e, Stats, config.entities.fountain);
   return e;
 }
 export function addGraphic(
@@ -107,6 +98,7 @@ export function addRect(
   world.addComponent(e, Transform, { x, y });
   world.addComponent(e, Rect, { width: w, height: h, x: offsetX, y: offsetY });
   world.addComponent(e, Color);
+  world.addComponent(e, QtRect);
   return e;
 }
 export function addText(world: World, x: number, y: number, str: string = "") {
@@ -145,23 +137,17 @@ export function addButton(
     backgroundColor: "transparent",
     color: "white",
   });
-  App.getQuadtree(App.getWorldId(world)).insert(world.addComponent(e, QtRect));
   return e;
 }
 export function addPlayer(world: World, x = 0, y = 0) {
   const player = addCircle(world, x, y, 1);
   world.addComponent(player, Velocity);
-  world.addComponent(player, Stats, {
-    ...config.entities.player,
-  });
+  world.addComponent(player, Stats, config.entities.player);
   world.addComponent(player, Health, {
     max: config.entities.player.healthPoint,
     current: config.entities.player.healthPoint,
   });
   world.addComponent(player, IsPlayer);
-  App.getQuadtree(App.getWorldId(world)).insert(
-    world.addComponent(player, QtCircle),
-  );
   return player;
 }
 export function addTurrent(world: World, x: number, y: number) {
@@ -176,14 +162,11 @@ export function addTurrent(world: World, x: number, y: number) {
     -width / 2,
     -height + width / 2,
   );
-  world.addComponent(turrent, Stats, { ...config.entities.turrent });
+  world.addComponent(turrent, Stats, config.entities.turrent);
   world.addComponent(turrent, Health, {
     max: config.entities.turrent.healthPoint,
     current: config.entities.turrent.healthPoint,
   });
-  App.getQuadtree(App.getWorldId(world)).insert(
-    world.addComponent(turrent, QtRect),
-  );
   return turrent;
 }
 export function addCamera(world: World, x: number, y: number) {

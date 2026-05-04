@@ -10,7 +10,6 @@ import {
   QtreeLine,
   RayIntersectShape,
   rectIntersectRay,
-  rectContainShape,
   shapeIntersectShape,
   rectIntersectShape,
   circleIntersectShape,
@@ -19,9 +18,13 @@ import {
   lineIntersectShape,
   rectIntersectLine,
   QtreeCircle,
+  QtreePoint,
+  rectContainPoint,
+  isPoint,
+  pointIntersectShape,
 } from "./shapes.ts";
 
-export type { QtreeCircle, QtreeLine, QtreeShapes, QtreeRect };
+export type { QtreeCircle, QtreeLine, QtreeShapes, QtreeRect, QtreePoint };
 
 enum QUADRANTS {
   TopLeft,
@@ -30,6 +33,7 @@ enum QUADRANTS {
   BottomRight,
 }
 
+// radix 5 id
 function calculateId(accum: number, quadrant: QUADRANTS, depth: number) {
   return accum + (quadrant + 1) * 5 ** depth;
 }
@@ -37,85 +41,40 @@ function calculateId(accum: number, quadrant: QUADRANTS, depth: number) {
 type MapValue<T> = T extends Map<unknown, infer V> ? V : never;
 
 export class Quadtree {
-  private storage: Map<number, Set<QtreeShapes>>[] = [];
-  private bounds: Map<number, QtreeRect> = new Map();
-  private maxDepth: number = 10;
-  private currentLayer = 0;
+  private _storage: Map<number, Set<QtreeShapes>>[] = [];
+  private _bounds: Map<number, QtreeRect> = new Map();
+  private _maxDepth: number = 10;
+  private _currentLayer = 0;
+  private _unusedRects: QtreeRect[] = [];
+
   constructor(
     boundary: QtreeRect = { x: 0, y: 0, width: 100, height: 100 },
     maxDepth: number = 10,
   ) {
-    this.bounds.set(0, boundary);
-    this.maxDepth = maxDepth;
-    this.storage[this.currentLayer] = new Map();
-    this.storage[this.currentLayer].set(0, new Set());
+    this._bounds.set(0, boundary);
+    this._maxDepth = maxDepth;
+    this._storage[this._currentLayer] = new Map();
+    this._storage[this._currentLayer].set(0, new Set());
   }
+
   setBoundary(boundary: QtreeRect) {
-    this.bounds.clear();
-    this.bounds.set(0, boundary);
-    const temp: QtreeShapes[] = [];
-    for (let i = 0, l = this.storage.length; i < l; i++) {
-      for (const value of this.storage[i]) {
-        temp.push(...value[1]);
-        value[1].clear();
-      }
+    for (const entry of this._bounds) {
+      this._unusedRects.push(entry[1]);
+      this._bounds.delete(entry[0]);
     }
-    while (temp.length) {
-      const shape = temp.pop();
-      if (!shape) continue;
-      this.insert(shape);
-    }
+    this._bounds.set(0, boundary);
+    this.update();
   }
+
   setCurrentLayer(layer: number) {
-    this.storage[layer] ??= new Map();
-    this.currentLayer = layer;
+    this._storage[layer] ??= new Map();
+    this._currentLayer = layer;
   }
-  private index<S extends QtreeShapes>(
-    shape: S,
-    containFn: (r: QtreeRect, s: S) => boolean,
-  ): number {
-    let index = 0;
-    let depth = 1;
-    let contained = true;
-    while (contained && depth <= this.maxDepth) {
-      contained = false;
-      const parentBound = this.bounds.get(index);
-      if (!parentBound) throw new Error();
-      for (let i = 0; i < 4; i++) {
-        const id = calculateId(index, i, depth);
-        if (!this.bounds.has(id)) {
-          this.bounds.set(id, {
-            x: parentBound.x + (parentBound.width / 2) * (i % 2),
-            y: parentBound.y + (parentBound.height / 2) * +(i > 1),
-            width: parentBound.width / 2,
-            height: parentBound.height / 2,
-          });
-        }
-        const childBound = this.bounds.get(id);
-        if (childBound && !containFn(childBound, shape)) continue;
-        index = id;
-        contained = true;
-        depth++;
-        break;
-      }
-    }
-    return index;
-  }
+
   insert(shape: QtreeShapes) {
-    let index = 0;
-    if (isCircle(shape)) {
-      index = this.index(shape, rectContainCircle);
-    } else if (isRect(shape)) {
-      index = this.index(shape, rectContainRect);
-    } else if (isLine(shape)) {
-      index = this.index(shape, rectContainLine);
-    }
-    if (!this.storage[this.currentLayer].has(index))
-      this.storage[this.currentLayer].set(index, new Set());
-    const store = this.storage[this.currentLayer].get(index);
-    if (store == undefined) throw new Error();
-    store.add(shape);
+    this._insert(shape);
   }
+
   forEach<S extends QtreeShapes>(
     query: S,
     fn: (s: QtreeShapes, store: Set<QtreeShapes>) => void,
@@ -131,14 +90,18 @@ export class Quadtree {
     } else if (isLine(query)) {
       shapeIntersectShapesFn = lineIntersectShape;
       rectIntersectShapeFn = rectIntersectLine;
+    } else if (isPoint(query)) {
+      shapeIntersectShapesFn = pointIntersectShape;
+      rectIntersectShapeFn = rectContainPoint;
     }
-    this.traverse(
+    this._traverse(
       query,
       fn,
       shapeIntersectShapesFn as (a: S, b: QtreeShapes) => boolean,
       rectIntersectShapeFn as (a: QtreeRect, b: S) => boolean,
     );
   }
+
   query<S extends QtreeShapes>(
     shape: S,
     res: QtreeShapes[] = [],
@@ -146,88 +109,60 @@ export class Quadtree {
     this.forEach(shape, (s) => res.push(s));
     return res;
   }
+
   queryRay(ray: QtreeLine, res: QtreeShapes[] = []): QtreeShapes[] {
     // (x1, y1) is origin, (x2, y2) provides direction for ray
     // this uses traverse because there are dedicated functions for rays
     // forEach does not work with rays
-    this.traverse(ray, (v) => res.push(v), RayIntersectShape, rectIntersectRay);
+    this._traverse(
+      ray,
+      (v) => res.push(v),
+      RayIntersectShape,
+      rectIntersectRay,
+    );
     return res;
   }
+
   update() {
-    const elms: QtreeShapes[] = [];
-    for (const v of this.storage[this.currentLayer]) {
-      const childBound = this.bounds.get(v[0]);
-      if (!childBound) continue;
-      for (const s of v[1]) {
-        v[1].delete(s);
-        elms.push(s);
+    for (let i = 0, l = this._storage.length; i < l; i++) {
+      for (const entry of this._storage[i]) {
+        for (const shape of entry[1]) {
+          const index = this._index(shape);
+          if (entry[0] == index) continue;
+          entry[1].delete(shape);
+          this._insert(shape, index);
+        }
       }
     }
-    while (elms.length) {
-      const shape = elms.pop();
-      if (shape == undefined) continue;
-      this.insert(shape);
-    }
   }
-  private traverse<S extends QtreeShapes>(
-    shape: S,
-    op: (
-      intersectedShape: QtreeShapes,
-      correspondingStorage: MapValue<(typeof this.storage)[number]>,
-    ) => void,
-    shapeIntersectShapesFn: (
-      a: S,
-      b: QtreeShapes,
-    ) => boolean = shapeIntersectShape,
-    rectIntersectShapeFn: (a: QtreeRect, b: S) => boolean = rectIntersectShape,
-    index = 0,
-    depth = 0,
-  ) {
-    const store = this.storage[this.currentLayer].get(index);
-    if (store) {
-      for (const s of store) {
-        if (!shapeIntersectShapesFn(shape, s)) continue;
-        op(s, store);
-      }
-    }
-    depth++;
-    for (let i = 0; i < 4; i++) {
-      const id = calculateId(index, i, depth);
-      const childBound = this.bounds.get(id);
-      if (!childBound || !rectIntersectShapeFn(childBound, shape)) continue;
-      this.traverse(
-        shape,
-        op,
-        shapeIntersectShapesFn,
-        rectIntersectShapeFn,
-        id,
-        depth,
-      );
-    }
-  }
+
   eraseIntersected<S extends QtreeShapes>(shape: S) {
     this.forEach(shape, (s, store) => store.delete(s));
   }
+
   eraseExact(shape: QtreeShapes) {
     this.forEach(shape, (s, store) => {
       if (s != shape) return;
       store.delete(s);
     });
   }
+
   clear() {
-    for (const v of this.storage[this.currentLayer]) {
+    for (const v of this._storage[this._currentLayer]) {
       v[1].clear();
     }
   }
+
   size() {
     let count = 0;
-    for (const v of this.storage[this.currentLayer]) {
+    for (const v of this._storage[this._currentLayer]) {
       count += v[1].size;
     }
     return count;
   }
+
   drawTree(ctx: CanvasRenderingContext2D, color = "green") {
-    for (const value of this.storage[this.currentLayer]) {
+    for (const value of this._storage[this._currentLayer]) {
       ctx.beginPath();
       ctx.strokeStyle = color;
       for (const shape of value[1]) {
@@ -243,12 +178,101 @@ export class Quadtree {
         }
       }
       if (value[1].size) {
-        const bound = this.bounds.get(value[0]);
+        const bound = this._bounds.get(value[0]);
         if (!bound) continue;
         ctx.moveTo(bound.x, bound.y);
         ctx.rect(bound.x, bound.y, bound.width, bound.height);
       }
       ctx.stroke();
     }
+  }
+
+  private _index<S extends QtreeShapes>(shape: S): number {
+    let index = 0;
+    let depth = 1;
+    let contained = true;
+    let containFn: ((r: QtreeRect, s: S) => boolean) | undefined = undefined;
+    if (isRect(shape)) {
+      containFn = rectContainRect as (r: QtreeRect, s: S) => boolean;
+    } else if (isCircle(shape)) {
+      containFn = rectContainCircle as (r: QtreeRect, s: S) => boolean;
+    } else if (isLine(shape)) {
+      containFn = rectContainLine as (r: QtreeRect, s: S) => boolean;
+    } else if (isPoint(shape)) {
+      containFn = rectContainPoint as (r: QtreeRect, s: S) => boolean;
+    }
+    if (containFn == undefined) throw new Error();
+    while (contained && depth <= this._maxDepth) {
+      contained = false;
+      const parentBound = this._bounds.get(index);
+      if (!parentBound) throw new Error();
+      for (let i = 0; i < 4; i++) {
+        const id = calculateId(index, i, depth);
+        let childBound = this._bounds.get(id);
+        if (childBound == undefined) {
+          childBound = this._unusedRects.pop() ?? {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+          };
+          childBound.x = parentBound.x + (parentBound.width / 2) * (i % 2);
+          childBound.y = parentBound.y + (parentBound.height / 2) * +(i > 1);
+          childBound.width = parentBound.width / 2;
+          childBound.height = parentBound.height / 2;
+          this._bounds.set(id, childBound);
+        }
+        if (!containFn(childBound, shape)) continue;
+        index = id;
+        contained = true;
+        depth++;
+        break;
+      }
+    }
+    return index;
+  }
+
+  private _traverse<S extends QtreeShapes>(
+    shape: S,
+    op: (
+      intersectedShape: QtreeShapes,
+      corresponding_storage: MapValue<(typeof this._storage)[number]>,
+    ) => void,
+    shapeIntersectShapesFn: (
+      a: S,
+      b: QtreeShapes,
+    ) => boolean = shapeIntersectShape,
+    rectIntersectShapeFn: (a: QtreeRect, b: S) => boolean = rectIntersectShape,
+    index = 0,
+    depth = 0,
+  ) {
+    const store = this._storage[this._currentLayer].get(index);
+    if (store) {
+      for (const s of store) {
+        if (!shapeIntersectShapesFn(shape, s)) continue;
+        op(s, store);
+      }
+    }
+    depth++;
+    for (let i = 0; i < 4; i++) {
+      const id = calculateId(index, i, depth);
+      const childBound = this._bounds.get(id);
+      if (!childBound || !rectIntersectShapeFn(childBound, shape)) continue;
+      this._traverse(
+        shape,
+        op,
+        shapeIntersectShapesFn,
+        rectIntersectShapeFn,
+        id,
+        depth,
+      );
+    }
+  }
+
+  private _insert<S extends QtreeShapes>(
+    shape: S,
+    index: number = this._index(shape),
+  ): void {
+    this._storage[this._currentLayer].getOrInsert(index, new Set()).add(shape);
   }
 }

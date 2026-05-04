@@ -1,4 +1,4 @@
-import App from "../../app/app.ts";
+import ctx from "../../plugins/resizingCanvas/api.ts";
 import { World } from "bozoecs";
 import {
   Rect,
@@ -9,11 +9,10 @@ import {
   Color,
   Health,
   Text,
-  QtRect,
-  QtCircle,
   Camera,
   ParticleEmitter,
   PathFinder,
+  Attack,
 } from "../components.ts";
 
 export function drawCircles(world: World) {
@@ -21,23 +20,14 @@ export function drawCircles(world: World) {
     const t = world.getComponent(e, Transform);
     const c = world.getComponent(e, Circle);
     const color = world.getComponent(e, Color);
-    App.ctx.transform(t.scaleX, 0, 0, t.scaleY, t.x + c.x, t.y + c.y);
-    App.ctx.beginPath();
-    App.ctx.fillStyle = color.stroke;
-    App.ctx.arc(0, 0, c.radius, 0, Math.PI * 2);
-    App.ctx.fill();
-    App.ctx.beginPath();
-    App.ctx.fillStyle = color.fill;
-    App.ctx.arc(0, 0, c.radius - 0.5, 0, Math.PI * 2);
-    App.ctx.fill();
-    App.ctx.transform(
-      1 / t.scaleX,
-      0,
-      0,
-      1 / t.scaleY,
-      -(t.x + c.x) / t.scaleX,
-      -(t.y + c.y) / t.scaleY,
-    );
+    ctx.beginPath();
+    ctx.fillStyle = color.stroke;
+    ctx.arc(t.x + c.x, t.y + c.y, c.radius * t.scaleX, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.fillStyle = color.fill;
+    ctx.arc(t.x + c.x, t.y + c.y, (c.radius - 0.5) * t.scaleX, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
@@ -61,16 +51,9 @@ export function drawImg(world: World) {
     const scaleY = imgHeight / img.height;
     const c = Math.cos(p.rad);
     const s = Math.sin(p.rad);
-    App.ctx.transform(
-      c * scaleX,
-      s * scaleX,
-      -s * scaleY,
-      c * scaleY,
-      p.x,
-      p.y,
-    );
-    App.ctx.drawImage(img, offsetX, offsetY);
-    App.ctx.transform(
+    ctx.transform(c * scaleX, s * scaleX, -s * scaleY, c * scaleY, p.x, p.y);
+    ctx.drawImage(img, offsetX, offsetY);
+    ctx.transform(
       c / scaleX,
       -s / scaleX,
       s / scaleY,
@@ -89,22 +72,22 @@ export function drawRects(world: World) {
     const c = world.getComponent(e, Color);
     const cos = Math.cos(p.rad);
     const sin = Math.sin(p.rad);
-    App.ctx.transform(cos, sin, -sin, cos, p.x, p.y);
-    App.ctx.fillStyle = c.stroke;
-    App.ctx.fillRect(
+    ctx.transform(cos, sin, -sin, cos, p.x, p.y);
+    ctx.fillStyle = c.stroke;
+    ctx.fillRect(
       r.x * p.scaleX,
       r.y * p.scaleY,
       r.width * p.scaleX,
       r.height * p.scaleY,
     );
-    App.ctx.fillStyle = c.fill;
-    App.ctx.fillRect(
+    ctx.fillStyle = c.fill;
+    ctx.fillRect(
       r.x * p.scaleX + 0.5,
       r.y * p.scaleY + 0.5,
       r.width * p.scaleX - 1,
       r.height * p.scaleY - 1,
     );
-    App.ctx.transform(
+    ctx.transform(
       cos,
       -sin,
       sin,
@@ -127,19 +110,17 @@ export function drawHealthBars(world: World) {
     const h = world.getComponent(e, Health);
     const cos = Math.cos(t.rad);
     const sin = Math.sin(t.rad);
-    let x = -(r.width * widthMult) / 2;
-    let y = relativeBarY + r.y;
-    App.ctx.fillStyle = "black";
-    App.ctx.fillRect(
+    const x = -(r.width * widthMult) / 2;
+    const y = relativeBarY + r.y;
+    ctx.fillStyle = "black";
+    ctx.fillRect(
       t.x - margin / 2 + cos * x - sin * y,
       t.y - margin / 2 + sin * x + cos * y,
       r.width * widthMult + margin,
       barHeight + margin,
     );
-    x = -(r.width * widthMult) / 2;
-    y = relativeBarY + r.y;
-    App.ctx.fillStyle = "green";
-    App.ctx.fillRect(
+    ctx.fillStyle = "green";
+    ctx.fillRect(
       t.x + cos * x - sin * y,
       t.y + sin * x + cos * y,
       r.width * widthMult * (h.current / h.max),
@@ -153,16 +134,16 @@ export function drawHealthBars(world: World) {
     const cos = Math.cos(t.rad);
     const sin = Math.sin(t.rad);
     const x = -(c.radius * widthMult);
-    const y = relativeBarY - 1;
-    App.ctx.fillStyle = "black";
-    App.ctx.fillRect(
+    const y = relativeBarY - c.radius;
+    ctx.fillStyle = "black";
+    ctx.fillRect(
       t.x - margin / 2 + cos * x - sin * y,
       t.y - margin / 2 + sin * x + cos * y,
       c.radius * 2 * widthMult + margin,
       barHeight + margin,
     );
-    App.ctx.fillStyle = "green";
-    App.ctx.fillRect(
+    ctx.fillStyle = "green";
+    ctx.fillRect(
       t.x + cos * x - sin * y,
       t.y + sin * x + cos * y,
       c.radius * 2 * widthMult * (h.current / h.max),
@@ -175,69 +156,83 @@ export function drawTexts(world: World) {
   world.query({ and: [Text, Transform] }).forEach((e) => {
     const t = world.getComponent(e, Text);
     const p = world.getComponent(e, Transform);
-    App.ctx.font = `${t.fontSize}px serif`;
+    ctx.font = `${t.fontSize}px serif`;
     const lines = t.content.split("\n");
-    App.ctx.fillStyle = t.backgroundColor;
+    ctx.fillStyle = t.backgroundColor;
     for (let i = 0, l = lines.length; i < l; i++) {
-      const txtMetric = App.ctx.measureText(lines[i]);
-      App.ctx.fillRect(
-        p.x,
-        p.y + i * (2 * t.padding) + i * txtMetric.fontBoundingBoxAscent,
+      if (lines[i].length == 0) continue;
+      const txtMetric = ctx.measureText(lines[i]);
+      ctx.fillRect(
+        p.x + t.x,
+        p.y + t.y + i * (2 * t.padding) + i * txtMetric.fontBoundingBoxAscent,
         t.padding * 2 + txtMetric.width,
         t.padding * 2 + txtMetric.fontBoundingBoxAscent,
       );
     }
-    App.ctx.fillStyle = t.color;
+    ctx.fillStyle = t.color;
     for (let i = 0, l = lines.length; i < l; i++) {
-      const txtMetric = App.ctx.measureText(lines[i]);
-      App.ctx.fillText(
+      const txtMetric = ctx.measureText(lines[i]);
+      ctx.fillText(
         lines[i],
-        p.x + t.padding,
-        p.y + i * (2 * t.padding) + (i + 1) * txtMetric.fontBoundingBoxAscent,
+        p.x + t.x + t.padding,
+        p.y +
+          t.y +
+          i * (2 * t.padding) +
+          (i + 1) * txtMetric.fontBoundingBoxAscent,
       );
     }
   });
 }
 
-export function drawQuadTree(world: World) {
-  const qt = App.getQuadtree(App.getWorldId(world));
-  qt.drawTree(App.ctx);
-}
-
 export function drawCameraRect(world: World) {
-  App.ctx.strokeStyle = "red";
-  App.ctx.lineWidth = 1;
-  App.ctx.beginPath();
+  const canvas = ctx.canvas;
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
   for (const e of world.query({ and: [Transform, Camera] })) {
     const t = world.getComponent(e, Transform);
     const c = world.getComponent(e, Camera);
-    App.ctx.rect(
-      t.x - App.canvas.width / (c.zoom * 2),
-      t.y - App.canvas.height / (c.zoom * 2),
-      App.canvas.width / c.zoom,
-      App.canvas.height / c.zoom,
+    ctx.rect(
+      t.x - canvas.width / (c.zoom * 2),
+      t.y - canvas.height / (c.zoom * 2),
+      canvas.width / c.zoom,
+      canvas.height / c.zoom,
     );
   }
-  App.ctx.stroke();
+  ctx.stroke();
 }
 
 export function drawParticleEmitters(world: World) {
-  App.ctx.fillStyle = "green";
-  App.ctx.beginPath();
+  ctx.fillStyle = "green";
+  ctx.beginPath();
   for (const e of world.query({ and: [ParticleEmitter, Transform] })) {
     const t = world.getComponent(e, Transform);
-    App.ctx.moveTo(t.x, t.y);
-    App.ctx.arc(t.x, t.y, 0.5, 0, Math.PI * 2);
+    ctx.moveTo(t.x, t.y);
+    ctx.arc(t.x, t.y, 0.5, 0, Math.PI * 2);
   }
-  App.ctx.fill();
+  ctx.fill();
 }
 
 export function drawPathFindTargets(world: World) {
-  App.ctx.fillStyle = "blue";
-  App.ctx.beginPath();
+  ctx.fillStyle = "blue";
+  ctx.beginPath();
   for (const e of world.query({ and: [PathFinder] })) {
     const pf = world.getComponent(e, PathFinder);
-    App.ctx.arc(pf.targetX, pf.targetY, 0.3, 0, Math.PI * 2);
+    ctx.arc(pf.targetX, pf.targetY, 0.3, 0, Math.PI * 2);
   }
-  App.ctx.fill();
+  ctx.fill();
+}
+
+export function drawAttackTargets(world: World) {
+  ctx.strokeStyle = "red";
+  ctx.beginPath();
+  const radius = 1;
+  for (const e of world.query({ and: [Attack] })) {
+    const a = world.getComponent(e, Attack);
+    if (!world.hasComponent(a.targetEntity, Transform)) continue;
+    const t = world.getComponent(a.targetEntity, Transform);
+    ctx.moveTo(t.x + radius, t.y);
+    ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+  }
+  ctx.stroke();
 }
