@@ -15,6 +15,7 @@ import ctx from "../resizingCanvas/api.ts";
 
 const gameInfoWorld = new World();
 const systems = [drawGraph, drawTexts];
+let fpsRollingSum = 0;
 
 const plug: Plugin = {
   setUp: () => {
@@ -47,7 +48,6 @@ const plug: Plugin = {
       gameInfoWorld.query({ and: [Text] })[0],
       Text,
     );
-    const fps = Math.floor(1 / time.dtSeconds);
 
     gameText.content = "";
     gameText.content += `Device type: ${detectDeviceType()}\n`;
@@ -66,10 +66,13 @@ const plug: Plugin = {
 
     const graphs = gameInfoWorld.query({ and: [Graph] });
     const fpsGraph = gameInfoWorld.getComponent(graphs[0], Graph);
+    const fps = time.dtSeconds == 0 ? 0 : 1 / time.dtSeconds;
     fpsGraph.y.unshift(fps);
     fpsGraph.y.pop();
     const fpsString = gameInfoWorld.getComponent(graphs[0], Text);
-    fpsString.content = `FPS: ${fps}`;
+    fpsRollingSum += fps;
+    fpsRollingSum -= fpsGraph.y[fpsGraph.y.length - 1];
+    fpsString.content = `FPS avg.: ${Math.round(fpsRollingSum / fpsGraph.x.length)}`;
 
     gameInfoWorld.update(systems);
   },

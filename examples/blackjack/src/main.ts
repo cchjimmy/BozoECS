@@ -14,8 +14,7 @@ function updateTime(time: {
   dtSeconds: number;
   timeSeconds: number;
 }) {
-  const now = performance.now();
-  time.dtMilli = now - time.timeMilli;
+  time.dtMilli = performance.now() - time.timeMilli;
   time.timeMilli += time.dtMilli;
   time.dtSeconds = time.dtMilli / 1000;
   time.timeSeconds = time.timeMilli / 1000;
@@ -461,7 +460,7 @@ function handleDrawText(world: World) {
       Ctx2d.ctx.fillText(
         split[i],
         t.x,
-        t.y + textMetrics.emHeightAscent * (i + 1),
+        t.y + textMetrics.actualBoundingBoxAscent * (i + 1),
       );
     }
   }
@@ -796,7 +795,7 @@ resetGame(game);
     Ctx2d.ctx.fillStyle = "#424242";
     Ctx2d.ctx.fillRect(0, 0, Ctx2d.canvas.width, Ctx2d.canvas.height);
 
-    gameTextComp.content = `Credits: ${Game.credits}\nBet: ${Game.bet}\nRound ${Game.rounds + 1}, Best: ${Game.best + 1}\n${StatusStrings[Game.status]}\n\n\n\n\n\n\n\n\n\n\n\n\n\nNext min bet: ${Math.ceil(Game.minBet ** Game.betIncreaseExponent)}\nRounds until min bet increases: ${
+    gameTextComp.content = `Credits: ${Game.credits}\nBet: ${Game.bet}\nRound ${Game.rounds + 1}, Best: ${Game.best + 1}\n${StatusStrings[Game.status]}\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nNext min bet: ${Math.ceil(Game.minBet ** Game.betIncreaseExponent)}\nRounds until min bet increases: ${
       Game.roundsTilBetIncrease - (Game.rounds % Game.roundsTilBetIncrease) - 1
     }`;
 

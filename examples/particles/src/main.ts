@@ -1,14 +1,14 @@
 import { World } from "bozoecs";
-import { Application, Container, Graphics, Text } from "pixi.js";
 
 function random(min: number, max: number): number {
   return Math.random() * (max - min) + min;
 }
 
-(async () => {
-  const app = new Application();
-  await app.init({ resizeTo: window });
-  document.body.appendChild(app.canvas);
+(() => {
+  const canvas =
+    document.querySelector("canvas") || document.createElement("canvas");
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext("2d", { alpha: false });
 
   const ENTITY_COUNT = 1000;
 
@@ -17,21 +17,30 @@ function random(min: number, max: number): number {
   // components
   const Position = { x: 0, y: 0 };
   const Velocity = { x: 0, y: 0 };
-  const Circle = { radius: 10, color: "green", graphics: new Graphics() };
+  const Circle = { radius: 10, color: "green" };
+
+  const Time = { dtSeconds: 0, dtMilli: 0, timeMilli: 0, timeSeconds: 0 };
 
   // systems
   function render(world: World) {
+    if (!ctx) return;
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     world.query({ and: [Position, Circle] }).forEach((e) => {
       const p = world.getComponent(e, Position);
       const c = world.getComponent(e, Circle);
-      c.graphics.x = p.x;
-      c.graphics.y = p.y;
-      c.graphics.scale = c.radius;
-      c.graphics.tint = c.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, c.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = c.color;
+      ctx.stroke();
     });
+    ctx.fillStyle = "white";
+    const fontSize = canvas.height / 20;
+    ctx.font = `${fontSize}px serif`;
+    ctx.fillText(`FPS: ${(1 / Time.dtSeconds).toFixed(0)}`, 0, fontSize);
   }
   function move(world: World) {
-    const dt = app.ticker.deltaMS / 1000;
+    const dt = Time.dtSeconds;
     world.query({ and: [Position, Velocity] }).forEach((e) => {
       const p = world.getComponent(e, Position);
       const v = world.getComponent(e, Velocity);
@@ -44,53 +53,66 @@ function random(min: number, max: number): number {
       const p = world.getComponent(e, Position);
       const v = world.getComponent(e, Velocity);
       const c = world.getComponent(e, Circle);
-      if (p.x - c.radius < 0 || p.x + c.radius > innerWidth) {
+      if (p.x - c.radius < 0 || p.x + c.radius > canvas.width) {
         v.x *= -1;
-        p.x = p.x < innerWidth * 0.5 ? c.radius : innerWidth - c.radius;
+        p.x = p.x < canvas.width * 0.5 ? c.radius : canvas.width - c.radius;
       }
-      if (p.y - c.radius < 0 || p.y + c.radius > innerHeight) {
+      if (p.y - c.radius < 0 || p.y + c.radius > canvas.height) {
         v.y *= -1;
-        p.y = p.y < innerHeight * 0.5 ? c.radius : innerHeight - c.radius;
+        p.y = p.y < canvas.height * 0.5 ? c.radius : canvas.height - c.radius;
       }
     });
   }
 
   // entity
-  const circles = new Container();
-  app.stage.addChild(circles);
   function createEntity() {
     const e = w.addEntity();
     w.addComponent(e, Position, {
-      x: random(0, innerWidth),
-      y: random(0, innerHeight),
+      x: random(0, canvas.width),
+      y: random(0, canvas.height),
     });
     const maxSpeed = 100;
+    const speed = maxSpeed * Math.random();
+    const dir = random(0, Math.PI * 2);
     w.addComponent(e, Velocity, {
-      x: random(-maxSpeed, maxSpeed),
-      y: random(-maxSpeed, maxSpeed),
+      x: Math.cos(dir) * speed,
+      y: Math.sin(dir) * speed,
     });
     const c = w.addComponent(e, Circle, {
       radius: random(10, 30),
-      color: `rgb(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)})`,
-      graphics: new Graphics().circle(0, 0, 1).stroke({
-        color: "white",
-        width: 0.1,
-      }),
+      color: `#${Math.round(random(0, 16 ** 6 - 1))
+        .toString(16)
+        .padStart(6, "0")}`,
     });
-    circles.addChild(c.graphics);
     return e;
   }
+
+  globalThis.onload = globalThis.onresize = () => {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+    canvas.style.width = canvas.style.height = "100%";
+  };
+
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
 
   for (let i = 0; i < ENTITY_COUNT; ++i) {
     createEntity();
   }
 
-  const text = new Text();
-  text.style = { fill: "white" };
-  app.stage.addChild(text);
+  Time.timeMilli = performance.now();
 
-  app.ticker.add(() => {
+  canvas.style.imageRendering = "pixelated";
+
+  function update() {
+    if (!ctx) return;
+    requestAnimationFrame(update);
     w.update([render, move, bounce]);
-    text.text = `FPS: ${(1000 / app.ticker.deltaMS).toFixed(0)}`;
-  });
+    Time.dtMilli = performance.now() - Time.timeMilli;
+    Time.dtSeconds = Time.dtMilli / 1000;
+    Time.timeMilli += Time.dtMilli;
+    Time.timeSeconds = Time.timeMilli / 1000;
+  }
+
+  update();
 })();

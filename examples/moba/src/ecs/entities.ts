@@ -9,7 +9,6 @@ import {
   Graphic,
   Rect,
   ParticleEmitter,
-  Timer,
   Callback,
   Transform,
   Color,
@@ -40,6 +39,7 @@ export function addMinion(world: World, x: number, y: number): entityT {
     current: config.entities.minion.healthPoint,
     max: config.entities.minion.healthPoint,
   });
+  world.addComponent(e, Stats, config.entities.minion);
   world.addComponent(e, Velocity);
   return e;
 }

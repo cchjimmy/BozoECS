@@ -8,8 +8,10 @@ import {
   addFountain,
 } from "../../ecs/entities.ts";
 import {
+  handleAiAttack,
   handleAttack,
   handleAttackInput,
+  handleDeath,
   handleMovementInput,
   handleParticleEmitters,
   handlePathfind,
@@ -43,7 +45,6 @@ import { Quadtree } from "../../quadtree/quadtree.ts";
 import { isQtreeElm } from "./utils.ts";
 import { Plugin } from "../../core/app.ts";
 import { Camera } from "../../ecs/components.ts";
-import ctx from "../resizingCanvas/api.ts";
 import { setGameWorld } from "../gameInfo/api.ts";
 
 function addTurrents(world: World) {
@@ -87,6 +88,7 @@ const world = new World();
 const qtree = new Quadtree();
 
 function setUp(world: World): void {
+  world.clearWorld();
   world.onAddedComponent = (_entity, _component, instance) => {
     if (isQtreeElm(instance)) {
       qtree.insert(instance);
@@ -140,9 +142,11 @@ const systems = [
   drawHealthBars,
   drawTexts,
   drawPathFindTargets,
+  handleDeath,
   handleParticleEmitters,
   handlePathfind,
   handleMovementInput,
+  handleAiAttack,
   handleAttackInput,
   handleAttack,
   handleCallbacks,
@@ -153,7 +157,6 @@ const systems = [
 
 const plug: Plugin = {
   setUp: () => {
-    world.clearWorld();
     setUp(world);
     qtree.setBoundary({
       x: -150,

@@ -243,29 +243,29 @@ export class Quadtree {
       b: QtreeShapes,
     ) => boolean = shapeIntersectShape,
     rectIntersectShapeFn: (a: QtreeRect, b: S) => boolean = rectIntersectShape,
-    index = 0,
-    depth = 0,
   ) {
-    const store = this._storage[this._currentLayer].get(index);
-    if (store) {
-      for (const s of store) {
-        if (!shapeIntersectShapesFn(shape, s)) continue;
-        op(s, store);
+    const queue: number[] = [];
+    queue.push(0); // index
+    queue.push(0); // depth
+    while (queue.length) {
+      const index = queue.shift() as number;
+      let depth = queue.shift() as number;
+      const store = this._storage[this._currentLayer].get(index);
+      if (store) {
+        for (const s of store) {
+          if (!shapeIntersectShapesFn(shape, s)) continue;
+          op(s, store);
+        }
       }
-    }
-    depth++;
-    for (let i = 0; i < 4; i++) {
-      const id = calculateId(index, i, depth);
-      const childBound = this._bounds.get(id);
-      if (!childBound || !rectIntersectShapeFn(childBound, shape)) continue;
-      this._traverse(
-        shape,
-        op,
-        shapeIntersectShapesFn,
-        rectIntersectShapeFn,
-        id,
-        depth,
-      );
+      depth++;
+      if (depth > this._maxDepth) continue;
+      for (let i = 0; i < 4; i++) {
+        const id = calculateId(index, i, depth);
+        const bound = this._bounds.get(id);
+        if (!bound || !rectIntersectShapeFn(bound, shape)) continue;
+        queue.push(id);
+        queue.push(depth);
+      }
     }
   }
 

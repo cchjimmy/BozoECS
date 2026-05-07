@@ -3,7 +3,7 @@ import { EntityManager, entityT } from "./entity.ts";
 import { Grouper } from "./grouper.ts";
 
 type queryT = Record<"and" | "not", object[]>;
-type systemT = (world: World) => void;
+export type systemT = (world: World) => void;
 
 export class World {
   private static _compManager = new ComponentManager();
@@ -11,15 +11,13 @@ export class World {
   private _entityCompMap: Map<object, Map<entityT, object>> = new Map();
   private _archtypeGroups: Grouper<bigint, entityT> = new Grouper();
 
-  static onAddedComponent(
-    world: World,
+  onAddedComponent(
     entity: entityT,
     component: object,
     instance: object,
   ): void {}
 
-  static onRemoveComponent(
-    world: World,
+  onRemoveComponent(
     entity: entityT,
     component: object,
     instance: object,
@@ -125,40 +123,7 @@ export class World {
     World._compManager.clean();
   }
 
-  query(query: Partial<queryT>): entityT[] {
-    return this._query(query);
-  }
-
-  entityCount(): number {
-    return this._entityManager.size();
-  }
-
-  private _addComponent<T extends object>(
-    entity: entityT,
-    component: T,
-    values: Partial<T>,
-  ): T {
-    const instance =
-      this._entityCompMap.get(component)?.get(entity) ??
-      World._compManager.add(component);
-    Object.assign(instance, values);
-    this._entityCompMap.get(component)?.set(entity, instance);
-    World.onAddedComponent(this, entity, component, instance);
-    return instance as T;
-  }
-
-  private _removeComponent<T extends object>(
-    entity: entityT,
-    component: T,
-  ): void {
-    const instance = this._entityCompMap.get(component)?.get(entity);
-    if (instance == undefined) return;
-    World.onRemoveComponent(this, entity, component, instance);
-    this._entityCompMap.get(component)?.delete(entity);
-    World._compManager.remove(component, instance);
-  }
-
-  private _query(query: Partial<queryT>, res: entityT[] = []): entityT[] {
+  query(query: Partial<queryT>, res: entityT[] = []): entityT[] {
     const andMask = query.and ? this._getMask(query.and) : 0n;
     const notMask = query.not ? this._getMask(query.not) : 0n;
     for (const entry of this._archtypeGroups) {
@@ -171,6 +136,47 @@ export class World {
       res.push(...entry[1]);
     }
     return res;
+  }
+
+  entityCount(): number {
+    return this._entityManager.size();
+  }
+
+  clearWorld(): void {
+    for (const entry of this._entityCompMap) {
+      for (const entry1 of entry[1]) {
+        World._compManager.remove(entry[0], entry1[1]);
+      }
+      entry[1].clear();
+    }
+    for (const entity of this._entityManager.getEntitySet()) {
+      this._archtypeGroups.delete(entity);
+      this._entityManager.removeEntity(entity);
+    }
+  }
+
+  private _addComponent<T extends object>(
+    entity: entityT,
+    component: T,
+    values: Partial<T>,
+  ): T {
+    let instance = this._entityCompMap.get(component)?.get(entity);
+    if (instance) return Object.assign(instance, values) as T;
+    instance = Object.assign(World._compManager.add(component), values);
+    this._entityCompMap.get(component)?.set(entity, instance);
+    this.onAddedComponent(entity, component, instance);
+    return instance as T;
+  }
+
+  private _removeComponent<T extends object>(
+    entity: entityT,
+    component: T,
+  ): void {
+    const instance = this._entityCompMap.get(component)?.get(entity);
+    if (instance == undefined) return;
+    this.onRemoveComponent(entity, component, instance);
+    this._entityCompMap.get(component)?.delete(entity);
+    World._compManager.remove(component, instance);
   }
 
   private _getMask<T extends Iterable<object>>(components: T): bigint {

@@ -232,13 +232,13 @@ function drawCard(
   ctx.fillText(
     text,
     (cardWidth - cardPadding * 2) / 4 - textMetrics.width / 2 + cardPadding,
-    cardHeight / 2 + textMetrics.emHeightAscent,
+    cardHeight / 2 + textMetrics.actualBoundingBoxAscent,
   );
   ctx.transform(c, s, -s, c, x, y);
   ctx.fillText(
     text,
     (cardWidth - cardPadding * 2) / 4 - textMetrics.width / 2 + cardPadding,
-    cardHeight / 2 + textMetrics.emHeightAscent,
+    cardHeight / 2 + textMetrics.actualBoundingBoxAscent,
   );
   ctx.transform(symbolMargin, 0, 0, symbolMargin, cardPadding, cardPadding);
   if (!isBack) ctx.stroke(paths[symbol]);

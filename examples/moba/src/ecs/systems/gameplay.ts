@@ -85,7 +85,7 @@ export function handleAttackInput(world: World, qtree: Quadtree) {
     camera.zoom,
   );
   const clickedShapes = qtree.query(worldPos);
-  const players = world.query({ and: [IsPlayer] });
+  const players = world.query({ and: [IsPlayer, Stats] });
   if (clickedShapes.length == 0) {
     for (const e of players) {
       world.removeComponent(e, Attack);
@@ -104,9 +104,49 @@ export function handleAttackInput(world: World, qtree: Quadtree) {
   }
   if (minHealthTarget == -1) return;
   for (const e of players) {
+    const s = world.getComponent(e, Stats);
     world.addComponent(e, Attack, {
       targetEntity: minHealthTarget,
-      damage: 2,
+      damage: s.attackDamage,
+      range: s.attackRange,
+      speed: s.attackSpeed,
+    });
+  }
+}
+
+export function handleAiAttack(world: World, qtree: Quadtree) {
+  for (const e of world.query({ and: [Transform, Stats] })) {
+    const s = world.getComponent(e, Stats);
+    const t = world.getComponent(e, Transform);
+
+    // attack closest
+    let minDistance = Infinity;
+    let target = -1;
+    for (const shape of qtree.query({
+      x: t.x,
+      y: t.y,
+      radius: s.attackRange,
+    })) {
+      const shapeOwner = (shape as QtShapes).owner;
+      if (shapeOwner == e || !world.hasComponent(shapeOwner, Transform))
+        continue;
+      const targetT = world.getComponent(shapeOwner, Transform);
+      const distance =
+        (targetT.x - t.x) * (targetT.x - t.x) +
+        (targetT.y - t.y) * (targetT.y - t.y);
+      if (distance > minDistance) continue;
+      minDistance = distance;
+      target = shapeOwner;
+    }
+    if (target == -1) {
+      world.removeComponent(e, Attack);
+      continue;
+    }
+    world.addComponent(e, Attack, {
+      targetEntity: target,
+      range: s.attackRange,
+      speed: s.attackSpeed,
+      damage: s.attackDamage,
     });
   }
 }
@@ -189,4 +229,27 @@ export function handlePathfind(world: World) {
       v.x = (dx / dMag) * adjustedSpeed;
       v.y = (dy / dMag) * adjustedSpeed;
     });
+}
+
+export function handleDeath(world: World) {
+  for (const e of world.query({ and: [Health] })) {
+    const h = world.getComponent(e, Health);
+    if (h.current > 0) continue;
+    world.removeComponent(e, Health);
+    const t = world.getComponent(e, Transform);
+    const deathTime = time.timeSeconds;
+    const sX = t.scaleX;
+    const sY = t.scaleY;
+    const deathDuration = 1;
+    world.addComponent(e, Callback, {
+      fn() {
+        if (time.timeSeconds - deathTime > deathDuration) {
+          world.deleteEntity(e);
+          return;
+        }
+        t.scaleX = (sX * (1 - (time.timeSeconds - deathTime))) / deathDuration;
+        t.scaleY = (sY * (1 - (time.timeSeconds - deathTime))) / deathDuration;
+      },
+    });
+  }
 }

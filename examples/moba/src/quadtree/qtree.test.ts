@@ -1,5 +1,5 @@
 import { Quadtree, QtreeLine, QtreeRect, QtreeCircle } from "./quadtree.ts";
-import { assert } from "jsr:@std/assert";
+import { assert } from "@std/assert";
 
 Deno.test({
   name: "insertShape",
@@ -99,6 +99,6 @@ Deno.test({
     const r2: QtreeRect = { x: -1, y: -1, width: 2, height: 2 };
     qt.insert(r1);
     qt.insert(r2);
-    qt.forEach(r2, (_, store) => assert(store.size <= 1));
+    qt.forEach(r2, (_, store) => assert(store.size == 1));
   },
 });

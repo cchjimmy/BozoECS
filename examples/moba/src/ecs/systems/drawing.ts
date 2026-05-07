@@ -158,27 +158,34 @@ export function drawTexts(world: World) {
     const p = world.getComponent(e, Transform);
     ctx.font = `${t.fontSize}px serif`;
     const lines = t.content.split("\n");
-    ctx.fillStyle = t.backgroundColor;
+    ctx.beginPath();
     for (let i = 0, l = lines.length; i < l; i++) {
       if (lines[i].length == 0) continue;
       const txtMetric = ctx.measureText(lines[i]);
-      ctx.fillRect(
+      const textHeight =
+        txtMetric.actualBoundingBoxAscent + txtMetric.actualBoundingBoxDescent;
+      ctx.rect(
         p.x + t.x,
-        p.y + t.y + i * (2 * t.padding) + i * txtMetric.fontBoundingBoxAscent,
+        p.y + t.y + i * (2 * t.padding + textHeight),
         t.padding * 2 + txtMetric.width,
-        t.padding * 2 + txtMetric.fontBoundingBoxAscent,
+        t.padding * 2 + textHeight,
       );
     }
+    ctx.fillStyle = t.backgroundColor;
+    ctx.fill();
     ctx.fillStyle = t.color;
     for (let i = 0, l = lines.length; i < l; i++) {
       const txtMetric = ctx.measureText(lines[i]);
+      const textHeight =
+        txtMetric.actualBoundingBoxAscent + txtMetric.actualBoundingBoxDescent;
       ctx.fillText(
         lines[i],
         p.x + t.x + t.padding,
         p.y +
           t.y +
-          i * (2 * t.padding) +
-          (i + 1) * txtMetric.fontBoundingBoxAscent,
+          ((i + 1) * 2 - 1) * t.padding +
+          (i + 1) * textHeight +
+          -txtMetric.actualBoundingBoxDescent,
       );
     }
   });
@@ -187,7 +194,6 @@ export function drawTexts(world: World) {
 export function drawCameraRect(world: World) {
   const canvas = ctx.canvas;
   ctx.strokeStyle = "red";
-  ctx.lineWidth = 1;
   ctx.beginPath();
   for (const e of world.query({ and: [Transform, Camera] })) {
     const t = world.getComponent(e, Transform);
@@ -216,9 +222,11 @@ export function drawParticleEmitters(world: World) {
 export function drawPathFindTargets(world: World) {
   ctx.fillStyle = "blue";
   ctx.beginPath();
+  const radius = 0.3;
   for (const e of world.query({ and: [PathFinder] })) {
     const pf = world.getComponent(e, PathFinder);
-    ctx.arc(pf.targetX, pf.targetY, 0.3, 0, Math.PI * 2);
+    ctx.moveTo(pf.targetX + radius, pf.targetY);
+    ctx.arc(pf.targetX, pf.targetY, radius, 0, Math.PI * 2);
   }
   ctx.fill();
 }
@@ -226,13 +234,15 @@ export function drawPathFindTargets(world: World) {
 export function drawAttackTargets(world: World) {
   ctx.strokeStyle = "red";
   ctx.beginPath();
-  const radius = 1;
-  for (const e of world.query({ and: [Attack] })) {
+  for (const e of world.query({ and: [Transform, Attack] })) {
     const a = world.getComponent(e, Attack);
+    const t = world.getComponent(e, Transform);
     if (!world.hasComponent(a.targetEntity, Transform)) continue;
-    const t = world.getComponent(a.targetEntity, Transform);
-    ctx.moveTo(t.x + radius, t.y);
-    ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+    const targetT = world.getComponent(a.targetEntity, Transform);
+    ctx.moveTo(t.x + a.range, t.y);
+    ctx.arc(t.x, t.y, a.range, 0, Math.PI * 2);
+    ctx.moveTo(t.x, t.y);
+    ctx.lineTo(targetT.x, targetT.y);
   }
   ctx.stroke();
 }

@@ -23,14 +23,14 @@
     },
     "turrent": {
       "healthPoint": 100,
-      "attackDamage": 0,
+      "attackDamage": 100,
       "attackSpeed": 2,
       "attackRange": 10,
       "abilityPower": 100
     },
     "fountain": {
       "healthPoint": 200,
-      "attackDamage": 0,
+      "attackDamage": 200,
       "attackSpeed": 2,
       "attackRange": 10,
       "abilityPower": 200
