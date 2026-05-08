@@ -79,7 +79,7 @@ export const Camera = { zoom: 1, tilt: 0, isActive: false, targetEntity: -1 };
 export const Rect = { width: 1, height: 1, x: -0.5, y: -0.5 };
 export const Circle = { radius: 1, x: 0, y: 0 };
 export const Graphic = { image: new Image() };
-export const Button = { hovered: false, pressed: false, clicked: false };
+export const Button = { hovered: false, isDown: false, clicked: false };
 export const Color = { fill: "white", stroke: "black" };
 export const Text = {
   x: 0,

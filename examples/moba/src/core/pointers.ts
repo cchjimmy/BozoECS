@@ -1,21 +1,18 @@
-export function setUpPointers() {
-  const pointers: {
-    x: number[];
-    y: number[];
-    pressX: number[];
-    pressY: number[];
-    releaseX: number[];
-    releaseY: number[];
-    isDown: boolean[];
-    justPressed: boolean[];
-    justReleased: boolean[];
-  } = {
+export type Pointers = {
+  x: number[];
+  y: number[];
+  pressX: number[];
+  pressY: number[];
+  isDown: boolean[];
+  justPressed: boolean[];
+  justReleased: boolean[];
+};
+export function setUpPointers(): Pointers {
+  const pointers: Pointers = {
     x: [],
     y: [],
     pressX: [],
     pressY: [],
-    releaseX: [],
-    releaseY: [],
     isDown: [],
     justPressed: [],
     justReleased: [],
@@ -34,8 +31,6 @@ export function setUpPointers() {
     pointers.y[e.pointerId] = e.y;
     pointers.isDown[e.pointerId] = false;
     pointers.justReleased[e.pointerId] = true;
-    pointers.releaseX[e.pointerId] = e.x;
-    pointers.releaseY[e.pointerId] = e.y;
   };
   globalThis.onpointermove = (e) => {
     pointers.x[e.pointerId] = e.x;
@@ -44,12 +39,16 @@ export function setUpPointers() {
   return pointers;
 }
 
-export function updatePointers(pointers: {
-  justPressed: boolean[];
-  justReleased: boolean[];
-}) {
-  for (let i = 0, l = pointers.justPressed.length; i < l; i++) {
+export function updatePointers(pointers: Pointers) {
+  for (let i = 0, l = pointers.x.length; i < l; i++) {
+    if (pointers.justReleased[i]) {
+      pointers.x[i] = -1;
+      pointers.y[i] = -1;
+      pointers.isDown[i] = false;
+      pointers.justReleased[i] = false;
+      pointers.pressX[i] = -1;
+      pointers.pressY[i] = -1;
+    }
     pointers.justPressed[i] = false;
-    pointers.justReleased[i] = false;
   }
 }

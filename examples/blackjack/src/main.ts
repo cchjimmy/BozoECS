@@ -19,14 +19,15 @@ function updateTime(time: {
   time.dtSeconds = time.dtMilli / 1000;
   time.timeSeconds = time.timeMilli / 1000;
 }
+type Pointers = {
+  x: number[];
+  y: number[];
+  isDown: boolean[];
+  justPressed: boolean[];
+  justReleased: boolean[];
+};
 function setUpPointers() {
-  const pointers: {
-    x: number[];
-    y: number[];
-    isDown: boolean[];
-    justPressed: boolean[];
-    justReleased: boolean[];
-  } = {
+  const pointers: Pointers = {
     x: [],
     y: [],
     isDown: [],
@@ -54,13 +55,15 @@ function setUpPointers() {
   };
   return pointers;
 }
-function updatePointers(pointers: {
-  justPressed: boolean[];
-  justReleased: boolean[];
-}) {
-  for (let i = 0, l = pointers.justPressed.length; i < l; i++) {
+function updatePointers(pointers: Pointers) {
+  for (let i = 0, l = pointers.x.length; i < l; i++) {
+    if (pointers.justReleased[i]) {
+      pointers.x[i] = -1;
+      pointers.y[i] = -1;
+      pointers.isDown[i] = false;
+      pointers.justReleased[i] = false;
+    }
     pointers.justPressed[i] = false;
-    pointers.justReleased[i] = false;
   }
 }
 function setUpCanvas() {
@@ -389,11 +392,11 @@ function handleButtons(world: World) {
     const b = world.getComponent(e, Button);
     const t = world.getComponent(e, Transform);
     const r = world.getComponent(e, Rect);
-    b.hovered = b.justPressed = b.justReleased = false;
+    b.hovered = b.isDown = b.justReleased = false;
     if (!b.enabled) continue;
     for (let i = 0, l = Pointers.x.length; i < l; i++) {
       const worldPos = screen2World(Pointers.x[i], Pointers.y[i]);
-      b.hovered ||= isPointInRect(
+      const currentHovered = isPointInRect(
         worldPos.x,
         worldPos.y,
         t.x,
@@ -401,8 +404,10 @@ function handleButtons(world: World) {
         r.w * t.scaleX,
         r.h * t.scaleY,
       );
-      b.justPressed ||= b.hovered && Pointers.justPressed[i];
-      b.justReleased ||= b.hovered && Pointers.justReleased[i];
+      b.hovered ||= currentHovered;
+      b.isDown ||= currentHovered && Pointers.isDown[i];
+      b.justReleased ||=
+        !b.isDown && currentHovered && Pointers.justReleased[i];
     }
   }
 }
@@ -513,6 +518,15 @@ function handleContainers(world: World) {
     }
   }
 }
+function drawPointers() {
+  Ctx2d.ctx.beginPath();
+  for (let i = 0, l = Pointers.x.length; i < l; i++) {
+    const worldPos = screen2World(Pointers.x[i], Pointers.y[i]);
+    Ctx2d.ctx.moveTo(worldPos.x, worldPos.y);
+    Ctx2d.ctx.arc(worldPos.x, worldPos.y, 10, 0, Math.PI * 2);
+  }
+  Ctx2d.ctx.fill();
+}
 
 // components
 const Text = { content: "placeholder", font: "" };
@@ -523,8 +537,8 @@ const Card: { value: keyof typeof Deck } = { value: "back" };
 const InHand = { isPlayer: true, isRevealed: true };
 const Button = {
   hovered: false,
-  justPressed: false,
   justReleased: false,
+  isDown: false,
   enabled: true,
 };
 const Colour = { fill: "", stroke: "" };
@@ -795,7 +809,7 @@ resetGame(game);
     Ctx2d.ctx.fillStyle = "#424242";
     Ctx2d.ctx.fillRect(0, 0, Ctx2d.canvas.width, Ctx2d.canvas.height);
 
-    gameTextComp.content = `Credits: ${Game.credits}\nBet: ${Game.bet}\nRound ${Game.rounds + 1}, Best: ${Game.best + 1}\n${StatusStrings[Game.status]}\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nNext min bet: ${Math.ceil(Game.minBet ** Game.betIncreaseExponent)}\nRounds until min bet increases: ${
+    gameTextComp.content = `Credits: ${Game.credits}\nBet: ${Game.bet}\nRound ${Game.rounds + 1}, Best: ${Game.best + 1}\n${StatusStrings[Game.status]}\n\n\n\n\n\n\n\n\n\n\n\n\n\nNext min bet: ${Math.ceil(Game.minBet ** Game.betIncreaseExponent)}\nRounds until min bet increases: ${
       Game.roundsTilBetIncrease - (Game.rounds % Game.roundsTilBetIncrease) - 1
     }`;
 
@@ -806,6 +820,8 @@ resetGame(game);
       handleDrawRects,
       handleDrawText,
     ]);
+
+    drawPointers();
 
     // process
     game.update([
