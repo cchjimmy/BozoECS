@@ -1,9 +1,10 @@
 export class Grouper<K, V> {
   private _keyToGroups: Map<K, Set<V>> = new Map();
   private _valueToKey: Map<V, K> = new Map();
+  private _unusedSets: Set<V>[] = [];
 
   addToGroup(value: V, key: K): void {
-    this._keyToGroups.getOrInsert(key, new Set()).add(value);
+    this._getSet(key).add(value);
     this._valueToKey.set(value, key);
   }
 
@@ -14,7 +15,7 @@ export class Grouper<K, V> {
 
   switchGroup(value: V, oldGroup: K, newGroup: K): void {
     this._keyToGroups.get(oldGroup)?.delete(value);
-    this._keyToGroups.getOrInsert(newGroup, new Set()).add(value);
+    this._getSet(newGroup).add(value);
     this._valueToKey.set(value, newGroup);
   }
 
@@ -24,7 +25,7 @@ export class Grouper<K, V> {
 
   setGroup(value: V, group: K): void {
     this._keyToGroups.get(this._valueToKey.get(value) as K)?.delete(value);
-    this._keyToGroups.getOrInsert(group, new Set()).add(value);
+    this._getSet(group).add(value);
     this._valueToKey.set(value, group);
   }
 
@@ -35,14 +36,30 @@ export class Grouper<K, V> {
 
   deleteGroup(group: K): void {
     const set = this._keyToGroups.get(group);
-    this._keyToGroups.delete(group);
     if (set == undefined) return;
-    for (const value of set) {
-      this._valueToKey.delete(value);
-    }
+    set.clear();
+    this._unusedSets.push(set);
+    this._keyToGroups.delete(group);
   }
 
   [Symbol.iterator]() {
     return this._keyToGroups.entries();
+  }
+
+  cleanEmptyGroups(): void {
+    for (const entry of this._keyToGroups) {
+      if (entry[1].size != 0) continue;
+      this._unusedSets.push(entry[1]);
+      this._keyToGroups.delete(entry[0]);
+    }
+  }
+
+  private _getSet(group: K): Set<V> {
+    let set = this._keyToGroups.get(group);
+    if (set == undefined) {
+      set = this._unusedSets.pop() ?? new Set();
+      this._keyToGroups.set(group, set);
+    }
+    return set;
   }
 }

@@ -153,6 +153,7 @@ export class World {
       this._archtypeGroups.delete(entity);
       this._entityManager.removeEntity(entity);
     }
+    this._archtypeGroups.cleanEmptyGroups();
   }
 
   private _addComponent<T extends object>(

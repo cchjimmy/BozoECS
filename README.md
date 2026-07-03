@@ -4,7 +4,7 @@
 
 ## Examples
 
-[Examples](./examples)
+[Examples](https://github.com/cchjimmy/bozoecs_examples.git)
 
 ## Docs
 
