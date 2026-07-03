@@ -1,3 +1,4 @@
 {
+  "name": "BozoECS",
   "exports": "./src/index.ts"
 }
