@@ -1,27 +1,32 @@
 import { ComponentManager } from "./component.ts";
-import { EntityManager, entityT } from "./entity.ts";
+import { EntityManager, type entityT } from "./entity.ts";
+import { EventManager } from "./eventManager.ts";
 import { Grouper } from "./grouper.ts";
+import type { queryT } from "./query.ts";
+import { events } from "./events.ts";
 
-type queryT = Record<"and" | "not", object[]>;
 export type systemT = (world: World) => void;
 
 export class World {
   private static _compManager = new ComponentManager();
   private _entityManager = new EntityManager();
-  private _entityCompMap: Map<object, Map<entityT, object>> = new Map();
+  private _compStore: Map<object, Map<entityT, object>> = new Map();
   private _archtypeGroups: Grouper<bigint, entityT> = new Grouper();
+  private _events = new EventManager();
 
-  onAddedComponent(
-    entity: entityT,
-    component: object,
-    instance: object,
-  ): void {}
+  constructor() {
+	  for (const prop in events) {
+		  this._events.addEvent(events[prop as keyof typeof events]);
+	  }
+  }
 
-  onRemoveComponent(
-    entity: entityT,
-    component: object,
-    instance: object,
-  ): void {}
+  on(event: keyof typeof events, listener: typeof events[typeof event]): void {
+	  this._events.addListener(events[event], listener);
+  }
+
+  removeListener(event: keyof typeof events, listener: typeof events[typeof event]): void {
+	  this._events.removeListener(events[event], listener);
+  }
 
   addEntity(entity: entityT = this._entityManager.newEntity()): entityT {
     this._entityManager.addEntity(entity);
@@ -33,7 +38,7 @@ export class World {
     dest: entityT = this._entityManager.newEntity(),
   ): entityT {
     this._entityManager.addEntity(dest);
-    for (const entry of this._entityCompMap) {
+    for (const entry of this._compStore) {
       const srcComp = entry[1].get(src);
       if (srcComp == undefined) continue;
       this._addComponent(dest, entry[0], srcComp);
@@ -48,7 +53,7 @@ export class World {
   }
 
   deleteEntity(entity: entityT): void {
-    for (const entry of this._entityCompMap) {
+    for (const entry of this._compStore) {
       this._removeComponent(entity, entry[0]);
     }
     this._archtypeGroups.delete(entity);
@@ -56,7 +61,7 @@ export class World {
   }
 
   hasComponent<T extends object>(entity: entityT, component: T): boolean {
-    return !!this._entityCompMap.get(component)?.has(entity);
+    return !!this._compStore.get(component)?.has(entity);
   }
 
   addComponent<T extends object>(
@@ -86,7 +91,7 @@ export class World {
   }
 
   getComponent<T extends object>(entity: entityT, component: T): T {
-    const instance = this._entityCompMap.get(component)?.get(entity);
+    const instance = this._compStore.get(component)?.get(entity);
     if (instance == undefined)
       throw new Error(
         `Entity ${entity} does not have component ${JSON.stringify(component)}.`,
@@ -97,7 +102,7 @@ export class World {
   copyEntityTo(anotherWorld: World, entity: entityT): void {
     if (anotherWorld == this) return;
     anotherWorld.addEntity(entity);
-    for (const entry of this._entityCompMap) {
+    for (const entry of this._compStore) {
       const instance = entry[1].get(entity);
       if (instance == undefined) continue;
       anotherWorld.addComponent(entity, entry[0], instance);
@@ -109,7 +114,7 @@ export class World {
     entity: entityT,
     component: T,
   ): void {
-    const instance = this._entityCompMap.get(component)?.get(entity);
+    const instance = this._compStore.get(component)?.get(entity);
     if (instance == undefined) return;
     anotherWorld.addEntity(entity);
     anotherWorld.addComponent(entity, component, instance);
@@ -121,6 +126,24 @@ export class World {
 
   cleanObjectPools(): void {
     World._compManager.clean();
+  }
+
+  entityCount(): number {
+    return this._entityManager.size();
+  }
+
+  clearWorld(): void {
+    for (const entry of this._compStore) {
+      for (const entry1 of entry[1]) {
+        World._compManager.remove(entry[0], entry1[1]);
+      }
+      entry[1].clear();
+    }
+    for (const entity of this._entityManager.getEntitySet()) {
+      this._archtypeGroups.delete(entity);
+      this._entityManager.removeEntity(entity);
+    }
+    this._archtypeGroups.cleanEmptyGroups();
   }
 
   query(query: Partial<queryT>, res: entityT[] = []): entityT[] {
@@ -138,34 +161,16 @@ export class World {
     return res;
   }
 
-  entityCount(): number {
-    return this._entityManager.size();
-  }
-
-  clearWorld(): void {
-    for (const entry of this._entityCompMap) {
-      for (const entry1 of entry[1]) {
-        World._compManager.remove(entry[0], entry1[1]);
-      }
-      entry[1].clear();
-    }
-    for (const entity of this._entityManager.getEntitySet()) {
-      this._archtypeGroups.delete(entity);
-      this._entityManager.removeEntity(entity);
-    }
-    this._archtypeGroups.cleanEmptyGroups();
-  }
-
   private _addComponent<T extends object>(
     entity: entityT,
     component: T,
     values: Partial<T>,
   ): T {
-    let instance = this._entityCompMap.get(component)?.get(entity);
+    let instance = this._compStore.get(component)?.get(entity);
     if (instance) return Object.assign(instance, values) as T;
     instance = Object.assign(World._compManager.add(component), values);
-    this._entityCompMap.get(component)?.set(entity, instance);
-    this.onAddedComponent(entity, component, instance);
+    this._compStore.get(component)?.set(entity, instance);
+    this._events.emit(events.addedComponent, entity, component, instance);
     return instance as T;
   }
 
@@ -173,10 +178,10 @@ export class World {
     entity: entityT,
     component: T,
   ): void {
-    const instance = this._entityCompMap.get(component)?.get(entity);
+    const instance = this._compStore.get(component)?.get(entity);
     if (instance == undefined) return;
-    this.onRemoveComponent(entity, component, instance);
-    this._entityCompMap.get(component)?.delete(entity);
+    this._events.emit(events.removeComponent, entity, component, instance);
+    this._compStore.get(component)?.delete(entity);
     World._compManager.remove(component, instance);
   }
 
@@ -194,8 +199,8 @@ export class World {
   }
 
   private _registerComponent<T extends object>(component: T): void {
-    if (this._entityCompMap.has(component)) return;
+    if (this._compStore.has(component)) return;
     World._compManager.register(component);
-    this._entityCompMap.set(component, new Map());
+    this._compStore.set(component, new Map());
   }
 }
