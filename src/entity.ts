@@ -3,16 +3,20 @@ export type entityT = number;
 export class EntityManager {
   private _entities: Set<entityT> = new Set();
 
-  newEntity(): entityT {
+  create(): entityT {
     return Math.random();
   }
 
-  addEntity(entity: entityT = this.newEntity()) {
+  add(entity: entityT = this.create()) {
     this._entities.add(entity);
   }
 
-  removeEntity(entity: entityT) {
+  remove(entity: entityT) {
     this._entities.delete(entity);
+  }
+
+  has(entity: entityT): boolean {
+    return this._entities.has(entity);
   }
 
   getEntities(): entityT[] {
@@ -21,6 +25,10 @@ export class EntityManager {
 
   getEntitySet(): Set<entityT> {
     return this._entities;
+  }
+
+  clear(): void {
+    this._entities.clear();
   }
 
   size(): number {

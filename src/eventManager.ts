@@ -18,6 +18,10 @@ export class EventManager {
 		event.listeners.delete(listener);
 	}
 
+	clearEventListeners<T extends EventHandler>(eventSchema: T): void {
+		this._events.get(eventSchema)?.listeners.clear();
+	}
+
 	removeEvent(eventSchema: EventHandler): void {
 		this._events.delete(eventSchema);
 	}
