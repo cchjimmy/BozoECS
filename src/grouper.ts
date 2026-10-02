@@ -54,6 +54,15 @@ export class Grouper<K, V> {
     }
   }
 
+  clear(): void {
+    this._valueToKey.clear();
+	for (const entry of this._keyToGroups) {
+		entry[1].clear();
+		this._unusedSets.push(entry[1]);
+	}
+    this._keyToGroups.clear();
+  }
+
   private _getSet(group: K): Set<V> {
     let set = this._keyToGroups.get(group);
     if (set == undefined) {
